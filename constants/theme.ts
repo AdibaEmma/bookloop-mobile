@@ -32,7 +32,9 @@ export const BookLoopColors = {
   // Neutral Colors
   warmGray: '#8B7E74',
   lightGray: '#E8E3DE',
+  lightPeach: '#FAF3E0',
   darkGray: '#4A4238',
+  charcoal: '#1A1A1A',
 
   // Semantic Colors
   success: '#4CAF50',
