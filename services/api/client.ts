@@ -37,9 +37,9 @@ const getApiBaseUrl = (): string => {
   // Fallback to platform-specific defaults
   if (__DEV__) {
     return Platform.select({
-      ios: 'http://localhost:3000/api/v1',
-      android: 'http://10.0.2.2:3000/api/v1', // Android emulator
-      default: 'http://localhost:3000/api/v1',
+      ios: 'http://localhost:8000/api/v1',
+      android: 'http://10.0.2.2:8000/api/v1', // Android emulator
+      default: 'http://localhost:8000/api/v1',
     }) as string;
   }
 
