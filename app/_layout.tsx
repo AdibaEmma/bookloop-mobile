@@ -16,11 +16,22 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="search" />
+          <Stack.Screen name="listing/[id]" />
+          <Stack.Screen name="listing/create" />
+          <Stack.Screen name="listings/my-listings" />
+          <Stack.Screen name="exchange/request" />
+          <Stack.Screen name="exchange/my-exchanges" />
+          <Stack.Screen name="exchange/rate/[id]" />
+          <Stack.Screen name="profile/[id]" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="subscription" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
