@@ -135,19 +135,21 @@ export default function OnboardingScreen() {
       )}
 
       {/* Slides */}
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        renderItem={renderSlide}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-          setCurrentIndex(index);
-        }}
-        keyExtractor={(item) => item.id}
-      />
+      <View style={styles.slidesContainer}>
+        <FlatList
+          ref={flatListRef}
+          data={slides}
+          renderItem={renderSlide}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            setCurrentIndex(index);
+          }}
+          keyExtractor={(item) => item.id}
+        />
+      </View>
 
       {/* Pagination Dots */}
       <View style={styles.pagination}>
@@ -204,6 +206,9 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
     padding: Spacing.sm,
+  },
+  slidesContainer: {
+    flex: 1,
   },
   skipText: {
     fontSize: Typography.fontSize.base,
