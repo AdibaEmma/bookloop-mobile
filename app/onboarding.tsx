@@ -59,7 +59,7 @@ const slides: OnboardingSlide[] = [
     title: 'Build Your Library',
     description: 'List your books for exchange. Track your reading journey and earn karma points for successful swaps.',
     icon: 'library',
-    color: BookLoopColors.warmBrown,
+    color: BookLoopColors.coffeeBrown,
   },
   {
     id: '4',
@@ -129,9 +129,11 @@ export default function OnboardingScreen() {
 
       {/* Skip Button */}
       {currentIndex < slides.length - 1 && (
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
+        <View style={styles.skipContainer}>
+          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+            <Text style={styles.skipText}>Skip</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Slides */}
@@ -148,49 +150,53 @@ export default function OnboardingScreen() {
             setCurrentIndex(index);
           }}
           keyExtractor={(item) => item.id}
+          bounces={false}
         />
       </View>
 
-      {/* Pagination Dots */}
-      <View style={styles.pagination}>
-        {slides.map((_, index) => renderDot(index))}
-      </View>
+      {/* Bottom Section - Pagination and Button */}
+      <View style={styles.bottomSection}>
+        {/* Pagination Dots */}
+        <View style={styles.pagination}>
+          {slides.map((_, index) => renderDot(index))}
+        </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        {currentIndex < slides.length - 1 ? (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleNext}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[BookLoopColors.burntOrange, BookLoopColors.warmBrown]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          {currentIndex < slides.length - 1 ? (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleNext}
+              activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Next</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleGetStarted}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[BookLoopColors.burntOrange, BookLoopColors.warmBrown]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
+              <LinearGradient
+                colors={[BookLoopColors.burntOrange, BookLoopColors.deepBrown]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.buttonText}>Next</Text>
+                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleGetStarted}
+              activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Get Started</Text>
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
+              <LinearGradient
+                colors={[BookLoopColors.burntOrange, BookLoopColors.deepBrown]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.buttonText}>Get Started</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -200,20 +206,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  skipButton: {
+  skipContainer: {
     position: 'absolute',
     top: 50,
     right: 20,
     zIndex: 10,
-    padding: Spacing.sm,
   },
-  slidesContainer: {
-    flex: 1,
+  skipButton: {
+    padding: Spacing.sm,
   },
   skipText: {
     fontSize: Typography.fontSize.base,
     fontWeight: Typography.fontWeight.semibold,
     color: BookLoopColors.burntOrange,
+  },
+  slidesContainer: {
+    flex: 1,
+    paddingTop: 80,
+  },
+  bottomSection: {
+    paddingBottom: 40,
   },
   slide: {
     width: SCREEN_WIDTH,

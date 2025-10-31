@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -48,7 +49,7 @@ interface GlassButtonProps {
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
-  icon?: React.ReactNode;
+  icon?: keyof typeof Ionicons.glyphMap;
   iconPosition?: 'left' | 'right';
   style?: ViewStyle;
   fullWidth?: boolean;
@@ -158,6 +159,12 @@ export function GlassButton({
     ...variantStyles.text,
   };
 
+  const iconSize = {
+    sm: 16,
+    md: 20,
+    lg: 24,
+  }[size];
+
   return (
     <TouchableOpacity
       style={[containerStyle, style]}
@@ -170,15 +177,21 @@ export function GlassButton({
       ) : (
         <>
           {icon && iconPosition === 'left' && (
-            <Text style={[styles.icon, { marginRight: Spacing.sm }]}>
-              {icon}
-            </Text>
+            <Ionicons
+              name={icon}
+              size={iconSize}
+              color={variantStyles.text.color}
+              style={{ marginRight: title ? Spacing.sm : 0 }}
+            />
           )}
-          <Text style={textStyle}>{title}</Text>
+          {title ? <Text style={textStyle}>{title}</Text> : null}
           {icon && iconPosition === 'right' && (
-            <Text style={[styles.icon, { marginLeft: Spacing.sm }]}>
-              {icon}
-            </Text>
+            <Ionicons
+              name={icon}
+              size={iconSize}
+              color={variantStyles.text.color}
+              style={{ marginLeft: title ? Spacing.sm : 0 }}
+            />
           )}
         </>
       )}

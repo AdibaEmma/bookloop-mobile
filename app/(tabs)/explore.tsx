@@ -1,13 +1,15 @@
 /**
  * Explore Screen
  *
- * Browse books by category and see featured listings.
+ * Unified search and discovery experience.
  *
  * Features:
+ * - Text search with autocomplete
+ * - Advanced filters (category, condition, type, radius)
+ * - Sort options
  * - Category browsing
- * - Popular/recent listings
- * - Quick search access
- * - Featured books
+ * - Recent/popular listings
+ * - Location-based search
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,15 +21,17 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
-  Dimensions,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { GlassCard, BookCard } from '@/components/ui';
+import { GlassCard, GlassButton, GlassModal, BookCard } from '@/components/ui';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { showError } from '@/utils/errorHandler';
 import {
   Colors,
   Typography,
@@ -35,7 +39,6 @@ import {
   BookLoopColors,
 } from '@/constants/theme';
 
-const { width } = Dimensions.get('window');
 const CATEGORY_CARD_WIDTH = 150;
 
 interface Category {
@@ -46,11 +49,24 @@ interface Category {
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
+  // Search state
+  const [query, setQuery] = useState((params.query as string) || '');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Listing[]>([]);
   const [recentListings, setRecentListings] = useState<Listing[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
+
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [radius, setRadius] = useState('5'); // km
+  const [sortBy, setSortBy] = useState<'distance' | 'recent' | 'popular'>('distance');
 
   const categories: Category[] = [
     { name: 'Fiction', icon: 'book', color: '#FF6B6B' },
@@ -65,16 +81,42 @@ export default function ExploreScreen() {
     { name: 'Children', icon: 'happy', color: '#F7DC6F' },
   ];
 
+  const conditions = [
+    { value: 'new', label: 'New' },
+    { value: 'like_new', label: 'Like New' },
+    { value: 'good', label: 'Good' },
+    { value: 'fair', label: 'Fair' },
+    { value: 'poor', label: 'Poor' },
+  ];
+
+  const listingTypes = [
+    { value: 'exchange', label: 'Exchange', icon: 'swap-horizontal' as const },
+    { value: 'donate', label: 'Donate', icon: 'gift' as const },
+    { value: 'borrow', label: 'Borrow', icon: 'time' as const },
+  ];
+
   /**
-   * Load recent listings
+   * Load recent listings on mount
    */
   useEffect(() => {
     loadRecentListings();
   }, []);
 
+  /**
+   * Trigger search if query param is provided
+   */
+  useEffect(() => {
+    if (params.query) {
+      handleSearch();
+    }
+  }, [params.query]);
+
+  /**
+   * Load recent listings
+   */
   const loadRecentListings = async () => {
     try {
-      setIsLoading(true);
+      setIsLoadingRecent(true);
 
       // Try to get location
       let location: { latitude: number; longitude: number } | null = null;
@@ -91,43 +133,119 @@ export default function ExploreScreen() {
         console.log('Location not available');
       }
 
-      // Fetch recent listings (with location if available)
+      // Fetch recent listings
       const searchParams: any = {
-        searchType: location ? 'location' : 'text',
-        status: 'available',
         limit: 20,
       };
 
       if (location) {
         searchParams.latitude = location.latitude;
         searchParams.longitude = location.longitude;
-        searchParams.radius = 50000; // 50km
+        searchParams.radiusMeters = 50000; // 50km
       }
 
       const response = await listingsService.searchListings(searchParams);
-      setRecentListings(response.data);
+      const data = response.data || response || [];
+      setRecentListings(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load listings:', error);
+      showError(error, 'Failed to Load Listings');
     } finally {
-      setIsLoading(false);
+      setIsLoadingRecent(false);
     }
+  };
+
+  /**
+   * Perform search
+   */
+  const handleSearch = async () => {
+    if (!query.trim() && selectedCategories.length === 0) {
+      // If no query and no filters, show recent listings
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+
+      // Get location for location-based search
+      let location: { latitude: number; longitude: number } | null = null;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const currentLocation = await Location.getCurrentPositionAsync({});
+          location = {
+            latitude: currentLocation.coords.latitude,
+            longitude: currentLocation.coords.longitude,
+          };
+        }
+      } catch (error) {
+        console.log('Location not available for search');
+      }
+
+      // Build search params
+      const searchParams: any = {
+        query: query.trim() || undefined,
+        genre: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
+        condition: selectedCondition || undefined,
+        listingType: selectedType || undefined,
+        limit: 50,
+      };
+
+      if (location) {
+        searchParams.latitude = location.latitude;
+        searchParams.longitude = location.longitude;
+        searchParams.radiusMeters = parseInt(radius) * 1000; // Convert to meters
+      }
+
+      const response = await listingsService.searchListings(searchParams);
+      const data = response.data || response || [];
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Search failed:', error);
+      showError(error, 'Search Failed');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  /**
+   * Toggle category selection
+   */
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [category], // Only allow one category for now
+    );
+  };
+
+  /**
+   * Clear all filters
+   */
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    setSelectedCondition(null);
+    setSelectedType(null);
+    setRadius('5');
+    setQuery('');
+    setSearchResults([]);
+  };
+
+  /**
+   * Apply filters and close modal
+   */
+  const applyFilters = () => {
+    setShowFilters(false);
+    handleSearch();
   };
 
   /**
    * Navigate to category search
    */
   const handleCategoryPress = (category: string) => {
-    router.push({
-      pathname: '/search',
-      params: { category },
-    });
-  };
-
-  /**
-   * Navigate to search
-   */
-  const handleSearch = () => {
-    router.push('/search');
+    setSelectedCategories([category]);
+    handleSearch();
   };
 
   /**
@@ -139,6 +257,11 @@ export default function ExploreScreen() {
       params: { id: listing.id },
     });
   };
+
+  /**
+   * Check if any filters are active
+   */
+  const hasActiveFilters = selectedCategories.length > 0 || selectedCondition || selectedType;
 
   /**
    * Render category card
@@ -166,7 +289,7 @@ export default function ExploreScreen() {
   );
 
   /**
-   * Render listing item (horizontal)
+   * Render listing item
    */
   const renderListing = ({ item }: { item: Listing }) => (
     <View style={styles.listingCardWrapper}>
@@ -181,6 +304,10 @@ export default function ExploreScreen() {
       />
     </View>
   );
+
+  // Determine what to display
+  const displayListings = searchResults.length > 0 ? searchResults : recentListings;
+  const isShowingSearchResults = searchResults.length > 0 || query.trim().length > 0;
 
   return (
     <View style={styles.container}>
@@ -198,63 +325,146 @@ export default function ExploreScreen() {
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>
               Explore Books
             </Text>
+          </View>
 
-            {/* Search Bar */}
-            <TouchableOpacity
-              onPress={handleSearch}
-              style={[styles.searchBar, { backgroundColor: colors.surface }]}
-            >
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchInputContainer, { backgroundColor: colors.surface }]}>
               <Ionicons name="search" size={20} color={colors.textSecondary} />
-              <Text style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>
-                Search by title, author, ISBN...
-              </Text>
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search by title, author, ISBN..."
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.searchInput, { color: colors.text }]}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery('')}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowFilters(true)}
+              style={[
+                styles.filterButton,
+                {
+                  backgroundColor: hasActiveFilters
+                    ? BookLoopColors.burntOrange
+                    : colors.surface,
+                },
+              ]}
+            >
+              <Ionicons
+                name="options"
+                size={20}
+                color={hasActiveFilters ? '#FFFFFF' : colors.text}
+              />
             </TouchableOpacity>
           </View>
 
-          {/* Categories */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Browse by Category
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesContainer}
-            >
-              {categories.map(renderCategory)}
-            </ScrollView>
+          {/* Search Button */}
+          <View style={styles.searchButtonContainer}>
+            <GlassButton
+              title={isSearching ? 'Searching...' : 'Search'}
+              onPress={handleSearch}
+              variant="primary"
+              size="md"
+              loading={isSearching}
+              disabled={isSearching}
+            />
           </View>
 
-          {/* Recent Listings */}
+          {/* Active Filters */}
+          {hasActiveFilters && (
+            <View style={styles.activeFilters}>
+              {selectedCategories.map((cat) => (
+                <View key={cat} style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
+                  <Text style={styles.activeFilterText}>{cat}</Text>
+                  <TouchableOpacity onPress={() => toggleCategory(cat)}>
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {selectedCondition && (
+                <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
+                  <Text style={styles.activeFilterText}>{selectedCondition}</Text>
+                  <TouchableOpacity onPress={() => setSelectedCondition(null)}>
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {selectedType && (
+                <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
+                  <Text style={styles.activeFilterText}>{selectedType}</Text>
+                  <TouchableOpacity onPress={() => setSelectedType(null)}>
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
+                <Text style={[styles.clearFiltersText, { color: BookLoopColors.burntOrange }]}>
+                  Clear All
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Categories */}
+          {!isShowingSearchResults && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Browse by Category
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesContainer}
+              >
+                {categories.map(renderCategory)}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Results / Recent Listings */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Recent Listings
+                {isShowingSearchResults ? 'Search Results' : 'Recent Listings'}
               </Text>
-              <TouchableOpacity onPress={loadRecentListings}>
-                <Ionicons
-                  name="refresh"
-                  size={20}
-                  color={BookLoopColors.burntOrange}
-                />
-              </TouchableOpacity>
+              {!isShowingSearchResults && (
+                <TouchableOpacity onPress={loadRecentListings}>
+                  <Ionicons
+                    name="refresh"
+                    size={20}
+                    color={BookLoopColors.burntOrange}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {isLoading ? (
+            {isSearching || isLoadingRecent ? (
               <GlassCard variant="lg" padding="xl">
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Loading listings...
-                </Text>
+                <View style={styles.loadingContent}>
+                  <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
+                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                    {isSearching ? 'Searching...' : 'Loading listings...'}
+                  </Text>
+                </View>
               </GlassCard>
-            ) : recentListings.length > 0 ? (
+            ) : displayListings.length > 0 ? (
               <FlatList
-                data={recentListings}
+                data={displayListings}
                 renderItem={renderListing}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listingsContainer}
@@ -264,19 +474,197 @@ export default function ExploreScreen() {
               <GlassCard variant="lg" padding="xl">
                 <View style={styles.emptyContent}>
                   <Ionicons
-                    name="book-outline"
+                    name={isShowingSearchResults ? 'search-outline' : 'book-outline'}
                     size={48}
                     color={colors.textSecondary}
                     style={styles.emptyIcon}
                   />
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    {isShowingSearchResults ? 'No Results Found' : 'No Listings Available'}
+                  </Text>
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No listings available yet
+                    {isShowingSearchResults
+                      ? 'Try adjusting your search or filters'
+                      : 'Check back soon for new listings'}
                   </Text>
                 </View>
               </GlassCard>
             )}
           </View>
         </ScrollView>
+
+        {/* Filter Modal */}
+        <GlassModal
+          visible={showFilters}
+          onClose={() => setShowFilters(false)}
+          title="Filters"
+        >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Categories */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.text }]}>
+                Categories
+              </Text>
+              <View style={styles.chipContainer}>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.name}
+                    onPress={() => toggleCategory(category.name)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: selectedCategories.includes(category.name)
+                          ? BookLoopColors.burntOrange
+                          : colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color: selectedCategories.includes(category.name)
+                            ? '#FFFFFF'
+                            : colors.text,
+                        },
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Condition */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.text }]}>
+                Condition
+              </Text>
+              <View style={styles.chipContainer}>
+                {conditions.map((condition) => (
+                  <TouchableOpacity
+                    key={condition.value}
+                    onPress={() =>
+                      setSelectedCondition(
+                        selectedCondition === condition.value
+                          ? null
+                          : condition.value,
+                      )
+                    }
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor:
+                          selectedCondition === condition.value
+                            ? BookLoopColors.burntOrange
+                            : colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color:
+                            selectedCondition === condition.value
+                              ? '#FFFFFF'
+                              : colors.text,
+                        },
+                      ]}
+                    >
+                      {condition.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Listing Type */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.text }]}>
+                Listing Type
+              </Text>
+              <View style={styles.chipContainer}>
+                {listingTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type.value}
+                    onPress={() =>
+                      setSelectedType(
+                        selectedType === type.value ? null : type.value,
+                      )
+                    }
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor:
+                          selectedType === type.value
+                            ? BookLoopColors.burntOrange
+                            : colors.surface,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={type.icon}
+                      size={16}
+                      color={
+                        selectedType === type.value ? '#FFFFFF' : colors.text
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color:
+                            selectedType === type.value
+                              ? '#FFFFFF'
+                              : colors.text,
+                        },
+                      ]}
+                    >
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Search Radius */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colors.text }]}>
+                Search Radius (km)
+              </Text>
+              <View style={[styles.radiusInput, { backgroundColor: colors.surface }]}>
+                <TextInput
+                  value={radius}
+                  onChangeText={setRadius}
+                  keyboardType="numeric"
+                  placeholder="5"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.radiusInputText, { color: colors.text }]}
+                />
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={styles.filterActions}>
+              <GlassButton
+                title="Clear All"
+                onPress={clearFilters}
+                variant="ghost"
+                size="md"
+                style={{ flex: 1 }}
+              />
+              <GlassButton
+                title="Apply"
+                onPress={applyFilters}
+                variant="primary"
+                size="md"
+                style={{ flex: 1 }}
+              />
+            </View>
+          </ScrollView>
+        </GlassModal>
       </SafeAreaView>
     </View>
   );
@@ -296,23 +684,72 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
-    gap: Spacing.md,
   },
   title: {
     fontSize: Typography.fontSize['2xl'],
     fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.heading,
   },
-  searchBar: {
+  searchContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  searchInputContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderRadius: 12,
     gap: Spacing.sm,
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     fontSize: Typography.fontSize.base,
+    paddingVertical: Spacing.xs,
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  activeFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: 16,
+    gap: Spacing.xs,
+  },
+  activeFilterText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    color: '#FFFFFF',
+    textTransform: 'capitalize',
+  },
+  clearFiltersButton: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    justifyContent: 'center',
+  },
+  clearFiltersText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
   },
   section: {
     marginBottom: Spacing.xl,
@@ -356,6 +793,10 @@ const styles = StyleSheet.create({
   listingCardWrapper: {
     marginBottom: Spacing.sm,
   },
+  loadingContent: {
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
   loadingText: {
     fontSize: Typography.fontSize.base,
     textAlign: 'center',
@@ -367,8 +808,52 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     opacity: 0.5,
   },
+  emptyTitle: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
   emptyText: {
     fontSize: Typography.fontSize.base,
     textAlign: 'center',
+  },
+  filterSection: {
+    marginBottom: Spacing.lg,
+  },
+  filterLabel: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    marginBottom: Spacing.sm,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    gap: Spacing.xs,
+  },
+  chipText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  radiusInput: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 12,
+  },
+  radiusInputText: {
+    fontSize: Typography.fontSize.base,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
   },
 });

@@ -42,23 +42,18 @@ interface Listing {
 }
 
 interface SearchListingDto {
+  // Text search
+  query?: string;
+
   // Location search
   latitude?: number;
   longitude?: number;
-  radius?: number; // in meters
-
-  // Text search
-  query?: string;
-  author?: string;
-  categories?: string[];
+  radiusMeters?: number; // radius in meters (backend expects this name)
 
   // Filters
   listingType?: 'exchange' | 'donate' | 'borrow';
   condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  status?: 'available' | 'pending' | 'exchanged' | 'unavailable';
-
-  // Search strategy
-  searchType?: 'location' | 'text' | 'hybrid';
+  genre?: string;
 
   // Pagination
   limit?: number;
@@ -109,15 +104,13 @@ export const listingsService = {
   async getNearbyListings(
     latitude: number,
     longitude: number,
-    radius: number = 5000, // 5km default
+    radiusMeters: number = 5000, // 5km default
     limit: number = 20,
   ): Promise<PaginatedResponse<Listing>> {
     return this.searchListings({
       latitude,
       longitude,
-      radius,
-      searchType: 'location',
-      status: 'available',
+      radiusMeters,
       limit,
     });
   },

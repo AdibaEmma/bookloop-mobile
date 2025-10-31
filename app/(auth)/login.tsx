@@ -1,13 +1,11 @@
 /**
  * Login Screen
  *
- * Login for existing users with phone + password.
+ * Login for existing users with OTP verification.
  *
  * Features:
  * - Phone number input
- * - Password input
- * - Remember me (optional)
- * - Forgot password link
+ * - OTP-based authentication (passwordless)
  * - Form validation
  */
 
@@ -20,7 +18,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassButton, GlassInput, GlassCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { showError } from '@/utils/errorHandler';
 import {
   Colors,
   Typography,
@@ -42,28 +40,27 @@ export default function LoginScreen() {
   const colors = Colors[colorScheme];
 
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-
   const [errors, setErrors] = useState<{
     phone?: string;
-    password?: string;
   }>({});
 
   /**
    * Validate Ghana phone number
    */
   const validatePhone = (phoneNumber: string): boolean => {
-    const cleaned = phoneNumber.replace(/\s/g, '');
-    return /^0[2-5][0-9]{8}$/.test(cleaned) || /^233[2-5][0-9]{8}$/.test(cleaned);
+    const cleaned = phoneNumber.replace(/\s+/g, '');
+    return /^0\d{9}$/.test(cleaned) || /^233\d{9}$/.test(cleaned);
   };
 
   /**
    * Normalize phone to international format
    */
   const normalizePhone = (phoneNumber: string): string => {
-    const cleaned = phoneNumber.replace(/\s/g, '');
+    const cleaned = phoneNumber.replace(/\s+/g, '');
     if (cleaned.startsWith('0')) {
-      return '233' + cleaned.substring(1);
+      return `+233${cleaned.substring(1)}`;
+    } else if (cleaned.startsWith('233')) {
+      return `+${cleaned}`;
     }
     return cleaned;
   };
@@ -80,10 +77,6 @@ export default function LoginScreen() {
       newErrors.phone = 'Invalid Ghana phone number';
     }
 
-    if (!password) {
-      newErrors.password = 'Password is required';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -98,12 +91,18 @@ export default function LoginScreen() {
 
     try {
       const normalizedPhone = normalizePhone(phone);
-      await login(normalizedPhone, password);
+      await login(normalizedPhone);
 
-      // Navigation handled by app routing based on auth state
-      router.replace('/(tabs)');
+      // Navigate to OTP verification
+      router.push({
+        pathname: '/(auth)/verify-otp',
+        params: {
+          phone: normalizedPhone,
+          isRegistration: 'false',
+        },
+      });
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid phone or password');
+      showError(error, 'Login Failed');
     }
   };
 
@@ -150,7 +149,7 @@ export default function LoginScreen() {
                   Welcome Back
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Login to continue
+                  Log in to continue exchanging books
                 </Text>
               </View>
             </View>
@@ -158,66 +157,56 @@ export default function LoginScreen() {
             {/* Form */}
             <GlassCard variant="lg" padding="lg">
               <View style={styles.form}>
-                {/* Phone Number */}
                 <GlassInput
                   label="Phone Number"
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="0241234567"
-                  error={errors.phone}
                   keyboardType="phone-pad"
-                  autoComplete="tel"
-                  leftIcon="call"
-                  autoFocus
+                  error={errors.phone}
+                  helpText="We'll send you an OTP to verify"
                 />
 
-                {/* Password */}
-                <GlassInput
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter your password"
-                  error={errors.password}
-                  secureTextEntry
-                  autoComplete="password"
-                  leftIcon="lock-closed"
-                />
-
-                {/* Forgot Password Link */}
-                <View style={styles.forgotContainer}>
-                  <GlassButton
-                    title="Forgot Password?"
-                    onPress={() => router.push('/(auth)/forgot-password')}
-                    variant="ghost"
-                    size="sm"
-                  />
-                </View>
-
-                {/* Login Button */}
                 <GlassButton
-                  title="Login"
+                  title="Send OTP"
                   onPress={handleLogin}
                   variant="primary"
                   size="lg"
                   loading={isLoading}
                   disabled={isLoading}
-                  style={styles.loginButton}
+                  icon="arrow-forward"
+                  iconPosition="right"
                 />
-
-                {/* Register Link */}
-                <View style={styles.footer}>
-                  <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-                    Don't have an account?{' '}
-                  </Text>
-                  <GlassButton
-                    title="Sign Up"
-                    onPress={() => router.push('/(auth)/phone-input')}
-                    variant="ghost"
-                    size="sm"
-                  />
-                </View>
               </View>
             </GlassCard>
+
+            {/* Info Box */}
+            <GlassCard variant="md" padding="md" style={styles.infoBox}>
+              <View style={styles.infoContent}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={24}
+                  color={BookLoopColors.burntOrange}
+                />
+                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  We use OTP for secure, passwordless authentication.
+                  You'll receive a 6-digit code via SMS.
+                </Text>
+              </View>
+            </GlassCard>
+
+            {/* Sign Up Link */}
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                Don't have an account?{' '}
+              </Text>
+              <GlassButton
+                title="Sign Up"
+                onPress={() => router.push('/(auth)/phone-input')}
+                variant="ghost"
+                size="sm"
+              />
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -236,11 +225,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing['3xl'],
-    justifyContent: 'center',
   },
   header: {
     marginBottom: Spacing.xl,
@@ -262,24 +249,31 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: Typography.fontSize.base,
     fontFamily: Typography.fontFamily.body,
+    textAlign: 'center',
   },
   form: {
+    gap: Spacing.lg,
+  },
+  infoBox: {
+    marginTop: Spacing.xl,
+  },
+  infoContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.md,
   },
-  forgotContainer: {
-    alignItems: 'flex-end',
-    marginTop: -Spacing.xs,
-  },
-  loginButton: {
-    marginTop: Spacing.md,
+  infoText: {
+    flex: 1,
+    fontSize: Typography.fontSize.sm,
+    lineHeight: 20,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.md,
+    marginTop: Spacing.xl,
   },
   footerText: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.base,
   },
 });

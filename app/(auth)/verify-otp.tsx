@@ -41,7 +41,8 @@ const RESEND_TIMEOUT = 60; // seconds
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const params = useLocalSearchParams<{ phone: string; firstName?: string; isRegistration?: string }>();
+  const { phone, firstName, isRegistration } = params;
   const { verifyOtp, isLoading } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -122,19 +123,28 @@ export default function VerifyOtpScreen() {
    * Handle OTP verification
    */
   const handleVerify = async () => {
-    const otpCode = otp.join('');
+    const code = otp.join('');
 
-    if (otpCode.length !== OTP_LENGTH) {
+    if (code.length !== OTP_LENGTH) {
       Alert.alert('Invalid OTP', 'Please enter all 6 digits');
       return;
     }
 
     try {
-      await verifyOtp(phone, otpCode);
+      // Ensure phone has + prefix for international format
+      const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+      console.log('[VerifyOTP] Verifying with phone:', formattedPhone, 'code:', code);
 
-      // Navigate to profile setup or home
-      router.replace('/(auth)/profile-setup');
+      await verifyOtp(formattedPhone, code);
+
+      // Navigate to profile setup if registration, otherwise to main app
+      if (isRegistration === 'true') {
+        router.replace('/(auth)/profile-setup');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error: any) {
+      console.error('[VerifyOTP] Verification error:', error);
       Alert.alert('Verification Failed', error.message || 'Invalid OTP code');
 
       // Clear OTP and focus first input
@@ -187,35 +197,55 @@ export default function VerifyOtpScreen() {
       />
 
       <SafeAreaView style={styles.safeArea}>
+        {/* Content - Centered */}
         <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Back Button - Absolute positioned */}
+          <View style={styles.backButtonContainer}>
             <GlassButton
               title=""
               icon="arrow-back"
               onPress={() => router.back()}
               variant="ghost"
               size="md"
-              style={styles.backButton}
             />
+          </View>
 
-            <View style={styles.titleContainer}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
               <Ionicons
                 name="mail"
-                size={48}
+                size={64}
                 color={BookLoopColors.burntOrange}
               />
-              <Text style={[styles.title, { color: colors.text }]}>
-                Verify Phone
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Enter the 6-digit code sent to
-              </Text>
-              <Text style={[styles.phone, { color: colors.text }]}>
-                {formatPhone(phone)}
+            </View>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Verify Phone
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Enter the 6-digit code sent to
+            </Text>
+            <Text style={[styles.phone, { color: colors.text }]}>
+              {formatPhone(phone)}
+            </Text>
+          </View>
+
+          {/* Progress Indicator */}
+          {isRegistration === 'true' && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { backgroundColor: BookLoopColors.burntOrange, width: '66%' },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+                Step 2 of 3
               </Text>
             </View>
-          </View>
+          )}
 
           {/* OTP Input */}
           <GlassCard variant="lg" padding="xl">
@@ -223,7 +253,9 @@ export default function VerifyOtpScreen() {
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  ref={(ref) => {
+                    inputRefs.current[index] = ref;
+                  }}
                   style={[
                     styles.otpInput,
                     {
@@ -231,6 +263,8 @@ export default function VerifyOtpScreen() {
                       borderColor:
                         activeIndex === index
                           ? BookLoopColors.burntOrange
+                          : digit
+                          ? BookLoopColors.success
                           : colors.border,
                       color: colors.text,
                     },
@@ -300,18 +334,23 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
+  },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    zIndex: 10,
   },
   header: {
     marginBottom: Spacing.xl,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: Spacing.md,
-  },
-  titleContainer: {
     alignItems: 'center',
+  },
+  iconContainer: {
+    marginBottom: Spacing.md,
   },
   title: {
     fontSize: Typography.fontSize['3xl'],
@@ -319,24 +358,45 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.heading,
     marginTop: Spacing.md,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: Typography.fontSize.base,
     fontFamily: Typography.fontFamily.body,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   phone: {
     fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.semibold,
     fontFamily: Typography.fontFamily.body,
+    textAlign: 'center',
+  },
+  progressContainer: {
+    marginBottom: Spacing.xl,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 2,
+    marginBottom: Spacing.xs,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: Typography.fontSize.sm,
+    textAlign: 'center',
   },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.xs,
   },
   otpInput: {
-    width: 48,
+    width: 45,
     height: 56,
     borderRadius: BorderRadius.md,
     borderWidth: 2,

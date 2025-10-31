@@ -122,14 +122,14 @@ export const usersService = {
   async findNearbyUsers(
     latitude: number,
     longitude: number,
-    radius: number = 5000, // 5km default
+    radiusMeters: number = 5000, // 5km default
     limit: number = 50,
   ): Promise<NearbyUser[]> {
     const response: AxiosResponse<NearbyUser[]> = await apiClient.get('/users/nearby', {
       params: {
         latitude,
         longitude,
-        radius,
+        radiusMeters,
         limit,
       },
     });

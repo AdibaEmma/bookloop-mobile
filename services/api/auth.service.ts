@@ -18,24 +18,36 @@ import { AxiosResponse } from 'axios';
 interface RegisterDto {
   phone: string;
   firstName: string;
+  middleName?: string;
   lastName: string;
-  password: string;
+  email?: string;
 }
 
 interface VerifyOtpDto {
   phone: string;
-  otp: string;
+  code: string; // Backend expects 'code' not 'otp'
 }
 
 interface LoginDto {
-  phone: string;
-  password: string;
+  phone: string; // Login is OTP-based, no password
 }
 
 interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  user: User;
+  user_id: string;
+  phone: string;
+  full_name: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  email?: string;
+  profile_picture?: string;
+  role: string;
+  tokens: {
+    access_token: string;
+    refresh_token: string;
+    token_type: string;
+    expires_in: number;
+  };
 }
 
 interface User {
@@ -63,9 +75,18 @@ export const authService = {
   /**
    * Register new user
    * Sends OTP to phone number
+   * Note: Registration is OTP-based, no password required
    */
-  async register(data: RegisterDto): Promise<{ message: string }> {
-    const response: AxiosResponse = await apiClient.post('/auth/register', data);
+  async register(data: RegisterDto): Promise<{ message: string; reference: string; expires_at: string }> {
+    // Transform camelCase to snake_case for backend
+    const payload = {
+      phone: data.phone,
+      first_name: data.firstName,
+      middle_name: data.middleName,
+      last_name: data.lastName,
+      email: data.email,
+    };
+    const response: AxiosResponse = await apiClient.post('/auth/register', payload);
     return response.data;
   },
 
@@ -74,27 +95,54 @@ export const authService = {
    * Returns access + refresh tokens
    */
   async verifyOtp(data: VerifyOtpDto): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/verify-otp', data);
+    const payload = {
+      phone: data.phone,
+      code: data.code, // Backend expects 'code' field
+    };
+    const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/verify-otp', payload);
 
-    // Store tokens
-    await TokenManager.setAccessToken(response.data.access_token);
-    await TokenManager.setRefreshToken(response.data.refresh_token);
-    await TokenManager.setUserData(response.data.user);
+    console.log('[AuthService] OTP verification response:', {
+      hasTokens: !!response.data.tokens,
+      hasAccessToken: !!response.data.tokens?.access_token,
+      hasRefreshToken: !!response.data.tokens?.refresh_token,
+    });
+
+    // Store tokens (backend returns tokens nested in 'tokens' object)
+    await TokenManager.setAccessToken(response.data.tokens.access_token);
+    await TokenManager.setRefreshToken(response.data.tokens.refresh_token);
+
+    // Verify tokens were saved
+    const savedAccessToken = await TokenManager.getAccessToken();
+    const savedRefreshToken = await TokenManager.getRefreshToken();
+    console.log('[AuthService] Tokens saved:', {
+      hasAccessToken: !!savedAccessToken,
+      hasRefreshToken: !!savedRefreshToken,
+    });
+
+    // Transform backend user data to match mobile User interface
+    const user: User = {
+      id: response.data.user_id,
+      phone: response.data.phone,
+      firstName: response.data.first_name,
+      lastName: response.data.last_name,
+      email: response.data.email,
+      avatarUrl: response.data.profile_picture,
+      karma: 0,
+      subscriptionTier: 'free',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await TokenManager.setUserData(user);
 
     return response.data;
   },
 
   /**
-   * Login with phone + password
+   * Login with phone (sends OTP)
+   * Returns OTP reference
    */
-  async login(data: LoginDto): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/login', data);
-
-    // Store tokens
-    await TokenManager.setAccessToken(response.data.access_token);
-    await TokenManager.setRefreshToken(response.data.refresh_token);
-    await TokenManager.setUserData(response.data.user);
-
+  async login(data: LoginDto): Promise<{ message: string; reference: string; expires_at: string }> {
+    const response: AxiosResponse = await apiClient.post('/auth/login', data);
     return response.data;
   },
 
@@ -120,12 +168,28 @@ export const authService = {
    * Get current user profile
    */
   async getCurrentUser(): Promise<User> {
-    const response: AxiosResponse<User> = await apiClient.get('/auth/me');
+    const response: AxiosResponse<any> = await apiClient.get('/auth/me');
+
+    // Transform backend response to mobile User interface
+    const user: User = {
+      id: response.data.id,
+      phone: response.data.phone,
+      firstName: response.data.first_name,
+      lastName: response.data.last_name,
+      email: response.data.email,
+      avatarUrl: response.data.profile_picture,
+      bio: response.data.bio,
+      karma: 0, // TODO: Add karma field to backend
+      subscriptionTier: response.data.subscription_tier || 'free',
+      location: response.data.location,
+      createdAt: response.data.created_at,
+      updatedAt: response.data.updated_at,
+    };
 
     // Update stored user data
-    await TokenManager.setUserData(response.data);
+    await TokenManager.setUserData(user);
 
-    return response.data;
+    return user;
   },
 
   /**

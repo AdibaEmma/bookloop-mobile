@@ -76,7 +76,11 @@ export const TokenManager = {
     return await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
   },
 
-  async setAccessToken(token: string): Promise<void> {
+  async setAccessToken(token: string | null | undefined): Promise<void> {
+    if (!token) {
+      console.warn('[TokenManager] Attempted to set null/undefined access token');
+      return;
+    }
     await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
   },
 
@@ -84,7 +88,11 @@ export const TokenManager = {
     return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   },
 
-  async setRefreshToken(token: string): Promise<void> {
+  async setRefreshToken(token: string | null | undefined): Promise<void> {
+    if (!token) {
+      console.warn('[TokenManager] Attempted to set null/undefined refresh token');
+      return;
+    }
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
   },
 
@@ -207,15 +215,29 @@ apiClient.interceptors.response.use(
         const refreshToken = await TokenManager.getRefreshToken();
 
         if (!refreshToken) {
-          throw new Error('No refresh token available');
+          console.warn('[API] No refresh token available, clearing session');
+          await TokenManager.clearTokens();
+          await TokenManager.clearUserData();
+          processQueue(new Error('No refresh token available'), null);
+          return Promise.reject(new Error('Session expired. Please login again.'));
         }
 
         // Call refresh endpoint
+        console.log('[API] Attempting token refresh');
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         });
 
-        const { access_token, refresh_token: newRefreshToken } = response.data;
+        // Handle response - backend wraps data in 'result' and tokens are in 'tokens' object
+        const data = response.data.result || response.data;
+        const tokens = data.tokens || data;
+        const { access_token, refresh_token: newRefreshToken } = tokens;
+
+        if (!access_token) {
+          throw new Error('No access token in refresh response');
+        }
+
+        console.log('[API] Token refresh successful');
 
         // Store new tokens
         await TokenManager.setAccessToken(access_token);
@@ -232,6 +254,7 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest);
       } catch (refreshError) {
+        console.error('[API] Token refresh failed:', refreshError);
         processQueue(refreshError, null);
 
         // Clear tokens and redirect to login

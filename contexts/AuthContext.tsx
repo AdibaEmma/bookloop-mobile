@@ -5,7 +5,7 @@
  *
  * Features:
  * - User authentication state
- * - Login/logout/register methods
+ * - OTP-based login/register
  * - Token management
  * - Loading states
  * - Auto-restore session on app launch
@@ -18,9 +18,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (phone: string, password: string) => Promise<void>;
-  register: (phone: string, firstName: string, lastName: string, password: string) => Promise<void>;
-  verifyOtp: (phone: string, otp: string) => Promise<void>;
+  login: (phone: string) => Promise<void>;
+  register: (phone: string, firstName: string, lastName: string, email?: string) => Promise<void>;
+  verifyOtp: (phone: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   error: string | null;
@@ -83,13 +83,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
-   * Register new user
+   * Register new user (OTP-based, no password)
+   * Sends OTP to phone number
    */
   const register = async (
     phone: string,
     firstName: string,
     lastName: string,
-    password: string,
+    email?: string,
   ) => {
     try {
       setError(null);
@@ -99,10 +100,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         phone,
         firstName,
         lastName,
-        password,
+        email,
       });
 
-      // Note: User is not logged in yet, needs to verify OTP
+      // OTP sent, user needs to verify
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Registration failed';
       setError(errorMessage);
@@ -114,14 +115,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   /**
    * Verify OTP code
+   * Completes registration or login
    */
-  const verifyOtp = async (phone: string, otp: string) => {
+  const verifyOtp = async (phone: string, code: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      const response = await authService.verifyOtp({ phone, otp });
-      setUser(response.user);
+      await authService.verifyOtp({ phone, code });
+
+      // Get the user data from storage (auth service already stored it)
+      const userData = await TokenManager.getUserData();
+      setUser(userData);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'OTP verification failed';
       setError(errorMessage);
@@ -132,15 +137,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
-   * Login with phone + password
+   * Login with phone (OTP-based, no password)
+   * Sends OTP to phone number
    */
-  const login = async (phone: string, password: string) => {
+  const login = async (phone: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      const response = await authService.login({ phone, password });
-      setUser(response.user);
+      await authService.login({ phone });
+      // OTP sent, user needs to verify
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Login failed';
       setError(errorMessage);
