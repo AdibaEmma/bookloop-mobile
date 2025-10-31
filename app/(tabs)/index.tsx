@@ -46,8 +46,12 @@ export default function HomeScreen() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedType, setSelectedType] = useState<'all' | 'exchange' | 'donate' | 'borrow'>('all');
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 20;
 
   const listingTypes = [
     { value: 'all' as const, label: 'All', icon: 'apps' as const },
@@ -85,6 +89,7 @@ export default function HomeScreen() {
     try {
       if (refresh) {
         setIsRefreshing(true);
+        setOffset(0);
       } else {
         setIsLoading(true);
       }
@@ -98,23 +103,20 @@ export default function HomeScreen() {
 
       // Fetch listings
       if (currentLocation) {
-        const response = await listingsService.getNearbyListings(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          5000, // 5km radius
-          20,
-        );
+        const response = await listingsService.searchListings({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          radius: 5000, // 5km radius
+          searchType: 'location',
+          status: 'available',
+          listingType: selectedType !== 'all' ? selectedType : undefined,
+          limit: LIMIT,
+          offset: refresh ? 0 : 0,
+        });
 
-        let filteredListings = response.data;
-
-        // Filter by type
-        if (selectedType !== 'all') {
-          filteredListings = filteredListings.filter(
-            (listing) => listing.listingType === selectedType,
-          );
-        }
-
-        setListings(filteredListings);
+        setListings(response.data);
+        setHasMore(response.data.length === LIMIT);
+        setOffset(LIMIT);
       } else {
         Alert.alert(
           'Location Required',
@@ -131,6 +133,40 @@ export default function HomeScreen() {
   };
 
   /**
+   * Load more listings (infinite scroll)
+   */
+  const loadMoreListings = async () => {
+    if (isLoadingMore || !hasMore || !location) return;
+
+    try {
+      setIsLoadingMore(true);
+
+      const response = await listingsService.searchListings({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        radius: 5000,
+        searchType: 'location',
+        status: 'available',
+        listingType: selectedType !== 'all' ? selectedType : undefined,
+        limit: LIMIT,
+        offset: offset,
+      });
+
+      if (response.data.length > 0) {
+        setListings((prev) => [...prev, ...response.data]);
+        setOffset((prev) => prev + LIMIT);
+        setHasMore(response.data.length === LIMIT);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error: any) {
+      console.error('Failed to load more listings:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  /**
    * Initial load
    */
   useEffect(() => {
@@ -142,7 +178,7 @@ export default function HomeScreen() {
    */
   const handleRefresh = useCallback(() => {
     loadListings(true);
-  }, [selectedType]);
+  }, [location, selectedType]);
 
   /**
    * Navigate to listing detail
@@ -175,6 +211,21 @@ export default function HomeScreen() {
       onPress={() => handleListingPress(item)}
     />
   );
+
+  /**
+   * Render footer (loading indicator for infinite scroll)
+   */
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+          Loading more...
+        </Text>
+      </View>
+    );
+  };
 
   /**
    * Render empty state
@@ -293,8 +344,11 @@ export default function HomeScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={!isLoading ? renderEmpty : null}
+          ListFooterComponent={renderFooter}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={loadMoreListings}
+          onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -387,5 +441,12 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     marginTop: Spacing.md,
+  },
+  footerLoader: {
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: Typography.fontSize.sm,
   },
 });

@@ -21,6 +21,9 @@ export { booksService } from './books.service';
 export { listingsService } from './listings.service';
 export { exchangesService } from './exchanges.service';
 export { usersService } from './users.service';
+export { default as notificationsService } from './notifications.service';
+export { default as meetupSpotsService } from './meetup-spots.service';
+export { default as paymentsService } from './payments.service';
 
 // Export types
 export type {
@@ -61,3 +64,28 @@ export type {
   UpdateLocationDto,
   NearbyUser,
 } from './users.service';
+
+export type {
+  Notification,
+  NotificationResponse,
+  UnreadCountResponse,
+  RegisterDeviceRequest,
+} from './notifications.service';
+
+export type {
+  MeetupSpot,
+  MeetupSpotsResponse,
+  SearchMeetupSpotsParams,
+} from './meetup-spots.service';
+
+export type {
+  Payment,
+  Subscription,
+  SubscriptionPlan,
+  PaymentsResponse,
+  InitializePaymentRequest,
+  InitializePaymentResponse,
+  VerifyPaymentRequest,
+  VerifyPaymentResponse,
+  UpgradeSubscriptionRequest,
+} from './payments.service';

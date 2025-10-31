@@ -58,6 +58,7 @@ interface Rating {
 interface CreateExchangeDto {
   listingId: string;
   message?: string;
+  meetupLocationId?: string;
 }
 
 interface RespondExchangeDto {
