@@ -127,7 +127,7 @@ export const listingsService = {
    * Get current user's listings
    */
   async getMyListings(status?: 'available' | 'pending' | 'exchanged' | 'unavailable'): Promise<Listing[]> {
-    const response: AxiosResponse<Listing[]> = await apiClient.get('/listings/my-listings', {
+    const response: AxiosResponse<Listing[]> = await apiClient.get('/listings/user/me', {
       params: { status },
     });
     return response.data;

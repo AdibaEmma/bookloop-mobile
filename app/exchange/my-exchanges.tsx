@@ -45,11 +45,9 @@ interface Exchange {
   requesterId: string;
   ownerId: string;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  message: string;
-  meetupLocation?: {
-    name: string;
-    address: string;
-  };
+  message?: string;
+  meetupLocation?: string;
+  meetupTime?: string;
   listing: {
     id: string;
     book: {
@@ -108,8 +106,8 @@ export default function MyExchangesScreen() {
       }
 
       const [incoming, outgoing] = await Promise.all([
-        exchangesService.getIncomingExchanges(),
-        exchangesService.getOutgoingExchanges(),
+        exchangesService.getIncomingRequests(),
+        exchangesService.getMyRequests(),
       ]);
 
       setIncomingExchanges(incoming);

@@ -39,8 +39,6 @@ import {
   BookLoopColors,
 } from '@/constants/theme';
 
-const CATEGORY_CARD_WIDTH = 150;
-
 interface Category {
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -82,17 +80,17 @@ export default function ExploreScreen() {
   ];
 
   const conditions = [
-    { value: 'new', label: 'New' },
-    { value: 'like_new', label: 'Like New' },
-    { value: 'good', label: 'Good' },
-    { value: 'fair', label: 'Fair' },
-    { value: 'poor', label: 'Poor' },
+    { value: 'new', label: '✨ New', emoji: '✨' },
+    { value: 'like_new', label: '🌟 Like New', emoji: '🌟' },
+    { value: 'good', label: '👍 Good', emoji: '👍' },
+    { value: 'fair', label: '👌 Fair', emoji: '👌' },
+    { value: 'poor', label: '📖 Poor', emoji: '📖' },
   ];
 
   const listingTypes = [
-    { value: 'exchange', label: 'Exchange', icon: 'swap-horizontal' as const },
-    { value: 'donate', label: 'Donate', icon: 'gift' as const },
-    { value: 'borrow', label: 'Borrow', icon: 'time' as const },
+    { value: 'exchange', label: '🔄 Exchange' },
+    { value: 'donate', label: '🎁 Donate' },
+    { value: 'borrow', label: '📚 Borrow' },
   ];
 
   /**
@@ -110,6 +108,22 @@ export default function ExploreScreen() {
       handleSearch();
     }
   }, [params.query]);
+
+  /**
+   * Automatic search when query changes (with debounce)
+   */
+  useEffect(() => {
+    if (query.trim().length >= 2) {
+      const timeoutId = setTimeout(() => {
+        handleSearch();
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timeoutId);
+    } else if (query.trim().length === 0) {
+      // Clear search results when query is empty
+      setSearchResults([]);
+    }
+  }, [query]);
 
   /**
    * Load recent listings
@@ -264,31 +278,6 @@ export default function ExploreScreen() {
   const hasActiveFilters = selectedCategories.length > 0 || selectedCondition || selectedType;
 
   /**
-   * Render category card
-   */
-  const renderCategory = (category: Category) => (
-    <TouchableOpacity
-      key={category.name}
-      onPress={() => handleCategoryPress(category.name)}
-      style={styles.categoryCard}
-    >
-      <GlassCard variant="md" padding="md">
-        <View
-          style={[
-            styles.categoryIcon,
-            { backgroundColor: category.color },
-          ]}
-        >
-          <Ionicons name={category.icon} size={28} color="#FFFFFF" />
-        </View>
-        <Text style={[styles.categoryName, { color: colors.text }]}>
-          {category.name}
-        </Text>
-      </GlassCard>
-    </TouchableOpacity>
-  );
-
-  /**
    * Render listing item
    */
   const renderListing = ({ item }: { item: Listing }) => (
@@ -373,18 +362,6 @@ export default function ExploreScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Search Button */}
-          <View style={styles.searchButtonContainer}>
-            <GlassButton
-              title={isSearching ? 'Searching...' : 'Search'}
-              onPress={handleSearch}
-              variant="primary"
-              size="md"
-              loading={isSearching}
-              disabled={isSearching}
-            />
-          </View>
-
           {/* Active Filters */}
           {hasActiveFilters && (
             <View style={styles.activeFilters}>
@@ -417,22 +394,6 @@ export default function ExploreScreen() {
                   Clear All
                 </Text>
               </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Categories */}
-          {!isShowingSearchResults && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Browse by Category
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesContainer}
-              >
-                {categories.map(renderCategory)}
-              </ScrollView>
             </View>
           )}
 
@@ -499,11 +460,16 @@ export default function ExploreScreen() {
           onClose={() => setShowFilters(false)}
           title="Filters"
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.filterModalContent}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.filterScrollView}
+              contentContainerStyle={styles.filterScrollContent}
+            >
             {/* Categories */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colors.text }]}>
-                Categories
+                📚 Categories
               </Text>
               <View style={styles.chipContainer}>
                 {categories.map((category) => (
@@ -604,13 +570,6 @@ export default function ExploreScreen() {
                       },
                     ]}
                   >
-                    <Ionicons
-                      name={type.icon}
-                      size={16}
-                      color={
-                        selectedType === type.value ? '#FFFFFF' : colors.text
-                      }
-                    />
                     <Text
                       style={[
                         styles.chipText,
@@ -646,7 +605,9 @@ export default function ExploreScreen() {
               </View>
             </View>
 
-            {/* Actions */}
+            </ScrollView>
+
+            {/* Actions - Fixed at bottom */}
             <View style={styles.filterActions}>
               <GlassButton
                 title="Clear All"
@@ -663,7 +624,7 @@ export default function ExploreScreen() {
                 style={{ flex: 1 }}
               />
             </View>
-          </ScrollView>
+          </View>
         </GlassModal>
       </SafeAreaView>
     </View>
@@ -717,10 +678,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchButtonContainer: {
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
   activeFilters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -765,26 +722,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.semibold,
     fontFamily: Typography.fontFamily.heading,
-  },
-  categoriesContainer: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
-  categoryCard: {
-    width: CATEGORY_CARD_WIDTH,
-  },
-  categoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  categoryName: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semibold,
-    textAlign: 'center',
   },
   listingsContainer: {
     paddingHorizontal: Spacing.lg,
@@ -851,9 +788,21 @@ const styles = StyleSheet.create({
   radiusInputText: {
     fontSize: Typography.fontSize.base,
   },
+  filterModalContent: {
+    flex: 1,
+  },
+  filterScrollView: {
+    flex: 1,
+  },
+  filterScrollContent: {
+    paddingBottom: Spacing.md,
+  },
   filterActions: {
     flexDirection: 'row',
     gap: Spacing.md,
-    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(139, 94, 60, 0.2)',
   },
 });

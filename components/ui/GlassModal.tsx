@@ -58,7 +58,7 @@ export function GlassModal({
     height === 'full'
       ? SCREEN_HEIGHT
       : height === 'auto'
-        ? SCREEN_HEIGHT * 0.7
+        ? SCREEN_HEIGHT * 0.8
         : height;
 
   return (
