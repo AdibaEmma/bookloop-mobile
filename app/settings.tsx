@@ -22,6 +22,7 @@ import {
   Switch,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +50,7 @@ interface SettingItem {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -63,28 +64,6 @@ export default function SettingsScreen() {
   // Privacy settings
   const [locationSharing, setLocationSharing] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
-
-  /**
-   * Handle logout
-   */
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logout();
-            router.replace('/(auth)/welcome');
-          } catch (error) {
-            console.error('Logout error:', error);
-            Alert.alert('Error', 'Failed to logout');
-          }
-        },
-      },
-    ]);
-  };
 
   /**
    * Handle delete account
@@ -298,8 +277,7 @@ export default function SettingsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Settings',
-          headerShown: true,
+          headerShown: false,
         }}
       />
 
@@ -314,31 +292,30 @@ export default function SettingsScreen() {
           style={StyleSheet.absoluteFillObject}
         />
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* User Info */}
-          <GlassCard variant="lg" padding="lg">
-            <Text style={[styles.userName, { color: colors.text }]}>
-              {user?.firstName} {user?.lastName}
-            </Text>
-            <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
-              {user?.email}
-            </Text>
-            <View
-              style={[
-                styles.subscriptionBadge,
-                { backgroundColor: BookLoopColors.burntOrange },
-              ]}
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+          {/* Custom Header */}
+          <View style={styles.customHeader}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
             >
-              <Text style={styles.subscriptionText}>
-                {user?.subscriptionTier?.toUpperCase() || 'FREE'} PLAN
-              </Text>
-            </View>
-          </GlassCard>
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={BookLoopColors.burntOrange}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Settings
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
           {/* Notifications */}
           <GlassCard variant="lg" padding="md">
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -371,16 +348,6 @@ export default function SettingsScreen() {
             {supportSettings.map(renderSettingItem)}
           </GlassCard>
 
-          {/* Logout */}
-          <GlassButton
-            title="Logout"
-            onPress={handleLogout}
-            variant="ghost"
-            size="lg"
-            icon="log-out-outline"
-            style={styles.logoutButton}
-          />
-
           {/* Delete Account */}
           <TouchableOpacity
             onPress={handleDeleteAccount}
@@ -394,6 +361,7 @@ export default function SettingsScreen() {
             BookLoop v1.0.0
           </Text>
         </ScrollView>
+        </SafeAreaView>
       </View>
     </>
   );
@@ -403,32 +371,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.heading,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: Spacing.lg,
     gap: Spacing.lg,
-  },
-  userName: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: Typography.fontSize.sm,
-    marginBottom: Spacing.sm,
-  },
-  subscriptionBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  subscriptionText: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.bold,
   },
   sectionTitle: {
     fontSize: Typography.fontSize.base,
@@ -452,9 +426,6 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: Typography.fontSize.base,
-  },
-  logoutButton: {
-    marginTop: Spacing.md,
   },
   deleteButton: {
     paddingVertical: Spacing.md,

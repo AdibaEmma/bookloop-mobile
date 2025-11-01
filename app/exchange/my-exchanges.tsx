@@ -17,13 +17,13 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   Alert,
   RefreshControl,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -448,8 +448,7 @@ export default function MyExchangesScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'My Exchanges',
-          headerShown: true,
+          headerShown: false,
         }}
       />
 
@@ -464,7 +463,25 @@ export default function MyExchangesScreen() {
           style={StyleSheet.absoluteFillObject}
         />
 
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+          {/* Custom Header */}
+          <View style={styles.customHeader}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={BookLoopColors.burntOrange}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              My Exchanges
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
           {/* Tabs */}
           <View style={styles.tabsContainer}>
             <TouchableOpacity
@@ -541,9 +558,33 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.heading,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+  },
   tabsContainer: {
     flexDirection: 'row',
     padding: Spacing.lg,
+    paddingTop: Spacing.sm,
     gap: Spacing.sm,
   },
   tab: {

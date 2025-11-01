@@ -24,6 +24,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -351,8 +352,7 @@ export default function CreateListingScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Create Listing',
-          headerShown: true,
+          headerShown: false,
         }}
       />
 
@@ -367,11 +367,30 @@ export default function CreateListingScreen() {
           style={StyleSheet.absoluteFillObject}
         />
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+          {/* Custom Header */}
+          <View style={styles.customHeader}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={BookLoopColors.burntOrange}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Create Listing
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
           {/* ISBN Search */}
           <GlassCard variant="lg" padding="lg">
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -670,6 +689,7 @@ export default function CreateListingScreen() {
             style={styles.createButton}
           />
         </ScrollView>
+        </SafeAreaView>
       </View>
     </>
   );
@@ -678,6 +698,32 @@ export default function CreateListingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.heading,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollView: {
     flex: 1,

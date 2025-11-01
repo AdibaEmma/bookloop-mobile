@@ -311,17 +311,18 @@ export default function ExploreScreen() {
       />
 
       <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Explore Books
+          </Text>
+        </View>
+
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Explore Books
-            </Text>
-          </View>
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
@@ -643,7 +644,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
   },
   title: {
@@ -710,12 +711,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
   },
   sectionTitle: {
@@ -724,7 +725,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.heading,
   },
   listingsContainer: {
-    paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
   listingCardWrapper: {

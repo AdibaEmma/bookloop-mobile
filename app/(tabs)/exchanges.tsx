@@ -42,12 +42,12 @@ export default function ExchangesScreen() {
       />
 
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Exchanges</Text>
-          </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Exchanges</Text>
+        </View>
 
+        <View style={styles.content}>
           {/* Coming Soon Card */}
           <GlassCard variant="lg" padding="xl" style={styles.card}>
             <View style={styles.iconContainer}>
@@ -125,14 +125,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     justifyContent: 'center',
   },
   header: {
-    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   title: {
-    fontSize: Typography.fontSize['3xl'],
+    fontSize: Typography.fontSize['2xl'],
     fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.heading,
   },
