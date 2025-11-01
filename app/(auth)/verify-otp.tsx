@@ -1,10 +1,10 @@
 /**
  * OTP Verification Screen
  *
- * Verify phone number with OTP code.
+ * Verify email with OTP code.
  *
  * Features:
- * - 6-digit OTP input
+ * - 6-character alphanumeric OTP input
  * - Auto-focus next input
  * - Resend OTP
  * - Countdown timer
@@ -28,6 +28,8 @@ import { GlassButton, GlassCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePreventBack } from '@/hooks/usePreventBack';
+import { showErrorToastMessage, showSuccessToastMessage } from '@/utils/errorHandler';
 import {
   Colors,
   Typography,
@@ -41,8 +43,8 @@ const RESEND_TIMEOUT = 60; // seconds
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone: string; firstName?: string; isRegistration?: string }>();
-  const { phone, firstName, isRegistration } = params;
+  const params = useLocalSearchParams<{ email: string; firstName?: string; isRegistration?: string }>();
+  const { email, firstName, isRegistration } = params;
   const { verifyOtp, isLoading } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -53,6 +55,9 @@ export default function VerifyOtpScreen() {
   const [isResending, setIsResending] = useState(false);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
+
+  // Prevent going back after reaching OTP screen
+  usePreventBack();
 
   /**
    * Countdown timer for resend
@@ -77,32 +82,32 @@ export default function VerifyOtpScreen() {
    * Handle OTP input change
    */
   const handleChange = (text: string, index: number) => {
-    // Only allow digits
-    const digit = text.replace(/[^0-9]/g, '');
+    // Allow alphanumeric characters (A-Z, 0-9)
+    const char = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
-    if (digit.length > 1) {
+    if (char.length > 1) {
       // Handle paste
-      const digits = digit.slice(0, OTP_LENGTH).split('');
+      const chars = char.slice(0, OTP_LENGTH).split('');
       const newOtp = [...otp];
-      digits.forEach((d, i) => {
+      chars.forEach((c, i) => {
         if (index + i < OTP_LENGTH) {
-          newOtp[index + i] = d;
+          newOtp[index + i] = c;
         }
       });
       setOtp(newOtp);
 
       // Focus last filled input or next empty
-      const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+      const nextIndex = Math.min(index + chars.length, OTP_LENGTH - 1);
       inputRefs.current[nextIndex]?.focus();
       setActiveIndex(nextIndex);
     } else {
-      // Single digit input
+      // Single character input
       const newOtp = [...otp];
-      newOtp[index] = digit;
+      newOtp[index] = char;
       setOtp(newOtp);
 
       // Auto-focus next input
-      if (digit && index < OTP_LENGTH - 1) {
+      if (char && index < OTP_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
         setActiveIndex(index + 1);
       }
@@ -126,16 +131,22 @@ export default function VerifyOtpScreen() {
     const code = otp.join('');
 
     if (code.length !== OTP_LENGTH) {
-      Alert.alert('Invalid OTP', 'Please enter all 6 digits');
+      showErrorToastMessage('Please enter all 6 characters', 'Invalid OTP');
       return;
     }
 
     try {
-      // Ensure phone has + prefix for international format
-      const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
-      console.log('[VerifyOTP] Verifying with phone:', formattedPhone, 'code:', code);
+      console.log('[VerifyOTP] Verifying with email:', email, 'code:', code);
 
-      await verifyOtp(formattedPhone, code);
+      await verifyOtp(email, code);
+
+      // Show success message
+      showSuccessToastMessage(
+        isRegistration === 'true'
+          ? 'Account verified successfully! Welcome to BookLoop!'
+          : 'Login successful! Welcome back!',
+        'Verification Successful'
+      );
 
       // Navigate to profile setup if registration, otherwise to main app
       if (isRegistration === 'true') {
@@ -145,7 +156,7 @@ export default function VerifyOtpScreen() {
       }
     } catch (error: any) {
       console.error('[VerifyOTP] Verification error:', error);
-      Alert.alert('Verification Failed', error.message || 'Invalid OTP code');
+      showErrorToastMessage(error, 'Verification Failed');
 
       // Clear OTP and focus first input
       setOtp(Array(OTP_LENGTH).fill(''));
@@ -164,24 +175,27 @@ export default function VerifyOtpScreen() {
 
     try {
       setIsResending(true);
-      await authService.resendOtp(phone);
+      await authService.resendOtp(email);
       setResendTimer(RESEND_TIMEOUT);
-      Alert.alert('OTP Sent', 'A new code has been sent to your phone');
+      showSuccessToastMessage(
+        'A new code has been sent to your email',
+        'OTP Sent'
+      );
     } catch (error: any) {
-      Alert.alert('Resend Failed', error.message || 'Please try again');
+      showErrorToastMessage(error, 'Resend Failed');
     } finally {
       setIsResending(false);
     }
   };
 
   /**
-   * Format phone for display
+   * Mask email for display (show first 3 chars and domain)
    */
-  const formatPhone = (phoneNumber: string): string => {
-    if (phoneNumber.startsWith('233')) {
-      return '0' + phoneNumber.substring(3);
-    }
-    return phoneNumber;
+  const maskEmail = (email: string): string => {
+    const [localPart, domain] = email.split('@');
+    if (!domain) return email;
+    const maskedLocal = localPart.substring(0, 3) + '***';
+    return `${maskedLocal}@${domain}`;
   };
 
   return (
@@ -220,13 +234,13 @@ export default function VerifyOtpScreen() {
               />
             </View>
             <Text style={[styles.title, { color: colors.text }]}>
-              Verify Phone
+              Verify Email
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Enter the 6-digit code sent to
+              Enter the 6-character code sent to
             </Text>
             <Text style={[styles.phone, { color: colors.text }]}>
-              {formatPhone(phone)}
+              {maskEmail(email)}
             </Text>
           </View>
 
@@ -275,7 +289,8 @@ export default function VerifyOtpScreen() {
                     handleKeyPress(key, index)
                   }
                   onFocus={() => setActiveIndex(index)}
-                  keyboardType="number-pad"
+                  keyboardType="default"
+                  autoCapitalize="characters"
                   maxLength={1}
                   selectTextOnFocus
                   autoFocus={index === 0}

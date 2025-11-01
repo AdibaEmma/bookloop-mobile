@@ -1,11 +1,11 @@
 /**
  * Login Screen
  *
- * Login for existing users with OTP verification.
+ * Login for existing users with dual authentication.
  *
  * Features:
- * - Phone number input
- * - OTP-based authentication (passwordless)
+ * - Email-based authentication (primary)
+ * - Password OR OTP login
  * - Form validation
  */
 
@@ -18,6 +18,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassButton, GlassInput, GlassCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { showError } from '@/utils/errorHandler';
+import { showErrorToastMessage, showSuccessToastMessage } from '@/utils/errorHandler';
 import {
   Colors,
   Typography,
@@ -39,30 +40,29 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [usePasswordLogin, setUsePasswordLogin] = useState(false);
   const [errors, setErrors] = useState<{
-    phone?: string;
+    email?: string;
+    password?: string;
   }>({});
 
   /**
-   * Validate Ghana phone number
+   * Validate email format
    */
-  const validatePhone = (phoneNumber: string): boolean => {
-    const cleaned = phoneNumber.replace(/\s+/g, '');
-    return /^0\d{9}$/.test(cleaned) || /^233\d{9}$/.test(cleaned);
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   /**
-   * Normalize phone to international format
+   * Validate password
    */
-  const normalizePhone = (phoneNumber: string): string => {
-    const cleaned = phoneNumber.replace(/\s+/g, '');
-    if (cleaned.startsWith('0')) {
-      return `+233${cleaned.substring(1)}`;
-    } else if (cleaned.startsWith('233')) {
-      return `+${cleaned}`;
-    }
-    return cleaned;
+  const validatePassword = (password: string): boolean => {
+    if (!usePasswordLogin) return true; // Password not required for OTP login
+    return password.length >= 8;
   };
 
   /**
@@ -71,10 +71,18 @@ export default function LoginScreen() {
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
 
-    if (!phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!validatePhone(phone)) {
-      newErrors.phone = 'Invalid Ghana phone number';
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!validateEmail(email)) {
+      newErrors.email = 'Invalid email address';
+    }
+
+    if (usePasswordLogin) {
+      if (!password.trim()) {
+        newErrors.password = 'Password is required';
+      } else if (!validatePassword(password)) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
     }
 
     setErrors(newErrors);
@@ -90,19 +98,34 @@ export default function LoginScreen() {
     }
 
     try {
-      const normalizedPhone = normalizePhone(phone);
-      await login(normalizedPhone);
+      const response = await login(
+        email.trim(),
+        usePasswordLogin && password.trim() ? password.trim() : undefined,
+      );
 
-      // Navigate to OTP verification
-      router.push({
-        pathname: '/(auth)/verify-otp',
-        params: {
-          phone: normalizedPhone,
-          isRegistration: 'false',
-        },
-      });
+      // If OTP was sent (not password login), navigate to OTP verification
+      if (response.message) {
+        showSuccessToastMessage(
+          'OTP sent to your email. Please check your inbox.',
+          'Login'
+        );
+
+        router.push({
+          pathname: '/(auth)/verify-otp',
+          params: {
+            email: email.trim(),
+            isRegistration: 'false',
+          },
+        });
+      } else {
+        // Password login successful
+        showSuccessToastMessage(
+          'Welcome back!',
+          'Login Successful'
+        );
+      }
     } catch (error: any) {
-      showError(error, 'Login Failed');
+      showErrorToastMessage(error, 'Login Failed');
     }
   };
 
@@ -158,17 +181,47 @@ export default function LoginScreen() {
             <GlassCard variant="lg" padding="lg">
               <View style={styles.form}>
                 <GlassInput
-                  label="Phone Number"
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="0241234567"
-                  keyboardType="phone-pad"
-                  error={errors.phone}
-                  helpText="We'll send you an OTP to verify"
+                  label="Email Address"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="kwame@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  error={errors.email}
+                  leftIcon="mail"
                 />
 
+                {/* Password Toggle */}
+                <TouchableOpacity
+                  onPress={() => setUsePasswordLogin(!usePasswordLogin)}
+                  style={styles.passwordToggle}
+                >
+                  <Ionicons
+                    name={usePasswordLogin ? "checkbox" : "square-outline"}
+                    size={24}
+                    color={BookLoopColors.burntOrange}
+                  />
+                  <Text style={[styles.passwordToggleText, { color: colors.text }]}>
+                    Login with password
+                  </Text>
+                </TouchableOpacity>
+
+                {usePasswordLogin && (
+                  <GlassInput
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    secureTextEntry={!showPassword}
+                    error={errors.password}
+                    leftIcon="lock-closed"
+                    rightIcon={showPassword ? "eye-off" : "eye"}
+                    onRightIconPress={() => setShowPassword(!showPassword)}
+                  />
+                )}
+
                 <GlassButton
-                  title="Send OTP"
+                  title={usePasswordLogin ? "Login" : "Send OTP"}
                   onPress={handleLogin}
                   variant="primary"
                   size="lg"
@@ -189,8 +242,9 @@ export default function LoginScreen() {
                   color={BookLoopColors.burntOrange}
                 />
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  We use OTP for secure, passwordless authentication.
-                  You'll receive a 6-digit code via SMS.
+                  {usePasswordLogin
+                    ? "Login with your password for quick access, or use OTP for enhanced security."
+                    : "We'll send a 6-digit code to your email for secure authentication."}
                 </Text>
               </View>
             </GlassCard>
@@ -253,6 +307,17 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.lg,
+  },
+  passwordToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  passwordToggleText: {
+    flex: 1,
+    fontSize: Typography.fontSize.sm,
+    fontFamily: Typography.fontFamily.body,
   },
   infoBox: {
     marginTop: Spacing.xl,

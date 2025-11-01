@@ -32,6 +32,7 @@ import { GlassButton, GlassInput, GlassCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePreventBack } from '@/hooks/usePreventBack';
 import {
   Colors,
   Typography,
@@ -51,6 +52,9 @@ export default function ProfileSetupScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
+
+  // Prevent going back after reaching profile setup screen
+  usePreventBack();
 
   /**
    * Pick avatar image
@@ -265,7 +269,7 @@ export default function ProfileSetupScreen() {
                   multiline
                   numberOfLines={4}
                   maxLength={200}
-                  showCharacterCount
+                  showCharCount
                 />
 
                 {/* Location Permission */}

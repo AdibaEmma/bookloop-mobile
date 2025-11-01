@@ -6,6 +6,7 @@
 
 import { Alert } from 'react-native';
 import { AxiosError } from 'axios';
+import { showErrorToast, showSuccessToast, showInfoToast } from './toast';
 
 export interface ApiError {
   message: string;
@@ -100,7 +101,7 @@ export const getErrorMessage = (error: unknown): string => {
 };
 
 /**
- * Show error alert to user
+ * Show error alert to user (uses Alert)
  */
 export const showError = (error: unknown, title = 'Error'): void => {
   const message = getErrorMessage(error);
@@ -108,17 +109,39 @@ export const showError = (error: unknown, title = 'Error'): void => {
 };
 
 /**
- * Show success alert to user
+ * Show error toast to user
+ */
+export const showErrorToastMessage = (error: unknown, title = 'Error'): void => {
+  const message = getErrorMessage(error);
+  showErrorToast({ title, message });
+};
+
+/**
+ * Show success alert to user (uses Alert)
  */
 export const showSuccess = (message: string, title = 'Success'): void => {
   Alert.alert(title, message);
 };
 
 /**
- * Show info alert to user
+ * Show success toast to user
+ */
+export const showSuccessToastMessage = (message: string, title = 'Success'): void => {
+  showSuccessToast({ title, message });
+};
+
+/**
+ * Show info alert to user (uses Alert)
  */
 export const showInfo = (message: string, title = 'Info'): void => {
   Alert.alert(title, message);
+};
+
+/**
+ * Show info toast to user
+ */
+export const showInfoToastMessage = (message: string, title = 'Info'): void => {
+  showInfoToast({ title, message });
 };
 
 /**

@@ -4,9 +4,9 @@
  * Handles authentication API calls.
  *
  * Features:
- * - Phone-based registration with OTP
+ * - Email-based registration with OTP
  * - OTP verification
- * - Login with phone + password
+ * - Login with email + password OR email + OTP
  * - Token refresh
  * - User profile retrieval
  * - Logout
@@ -16,30 +16,32 @@ import apiClient, { TokenManager } from './client';
 import { AxiosResponse } from 'axios';
 
 interface RegisterDto {
+  email: string;
   phone: string;
+  password?: string; // Optional password for dual auth
   firstName: string;
   middleName?: string;
   lastName: string;
-  email?: string;
 }
 
 interface VerifyOtpDto {
-  phone: string;
+  email: string;
   code: string; // Backend expects 'code' not 'otp'
 }
 
 interface LoginDto {
-  phone: string; // Login is OTP-based, no password
+  email: string;
+  password?: string; // Optional - if not provided, OTP will be sent
 }
 
 interface AuthResponse {
   user_id: string;
   phone: string;
+  email: string;
   full_name: string;
   first_name: string;
   middle_name?: string;
   last_name: string;
-  email?: string;
   profile_picture?: string;
   role: string;
   tokens: {
@@ -52,10 +54,10 @@ interface AuthResponse {
 
 interface User {
   id: string;
+  email: string;
   phone: string;
   firstName: string;
   lastName: string;
-  email?: string;
   avatarUrl?: string;
   bio?: string;
   karma: number;
@@ -74,17 +76,18 @@ interface User {
 export const authService = {
   /**
    * Register new user
-   * Sends OTP to phone number
-   * Note: Registration is OTP-based, no password required
+   * Sends OTP to email
+   * Optionally accepts password for dual auth
    */
   async register(data: RegisterDto): Promise<{ message: string; reference: string; expires_at: string }> {
     // Transform camelCase to snake_case for backend
     const payload = {
+      email: data.email,
       phone: data.phone,
+      password: data.password,
       first_name: data.firstName,
       middle_name: data.middleName,
       last_name: data.lastName,
-      email: data.email,
     };
     const response: AxiosResponse = await apiClient.post('/auth/register', payload);
     return response.data;
@@ -96,7 +99,7 @@ export const authService = {
    */
   async verifyOtp(data: VerifyOtpDto): Promise<AuthResponse> {
     const payload = {
-      phone: data.phone,
+      email: data.email,
       code: data.code, // Backend expects 'code' field
     };
     const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/verify-otp', payload);
@@ -122,10 +125,10 @@ export const authService = {
     // Transform backend user data to match mobile User interface
     const user: User = {
       id: response.data.user_id,
+      email: response.data.email,
       phone: response.data.phone,
       firstName: response.data.first_name,
       lastName: response.data.last_name,
-      email: response.data.email,
       avatarUrl: response.data.profile_picture,
       karma: 0,
       subscriptionTier: 'free',
@@ -138,11 +141,35 @@ export const authService = {
   },
 
   /**
-   * Login with phone (sends OTP)
-   * Returns OTP reference
+   * Login with email
+   * If password provided: direct login
+   * If no password: sends OTP to email
    */
-  async login(data: LoginDto): Promise<{ message: string; reference: string; expires_at: string }> {
+  async login(data: LoginDto): Promise<AuthResponse | { message: string; reference: string; expires_at: string }> {
     const response: AxiosResponse = await apiClient.post('/auth/login', data);
+
+    // If password was provided and login successful, response includes tokens
+    if (response.data.tokens) {
+      // Store tokens
+      await TokenManager.setAccessToken(response.data.tokens.access_token);
+      await TokenManager.setRefreshToken(response.data.tokens.refresh_token);
+
+      // Transform and store user data
+      const user: User = {
+        id: response.data.user_id,
+        email: response.data.email,
+        phone: response.data.phone,
+        firstName: response.data.first_name,
+        lastName: response.data.last_name,
+        avatarUrl: response.data.profile_picture,
+        karma: 0,
+        subscriptionTier: 'free',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await TokenManager.setUserData(user);
+    }
+
     return response.data;
   },
 
@@ -173,10 +200,10 @@ export const authService = {
     // Transform backend response to mobile User interface
     const user: User = {
       id: response.data.id,
+      email: response.data.email,
       phone: response.data.phone,
       firstName: response.data.first_name,
       lastName: response.data.last_name,
-      email: response.data.email,
       avatarUrl: response.data.profile_picture,
       bio: response.data.bio,
       karma: 0, // TODO: Add karma field to backend
@@ -219,16 +246,16 @@ export const authService = {
   /**
    * Resend OTP
    */
-  async resendOtp(phone: string): Promise<{ message: string }> {
-    const response: AxiosResponse = await apiClient.post('/auth/resend-otp', { phone });
+  async resendOtp(email: string): Promise<{ message: string; reference: string; expires_at: string }> {
+    const response: AxiosResponse = await apiClient.post('/auth/login', { email });
     return response.data;
   },
 
   /**
    * Request password reset
    */
-  async requestPasswordReset(phone: string): Promise<{ message: string }> {
-    const response: AxiosResponse = await apiClient.post('/auth/forgot-password', { phone });
+  async requestPasswordReset(email: string): Promise<{ message: string; reference: string; expires_at: string }> {
+    const response: AxiosResponse = await apiClient.post('/auth/forgot-password', { email });
     return response.data;
   },
 
@@ -236,8 +263,8 @@ export const authService = {
    * Reset password with OTP
    */
   async resetPassword(data: {
-    phone: string;
-    otp: string;
+    email: string;
+    code: string;
     newPassword: string;
   }): Promise<{ message: string }> {
     const response: AxiosResponse = await apiClient.post('/auth/reset-password', data);
