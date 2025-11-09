@@ -5,7 +5,7 @@
  *
  * Features:
  * - Personalized greeting
- * - Popular books recommendations
+ * - Popular listings from other users
  * - Nearby listings feed
  * - Quick stats overview
  * - Pull to refresh
@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   Animated,
   Image,
+  Appearance,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,7 +32,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { GlassCard, GlassButton, BookCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { listingsService, booksService, Listing, Book } from '@/services/api';
+import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
 import {
@@ -48,7 +49,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
-  const [popularBooks, setPopularBooks] = useState<Book[]>([]);
+  const [popularListings, setPopularListings] = useState<Listing[]>([]);
   const [nearbyListings, setNearbyListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -57,6 +58,16 @@ export default function HomeScreen() {
   // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(50))[0];
+  const scaleAnim = useState(new Animated.Value(0.9))[0];
+
+  /**
+   * Toggle theme
+   */
+  const toggleTheme = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const newScheme = colorScheme === 'light' ? 'dark' : 'light';
+    Appearance.setColorScheme(newScheme);
+  };
 
   /**
    * Get user location
@@ -98,9 +109,11 @@ export default function HomeScreen() {
         setLocation(currentLocation);
       }
 
-      // Load popular books and nearby listings in parallel
-      const [popularBooksData, nearbyListingsData] = await Promise.allSettled([
-        booksService.getPopularBooks(10),
+      // Load popular listings and nearby listings in parallel
+      const [popularListingsData, nearbyListingsData] = await Promise.allSettled([
+        listingsService.searchListings({
+          limit: 20, // Fetch more to account for filtering
+        }),
         currentLocation
           ? listingsService.searchListings({
               latitude: currentLocation.latitude,
@@ -111,15 +124,27 @@ export default function HomeScreen() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      // Update popular books
-      if (popularBooksData.status === 'fulfilled') {
-        setPopularBooks(popularBooksData.value);
+      // Update popular listings (filter out logged-in user's listings)
+      if (popularListingsData.status === 'fulfilled') {
+        const data = popularListingsData.value.data || popularListingsData.value || [];
+        const listings = Array.isArray(data) ? data : [];
+        // Filter out current user's listings
+        const otherUsersListings = listings.filter(
+          (listing) => listing.userId !== user?.id
+        );
+        // Take top 10
+        setPopularListings(otherUsersListings.slice(0, 10));
       }
 
-      // Update nearby listings
+      // Update nearby listings (also filter out logged-in user's listings)
       if (nearbyListingsData.status === 'fulfilled') {
         const data = nearbyListingsData.value.data || nearbyListingsData.value || [];
-        setNearbyListings(Array.isArray(data) ? data : []);
+        const listings = Array.isArray(data) ? data : [];
+        // Filter out current user's listings
+        const otherUsersListings = listings.filter(
+          (listing) => listing.userId !== user?.id
+        );
+        setNearbyListings(otherUsersListings);
       }
     } catch (error: any) {
       console.error('Failed to load home data:', error);
@@ -136,16 +161,25 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user) {
       loadHomeData();
-      // Animate in
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
+      // Animate in with stagger effect
+      Animated.stagger(100, [
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.spring(slideAnim, {
           toValue: 0,
-          duration: 600,
+          friction: 8,
+          tension: 40,
           useNativeDriver: true,
         }),
       ]).start();
@@ -170,17 +204,6 @@ export default function HomeScreen() {
   };
 
   /**
-   * Navigate to book search (from popular books)
-   */
-  const handleBookPress = (book: Book) => {
-    // Search for listings of this book
-    router.push({
-      pathname: '/explore',
-      params: { query: book.title },
-    });
-  };
-
-  /**
    * Navigate to explore tab
    */
   const handleSeeAllListings = () => {
@@ -188,20 +211,20 @@ export default function HomeScreen() {
   };
 
   /**
-   * Render popular book item
+   * Render popular listing item
    */
-  const renderPopularBook = (book: Book) => (
+  const renderPopularListing = (listing: Listing) => (
     <TouchableOpacity
-      key={book.id}
+      key={listing.id}
       style={[styles.bookItem, { backgroundColor: colors.surface }]}
-      onPress={() => handleBookPress(book)}
+      onPress={() => handleListingPress(listing)}
       activeOpacity={0.7}
     >
       <View style={styles.bookCover}>
-        {book.coverImageUrl ? (
+        {listing.book.coverImage ? (
           <View style={styles.bookCoverPlaceholder}>
             <Text style={[styles.bookCoverText, { color: colors.textSecondary }]}>
-              {book.title.charAt(0)}
+              {listing.book.title.charAt(0)}
             </Text>
           </View>
         ) : (
@@ -214,14 +237,22 @@ export default function HomeScreen() {
         style={[styles.bookTitle, { color: colors.text }]}
         numberOfLines={2}
       >
-        {book.title}
+        {listing.book.title}
       </Text>
       <Text
         style={[styles.bookAuthor, { color: colors.textSecondary }]}
         numberOfLines={1}
       >
-        {book.author}
+        {listing.book.author}
       </Text>
+      {listing.distance && (
+        <Text
+          style={[styles.bookDistance, { color: BookLoopColors.burntOrange }]}
+          numberOfLines={1}
+        >
+          {(listing.distance / 1000).toFixed(1)}km away
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -233,7 +264,7 @@ export default function HomeScreen() {
       <BookCard
         title={listing.book.title}
         author={listing.book.author}
-        coverImage={listing.book.coverImageUrl}
+        coverImage={listing.book.coverImage}
         condition={listing.condition}
         listingType={listing.listingType}
         distance={listing.distance}
@@ -287,30 +318,79 @@ export default function HomeScreen() {
             />
           }
         >
-          {/* Header with Avatar and Notifications */}
-          <View style={styles.headerRow}>
-            {/* Avatar */}
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/(tabs)/profile');
-              }}
-              activeOpacity={0.7}
-            >
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: BookLoopColors.burntOrange + '20' }]}>
-                  <Text style={[styles.avatarText, { color: BookLoopColors.burntOrange }]}>
-                    {(user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '') || '?'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          {/* Header with Avatar and Icons */}
+          <Animated.View
+            style={[
+              styles.header,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Top Row: Avatar and Action Icons */}
+            <View style={styles.headerTopRow}>
+              {/* Avatar */}
+              <TouchableOpacity
+                style={styles.avatarContainer}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/(tabs)/profile');
+                }}
+                activeOpacity={0.7}
+              >
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: BookLoopColors.burntOrange + '20' }]}>
+                    <Text style={[styles.avatarText, { color: BookLoopColors.burntOrange }]}>
+                      {(user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '') || '?'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-            {/* Greeting */}
-            <View style={styles.greetingContainer}>
+              <View style={styles.spacer} />
+
+              {/* Action Icons */}
+              <View style={styles.actionIcons}>
+                {/* Theme Toggle */}
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={toggleTheme}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
+                    <Ionicons
+                      name={colorScheme === 'light' ? 'moon' : 'sunny'}
+                      size={18}
+                      color={BookLoopColors.burntOrange}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Notification Bell */}
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/notifications');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
+                    <Ionicons name="notifications" size={18} color={BookLoopColors.burntOrange} />
+                    {/* Notification badge */}
+                    <View style={styles.notificationBadge}>
+                      <View style={styles.notificationDot} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Greeting Below */}
+            <View style={styles.greetingSection}>
               <Text style={[styles.greetingText, { color: colors.text }]}>
                 Hello, {user?.firstName || 'Reader'}! 👋
               </Text>
@@ -318,25 +398,7 @@ export default function HomeScreen() {
                 Discover your next great read 📚
               </Text>
             </View>
-
-            {/* Notification Bell */}
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/notifications');
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.notificationIconContainer, { backgroundColor: colors.surface }]}>
-                <Ionicons name="notifications" size={18} color={BookLoopColors.burntOrange} />
-                {/* Notification badge */}
-                <View style={styles.notificationBadge}>
-                  <View style={styles.notificationDot} />
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Stats Overview - Animated */}
           <Animated.View
@@ -399,7 +461,7 @@ export default function HomeScreen() {
                   <Text style={styles.statEmoji}>🔥</Text>
                 </View>
                 <Text style={[styles.statValue, { color: colors.text }]}>
-                  {popularBooks.length}
+                  {popularListings.length}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Trending Now
@@ -408,8 +470,16 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* Quick Actions */}
-          <View style={styles.section}>
+          {/* Quick Actions - Animated */}
+          <Animated.View
+            style={[
+              styles.section,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: Spacing.md }]}>
               Quick Actions ⚡
             </Text>
@@ -468,14 +538,22 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </Animated.View>
 
-        {/* Popular Books Section */}
-        {popularBooks.length > 0 && (
-          <View style={styles.section}>
+        {/* Popular Listings Section - Animated */}
+        {popularListings.length > 0 && (
+          <Animated.View
+            style={[
+              styles.section,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Popular Books
+                Popular Listings
               </Text>
               <TouchableOpacity onPress={handleSeeAllListings}>
                 <Text style={[styles.seeAllText, { color: BookLoopColors.burntOrange }]}>
@@ -488,13 +566,21 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalScroll}
             >
-              {popularBooks.map((book) => renderPopularBook(book))}
+              {popularListings.map((listing) => renderPopularListing(listing))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Nearby Listings Section */}
-        <View style={styles.section}>
+        {/* Nearby Listings Section - Animated */}
+        <Animated.View
+          style={[
+            styles.section,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Books Near You
@@ -539,7 +625,7 @@ export default function HomeScreen() {
               </View>
             </GlassCard>
           )}
-        </View>
+        </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -570,52 +656,48 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing['3xl'],
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  header: {
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.xs,
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
   avatarContainer: {
-    marginRight: Spacing.sm,
+    // Avatar takes up left side
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   avatarText: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.bold,
   },
-  greetingContainer: {
+  spacer: {
     flex: 1,
   },
-  greetingText: {
-    fontSize: Typography.fontSize['2xl'],
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    marginBottom: 2,
+  actionIcons: {
+    flexDirection: 'row',
+    gap: Spacing.md,
   },
-  subGreeting: {
-    fontSize: Typography.fontSize.sm,
-    fontFamily: Typography.fontFamily.body,
+  iconButton: {
+    // Individual icon button wrapper
   },
-  notificationButton: {
-    marginLeft: Spacing.xs,
-  },
-  notificationIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -635,6 +717,19 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: BookLoopColors.error,
+  },
+  greetingSection: {
+    marginTop: Spacing.xs,
+  },
+  greetingText: {
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.heading,
+    marginBottom: 4,
+  },
+  subGreeting: {
+    fontSize: Typography.fontSize.sm,
+    fontFamily: Typography.fontFamily.body,
   },
   statsContainer: {
     marginBottom: Spacing.xl,
@@ -769,6 +864,11 @@ const styles = StyleSheet.create({
   },
   bookAuthor: {
     fontSize: Typography.fontSize.xs,
+  },
+  bookDistance: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    marginTop: Spacing.xs,
   },
   listingsGrid: {
     gap: Spacing.md,
