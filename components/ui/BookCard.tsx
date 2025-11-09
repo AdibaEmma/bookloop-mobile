@@ -38,6 +38,8 @@ interface BookCardProps {
   listingType: 'exchange' | 'donate' | 'borrow';
   distance?: number; // in meters
   onPress: () => void;
+  onTypePress?: () => void; // Optional callback for listing type interaction
+  variant?: 'default' | 'compact'; // Size variant
 }
 
 export function BookCard({
@@ -48,9 +50,16 @@ export function BookCard({
   listingType,
   distance,
   onPress,
+  onTypePress,
+  variant = 'default',
 }: BookCardProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+
+  // Determine dimensions based on variant
+  const coverWidth = variant === 'compact' ? 60 : 80;
+  const coverHeight = variant === 'compact' ? 90 : 120;
+  const iconSize = variant === 'compact' ? 24 : 32;
 
   const conditionLabels = {
     new: 'New',
@@ -90,12 +99,19 @@ export function BookCard({
             {coverImage ? (
               <Image
                 source={{ uri: coverImage }}
-                style={styles.cover}
+                style={[styles.cover, { width: coverWidth, height: coverHeight }]}
                 resizeMode="cover"
               />
             ) : (
-              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surface }]}>
-                <Ionicons name="book" size={32} color={colors.textSecondary} />
+              <View style={[
+                styles.coverPlaceholder,
+                {
+                  backgroundColor: colors.surface,
+                  width: coverWidth,
+                  height: coverHeight
+                }
+              ]}>
+                <Ionicons name="book" size={iconSize} color={colors.textSecondary} />
               </View>
             )}
           </View>
@@ -135,18 +151,37 @@ export function BookCard({
               </View>
 
               {/* Listing Type */}
-              <View style={styles.typeContainer}>
-                <Ionicons
-                  name={listingTypeIcons[listingType]}
-                  size={14}
-                  color={colors.primary}
-                />
-                <Text
-                  style={[styles.typeText, { color: colors.primary }]}
+              {onTypePress ? (
+                <TouchableOpacity
+                  style={styles.typeContainer}
+                  onPress={onTypePress}
+                  activeOpacity={0.7}
                 >
-                  {listingType}
-                </Text>
-              </View>
+                  <Ionicons
+                    name={listingTypeIcons[listingType]}
+                    size={14}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.typeText, { color: colors.primary }]}
+                  >
+                    {listingType}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.typeContainer}>
+                  <Ionicons
+                    name={listingTypeIcons[listingType]}
+                    size={14}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.typeText, { color: colors.primary }]}
+                  >
+                    {listingType}
+                  </Text>
+                </View>
+              )}
 
               {/* Distance */}
               {distance !== undefined && (
@@ -182,13 +217,9 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   cover: {
-    width: 80,
-    height: 120,
     borderRadius: BorderRadius.md,
   },
   coverPlaceholder: {
-    width: 80,
-    height: 120,
     borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',

@@ -24,24 +24,28 @@ import {
   RefreshControl,
   ActionSheetIOS,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton, BookCard } from '@/components/ui';
+import { GlassCard, GlassButton, BookCard, GlassModal } from '@/components/ui';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Colors,
   Typography,
   Spacing,
   BookLoopColors,
+  BorderRadius,
 } from '@/constants/theme';
 
 type StatusFilter = 'all' | 'available' | 'pending' | 'exchanged' | 'unavailable';
 
 export default function MyListingsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -50,6 +54,10 @@ export default function MyListingsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // Modal states
+  const [viewModalVisible, setViewModalVisible] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
 
   const statusFilters: Array<{
     value: StatusFilter;
@@ -180,7 +188,8 @@ export default function MyListingsScreen() {
   const handleOptionSelected = async (listing: Listing, index: number) => {
     switch (index) {
       case 0: // View
-        handleListingPress(listing);
+        setSelectedListing(listing);
+        setViewModalVisible(true);
         break;
 
       case 1: // Edit
@@ -202,6 +211,7 @@ export default function MyListingsScreen() {
         break;
     }
   };
+
 
   /**
    * Toggle listing availability
@@ -269,10 +279,11 @@ export default function MyListingsScreen() {
       <BookCard
         title={item.book.title}
         author={item.book.author}
-        coverImage={item.book.coverImageUrl}
+        coverImage={item.book.coverImage}
         condition={item.condition}
         listingType={item.listingType}
         onPress={() => handleListingPress(item)}
+        variant="compact"
       />
 
       {/* Status Badge */}
@@ -344,13 +355,106 @@ export default function MyListingsScreen() {
     </View>
   );
 
+
+  /**
+   * Render view listing modal
+   */
+  const renderViewModal = () => {
+    if (!selectedListing) return null;
+
+    return (
+      <GlassModal
+        visible={viewModalVisible}
+        onClose={() => setViewModalVisible(false)}
+        title={selectedListing.book.title}
+        height="auto"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.modalContent}>
+            {/* Book Info */}
+            <View style={styles.modalSection}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                Author
+              </Text>
+              <Text style={[styles.modalValue, { color: colors.text }]}>
+                {selectedListing.book.author}
+              </Text>
+            </View>
+
+            {/* Condition */}
+            <View style={styles.modalSection}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                Condition
+              </Text>
+              <Text style={[styles.modalValue, { color: colors.text }]}>
+                {selectedListing.condition?.replace('_', ' ') || 'N/A'}
+              </Text>
+            </View>
+
+            {/* Type */}
+            <View style={styles.modalSection}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                Listing Type
+              </Text>
+              <Text style={[styles.modalValue, { color: colors.text }]}>
+                {selectedListing.listingType}
+              </Text>
+            </View>
+
+            {/* Description */}
+            {selectedListing.description && (
+              <View style={styles.modalSection}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  Description
+                </Text>
+                <Text style={[styles.modalValue, { color: colors.text }]}>
+                  {selectedListing.description}
+                </Text>
+              </View>
+            )}
+
+            {/* Status */}
+            <View style={styles.modalSection}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                Status
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: getStatusColor(selectedListing.status),
+                    alignSelf: 'flex-start',
+                  },
+                ]}
+              >
+                <Text style={styles.statusText}>
+                  {selectedListing.status.charAt(0).toUpperCase() + selectedListing.status.slice(1)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Action Button */}
+            <GlassButton
+              title="Close"
+              onPress={() => setViewModalVisible(false)}
+              variant="secondary"
+              size="md"
+              style={{ marginTop: Spacing.lg }}
+            />
+          </View>
+        </ScrollView>
+      </GlassModal>
+    );
+  };
+
+
   /**
    * Render header with filters
    */
   const renderHeader = () => (
     <View style={styles.header}>
       {/* Title */}
-      <Text style={[styles.title, { color: colors.text }]}>My Books</Text>
+      <Text style={[styles.title, { color: colors.text }]}>My Listings</Text>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
@@ -460,6 +564,9 @@ export default function MyListingsScreen() {
           <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       )}
+
+      {/* Modals */}
+      {renderViewModal()}
     </View>
   );
 }
@@ -584,7 +691,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 24,
     right: Spacing.lg,
     width: 56,
     height: 56,
@@ -596,5 +703,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  modalContent: {
+    paddingBottom: Spacing.xl,
+  },
+  modalSection: {
+    marginBottom: Spacing.lg,
+  },
+  modalLabel: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalValue: {
+    fontSize: Typography.fontSize.base,
+    textTransform: 'capitalize',
   },
 });
