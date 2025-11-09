@@ -38,7 +38,6 @@ import {
   Typography,
   Spacing,
   BookLoopColors,
-  BorderRadius,
 } from '@/constants/theme';
 
 type StatusFilter = 'all' | 'available' | 'pending' | 'exchanged' | 'unavailable';
