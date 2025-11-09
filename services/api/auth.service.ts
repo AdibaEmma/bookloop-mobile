@@ -111,8 +111,9 @@ export const authService = {
     });
 
     // Store tokens (backend returns tokens nested in 'tokens' object)
-    await TokenManager.setAccessToken(response.data.tokens.access_token);
-    await TokenManager.setRefreshToken(response.data.tokens.refresh_token);
+    // Note: response.data is already transformed to camelCase by client interceptor
+    await TokenManager.setAccessToken(response.data.tokens.accessToken);
+    await TokenManager.setRefreshToken(response.data.tokens.refreshToken);
 
     // Verify tokens were saved
     const savedAccessToken = await TokenManager.getAccessToken();
@@ -123,13 +124,14 @@ export const authService = {
     });
 
     // Transform backend user data to match mobile User interface
+    // Note: response.data is already transformed to camelCase by client interceptor
     const user: User = {
-      id: response.data.user_id,
+      id: response.data.userId,
       email: response.data.email,
       phone: response.data.phone,
-      firstName: response.data.first_name,
-      lastName: response.data.last_name,
-      avatarUrl: response.data.profile_picture,
+      firstName: response.data.firstName,
+      lastName: response.data.lastName,
+      avatarUrl: response.data.profilePicture,
       karma: 0,
       subscriptionTier: 'free',
       createdAt: new Date().toISOString(),
@@ -150,18 +152,19 @@ export const authService = {
 
     // If password was provided and login successful, response includes tokens
     if (response.data.tokens) {
-      // Store tokens
-      await TokenManager.setAccessToken(response.data.tokens.access_token);
-      await TokenManager.setRefreshToken(response.data.tokens.refresh_token);
+      // Store tokens (already transformed to camelCase by client interceptor)
+      await TokenManager.setAccessToken(response.data.tokens.accessToken);
+      await TokenManager.setRefreshToken(response.data.tokens.refreshToken);
 
       // Transform and store user data
+      // Note: response.data is already transformed to camelCase by client interceptor
       const user: User = {
-        id: response.data.user_id,
+        id: response.data.userId,
         email: response.data.email,
         phone: response.data.phone,
-        firstName: response.data.first_name,
-        lastName: response.data.last_name,
-        avatarUrl: response.data.profile_picture,
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        avatarUrl: response.data.profilePicture,
         karma: 0,
         subscriptionTier: 'free',
         createdAt: new Date().toISOString(),
@@ -198,19 +201,20 @@ export const authService = {
     const response: AxiosResponse<any> = await apiClient.get('/auth/me');
 
     // Transform backend response to mobile User interface
+    // Note: response.data is already transformed to camelCase by client interceptor
     const user: User = {
       id: response.data.id,
       email: response.data.email,
       phone: response.data.phone,
-      firstName: response.data.first_name,
-      lastName: response.data.last_name,
-      avatarUrl: response.data.profile_picture,
+      firstName: response.data.firstName,
+      lastName: response.data.lastName,
+      avatarUrl: response.data.profilePicture,
       bio: response.data.bio,
       karma: 0, // TODO: Add karma field to backend
-      subscriptionTier: response.data.subscription_tier || 'free',
+      subscriptionTier: response.data.subscriptionTier || 'free',
       location: response.data.location,
-      createdAt: response.data.created_at,
-      updatedAt: response.data.updated_at,
+      createdAt: response.data.createdAt,
+      updatedAt: response.data.updatedAt,
     };
 
     // Update stored user data
@@ -234,10 +238,10 @@ export const authService = {
       refresh_token: refreshToken,
     });
 
-    // Store new tokens
-    await TokenManager.setAccessToken(response.data.access_token);
-    if (response.data.refresh_token) {
-      await TokenManager.setRefreshToken(response.data.refresh_token);
+    // Store new tokens (already transformed to camelCase by client interceptor)
+    await TokenManager.setAccessToken(response.data.accessToken);
+    if (response.data.refreshToken) {
+      await TokenManager.setRefreshToken(response.data.refreshToken);
     }
 
     return response.data;
