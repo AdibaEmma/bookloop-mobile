@@ -1,10 +1,15 @@
 /**
  * Toast Utility
  *
- * Wrapper around react-native-toast-message for consistent toast notifications
+ * Wrapper around custom BookLoop Alert system for consistent notifications
  */
 
-import Toast from 'react-native-toast-message';
+import {
+  showSuccessAlert,
+  showErrorAlert,
+  showWarningAlert,
+  showInfoAlert,
+} from '@/components/ui/AlertManager';
 
 export interface ToastOptions {
   title?: string;
@@ -21,13 +26,14 @@ export const showSuccessToast = (options: ToastOptions | string): void => {
     ? { message: options }
     : options;
 
-  Toast.show({
-    type: 'success',
-    text1: config.title || 'Success',
-    text2: config.message,
-    visibilityTime: config.duration || 3000,
-    position: config.position || 'top',
-  });
+  showSuccessAlert(
+    config.message,
+    config.title,
+    {
+      duration: config.duration || 3000,
+      position: config.position || 'top',
+    }
+  );
 };
 
 /**
@@ -38,13 +44,14 @@ export const showErrorToast = (options: ToastOptions | string): void => {
     ? { message: options }
     : options;
 
-  Toast.show({
-    type: 'error',
-    text1: config.title || 'Error',
-    text2: config.message,
-    visibilityTime: config.duration || 4000,
-    position: config.position || 'top',
-  });
+  showErrorAlert(
+    config.message,
+    config.title,
+    {
+      duration: config.duration || 4000,
+      position: config.position || 'top',
+    }
+  );
 };
 
 /**
@@ -55,13 +62,14 @@ export const showInfoToast = (options: ToastOptions | string): void => {
     ? { message: options }
     : options;
 
-  Toast.show({
-    type: 'info',
-    text1: config.title || 'Info',
-    text2: config.message,
-    visibilityTime: config.duration || 3000,
-    position: config.position || 'top',
-  });
+  showInfoAlert(
+    config.message,
+    config.title,
+    {
+      duration: config.duration || 3000,
+      position: config.position || 'top',
+    }
+  );
 };
 
 /**
@@ -72,18 +80,19 @@ export const showWarningToast = (options: ToastOptions | string): void => {
     ? { message: options }
     : options;
 
-  Toast.show({
-    type: 'error',
-    text1: config.title || 'Warning',
-    text2: config.message,
-    visibilityTime: config.duration || 3500,
-    position: config.position || 'top',
-  });
+  showWarningAlert(
+    config.message,
+    config.title,
+    {
+      duration: config.duration || 3500,
+      position: config.position || 'top',
+    }
+  );
 };
 
 /**
- * Hide all toasts
+ * Hide all toasts (deprecated - alerts auto-hide)
  */
 export const hideToast = (): void => {
-  Toast.hide();
+  // Alerts auto-hide, this is kept for compatibility
 };

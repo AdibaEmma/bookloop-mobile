@@ -285,7 +285,7 @@ export default function ExploreScreen() {
       <BookCard
         title={item.book.title}
         author={item.book.author}
-        coverImage={item.book.coverImageUrl}
+        coverImage={item.book.coverImage}
         condition={item.condition}
         listingType={item.listingType}
         distance={item.distance}

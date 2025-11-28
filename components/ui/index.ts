@@ -16,3 +16,7 @@ export { GlassModal } from './GlassModal';
 export { GlassSearchBar } from './GlassSearchBar';
 export { BookCard } from './BookCard';
 export { Avatar } from './Avatar';
+export { SplashScreen } from './SplashScreen';
+export { Alert } from './Alert';
+export { AlertManager } from './AlertManager';
+export type { AlertType, AlertConfig } from './Alert';

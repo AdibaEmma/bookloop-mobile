@@ -280,7 +280,7 @@ export default function ExchangeRequestScreen() {
             <View style={styles.bookInfo}>
               <Image
                 source={{
-                  uri: listing.book.coverImageUrl || 'https://via.placeholder.com/80x120',
+                  uri: listing.book.coverImage || 'https://via.placeholder.com/80x120',
                 }}
                 style={styles.bookCover}
               />

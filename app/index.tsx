@@ -7,21 +7,33 @@
  * - Show main app for authenticated users
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookLoopColors } from '@/constants/theme';
+import { SplashScreen } from '@/components/ui/SplashScreen';
 
 export default function Index() {
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, isLoading } = useAuth();
+  const [minSplashTimeElapsed, setMinSplashTimeElapsed] = useState(false);
+
+  // Ensure splash screen shows for minimum duration (animation time)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinSplashTimeElapsed(true);
+    }, 4500); // Match the animation duration
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    // Only proceed with routing when:
+    // 1. Auth loading is complete
+    // 2. Minimum splash time has elapsed
+    if (isLoading || !minSplashTimeElapsed) return;
 
     const checkInitialRoute = async () => {
       try {
@@ -49,8 +61,8 @@ export default function Index() {
         } else {
           // User is not logged in
           if (!inAuthGroup) {
-            // Redirect unauthenticated users to auth screens
-            router.replace('/(auth)/welcome');
+            // Redirect unauthenticated users to login screen
+            router.replace('/(auth)/login');
           }
         }
       } catch (error) {
@@ -61,24 +73,25 @@ export default function Index() {
     };
 
     checkInitialRoute();
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, minSplashTimeElapsed, segments]);
 
-  // Show loading screen while checking auth status
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[BookLoopColors.cream, BookLoopColors.lightPeach]}
-        style={StyleSheet.absoluteFillObject}
+  // Show beautiful splash screen while checking auth status and loading data
+  if (isLoading || !minSplashTimeElapsed) {
+    return (
+      <SplashScreen
+        onAnimationComplete={() => {
+          // Animation complete callback - handled by timeout above
+        }}
       />
-      <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
-    </View>
-  );
+    );
+  }
+
+  // Fallback view (should rarely be seen)
+  return <View style={styles.container} />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

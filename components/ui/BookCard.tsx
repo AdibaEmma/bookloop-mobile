@@ -30,6 +30,18 @@ import {
  * - Tap to view details
  */
 
+interface ExchangePreference {
+  id: string;
+  bookId: string;
+  book: {
+    id: string;
+    title: string;
+    author: string;
+    coverImage?: string;
+  };
+  priority: number;
+}
+
 interface BookCardProps {
   title: string;
   author: string;
@@ -40,6 +52,9 @@ interface BookCardProps {
   onPress: () => void;
   onTypePress?: () => void; // Optional callback for listing type interaction
   variant?: 'default' | 'compact'; // Size variant
+  exchangePreferences?: ExchangePreference[]; // Books wanted in exchange
+  onInitiateExchange?: () => void; // Callback when user wants to initiate exchange
+  isOwnListing?: boolean; // Whether this listing belongs to current user
 }
 
 export function BookCard({
@@ -52,6 +67,9 @@ export function BookCard({
   onPress,
   onTypePress,
   variant = 'default',
+  exchangePreferences,
+  onInitiateExchange,
+  isOwnListing = false,
 }: BookCardProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -202,6 +220,47 @@ export function BookCard({
                 </View>
               )}
             </View>
+
+            {/* Exchange Preferences (only for exchange type listings) */}
+            {listingType === 'exchange' && exchangePreferences && exchangePreferences.length > 0 && (
+              <View style={styles.preferencesContainer}>
+                <Text style={[styles.preferencesLabel, { color: colors.textSecondary }]}>
+                  Wants in exchange:
+                </Text>
+                <View style={styles.preferencesList}>
+                  {exchangePreferences.slice(0, 2).map((pref, index) => (
+                    <View key={pref.id} style={styles.preferenceChip}>
+                      <Text style={[styles.preferenceNumber, { color: colors.primary }]}>
+                        {pref.priority}.
+                      </Text>
+                      <Text style={[styles.preferenceTitle, { color: colors.text }]} numberOfLines={1}>
+                        {pref.book.title}
+                      </Text>
+                    </View>
+                  ))}
+                  {exchangePreferences.length > 2 && (
+                    <Text style={[styles.moreText, { color: colors.textSecondary }]}>
+                      +{exchangePreferences.length - 2} more
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Initiate Exchange Button (for exchange type, not own listing) */}
+            {listingType === 'exchange' && !isOwnListing && onInitiateExchange && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onInitiateExchange();
+                }}
+                style={styles.initiateButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="swap-horizontal" size={16} color="#FFFFFF" />
+                <Text style={styles.initiateButtonText}>Initiate Exchange</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </GlassCard>
@@ -267,5 +326,53 @@ const styles = StyleSheet.create({
   },
   distanceText: {
     fontSize: Typography.fontSize.xs,
+  },
+  preferencesContainer: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  preferencesLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: Spacing.xs / 2,
+  },
+  preferencesList: {
+    gap: Spacing.xs / 2,
+  },
+  preferenceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs / 2,
+  },
+  preferenceNumber: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  preferenceTitle: {
+    fontSize: 11,
+    flex: 1,
+  },
+  moreText: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  initiateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: '#E86B3E', // BookLoopColors.burntOrange
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.sm,
+  },
+  initiateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

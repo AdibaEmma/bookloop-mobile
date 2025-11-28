@@ -7,8 +7,10 @@ import {
   ViewStyle,
   TextStyle,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   Colors,
@@ -16,6 +18,7 @@ import {
   BorderRadius,
   Spacing,
   GlassEffect,
+  BookLoopColors,
 } from '@/constants/theme';
 
 /**
@@ -36,6 +39,8 @@ interface GlassInputProps {
   label?: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
+  onSubmitEditing?: () => void;
   placeholder?: string;
   error?: string;
   secureTextEntry?: boolean;
@@ -44,8 +49,10 @@ interface GlassInputProps {
   maxLength?: number;
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  icon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send';
+  leftIcon?: keyof typeof Ionicons.glyphMap;
+  rightIcon?: keyof typeof Ionicons.glyphMap;
+  onRightIconPress?: () => void;
   disabled?: boolean;
   showCharCount?: boolean;
   style?: ViewStyle;
@@ -55,6 +62,8 @@ export function GlassInput({
   label,
   value,
   onChangeText,
+  onBlur,
+  onSubmitEditing,
   placeholder,
   error,
   secureTextEntry = false,
@@ -63,8 +72,10 @@ export function GlassInput({
   maxLength,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
-  icon,
+  returnKeyType,
+  leftIcon,
   rightIcon,
+  onRightIconPress,
   disabled = false,
   showCharCount = false,
   style,
@@ -123,7 +134,11 @@ export function GlassInput({
 
       <InputContainer {...blurProps} style={[containerStyle, styles.container]}>
         <View style={inputContainerStyle}>
-          {icon && <View style={styles.iconLeft}>{icon}</View>}
+          {leftIcon && (
+            <View style={styles.iconLeft}>
+              <Ionicons name={leftIcon} size={20} color={colors.textSecondary} />
+            </View>
+          )}
 
           <TextInput
             value={value}
@@ -136,13 +151,26 @@ export function GlassInput({
             maxLength={maxLength}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
             editable={!disabled}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onBlur={() => {
+              setIsFocused(false);
+              onBlur?.();
+            }}
             style={inputStyle}
           />
 
-          {rightIcon && <View style={styles.iconRight}>{rightIcon}</View>}
+          {rightIcon && (
+            <TouchableOpacity
+              onPress={onRightIconPress}
+              style={styles.iconRight}
+              disabled={!onRightIconPress}
+            >
+              <Ionicons name={rightIcon} size={20} color={BookLoopColors.burntOrange} />
+            </TouchableOpacity>
+          )}
         </View>
       </InputContainer>
 

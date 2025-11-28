@@ -23,6 +23,28 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 /**
+ * Convert snake_case keys to camelCase recursively
+ */
+const toCamelCase = (str: string): string => {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+};
+
+const transformKeys = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(transformKeys);
+
+  const transformed: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const camelKey = toCamelCase(key);
+      transformed[camelKey] = transformKeys(obj[key]);
+    }
+  }
+  return transformed;
+};
+
+/**
  * Get API Base URL from environment
  * Falls back to platform-specific defaults if not set
  */
@@ -181,11 +203,12 @@ apiClient.interceptors.response.use(
 
     // Extract result from BookLoop API response format
     // { status: true, path: "...", statusCode: 200, result: {...} }
-    if (response.data?.result !== undefined) {
-      return { ...response, data: response.data.result };
-    }
+    let data = response.data?.result !== undefined ? response.data.result : response.data;
 
-    return response;
+    // Transform snake_case to camelCase
+    data = transformKeys(data);
+
+    return { ...response, data };
   },
   async (error: AxiosError) => {
     const originalRequest: any = error.config;
@@ -272,8 +295,37 @@ apiClient.interceptors.response.use(
 
     // Log error in development
     if (__DEV__) {
-      console.error('[API] Error:', error.response?.status, error.config?.url);
-      console.error('[API] Error Data:', error.response?.data);
+      if (error.response) {
+        // Server responded with error status
+        console.error('[API] Error:', error.response.status, error.config?.url);
+        console.error('[API] Error Data:', error.response.data);
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('[API] Network Error - No response received');
+        console.error('[API] Request URL:', error.config?.url);
+        console.error('[API] Request Details:', {
+          method: error.config?.method,
+          baseURL: error.config?.baseURL,
+          url: error.config?.url,
+        });
+        console.error('[API] Error Message:', error.message);
+      } else {
+        // Something else happened
+        console.error('[API] Error:', error.message);
+      }
+    }
+
+    // Enhance error message for network errors
+    if (!error.response && error.request) {
+      return Promise.reject(
+        new Error(
+          `Network error: Cannot reach server at ${API_BASE_URL}. ` +
+            `Please check:\n` +
+            `1. API server is running\n` +
+            `2. API_BASE_URL is correct in .env\n` +
+            `3. Device is on same network (if using local IP)`,
+        ),
+      );
     }
 
     return Promise.reject(error);

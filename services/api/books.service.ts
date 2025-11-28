@@ -22,7 +22,7 @@ interface Book {
   publisher?: string;
   publishedDate?: string;
   description?: string;
-  coverImageUrl?: string;
+  coverImage?: string;
   categories?: string[];
   pageCount?: number;
   language?: string;
@@ -46,7 +46,7 @@ interface CreateBookDto {
   publisher?: string;
   publishedDate?: string;
   description?: string;
-  coverImageUrl?: string;
+  coverImage?: string;
   categories?: string[];
   pageCount?: number;
   language?: string;
@@ -62,7 +62,7 @@ interface UpdateBookDto {
   publisher?: string;
   publishedDate?: string;
   description?: string;
-  coverImageUrl?: string;
+  coverImage?: string;
   categories?: string[];
   pageCount?: number;
   language?: string;
@@ -90,11 +90,28 @@ export const booksService = {
   },
 
   /**
-   * Search book by ISBN from Google Books
+   * Search book by ISBN (creates book from Google Books if not exists)
    */
-  async searchByISBN(isbn: string): Promise<Book> {
-    const response: AxiosResponse<Book> = await apiClient.get(`/books/isbn/${isbn}`);
-    return response.data;
+  async searchByISBN(isbn: string): Promise<Book | null> {
+    try {
+      // First, try to search in local database
+      const searchResponse = await apiClient.get('/books', {
+        params: { query: isbn, limit: 1 },
+      });
+
+      if (searchResponse.data.books && searchResponse.data.books.length > 0) {
+        return searchResponse.data.books[0];
+      }
+
+      // If not found locally, create from ISBN (fetches from Google Books)
+      const response: AxiosResponse<Book> = await apiClient.post('/books/isbn', { isbn });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -151,6 +168,14 @@ export const booksService = {
    */
   async getCategories(): Promise<string[]> {
     const response: AxiosResponse<string[]> = await apiClient.get('/books/categories');
+    return response.data;
+  },
+
+  /**
+   * Get user's books (from their listings)
+   */
+  async getMyBooks(): Promise<Book[]> {
+    const response: AxiosResponse<Book[]> = await apiClient.get('/books/my-books');
     return response.data;
   },
 };

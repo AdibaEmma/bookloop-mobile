@@ -165,9 +165,9 @@ export default function SubscriptionScreen() {
   const getPlanBadgeColor = (tier: string) => {
     switch (tier) {
       case 'premium':
-        return BookLoopColors.burntOrange;
+        return BookLoopColors.mutedGold;
       case 'basic':
-        return BookLoopColors.softTeal;
+        return BookLoopColors.teal;
       default:
         return colors.textSecondary;
     }
@@ -230,7 +230,7 @@ export default function SubscriptionScreen() {
         <View style={styles.featuresContainer}>
           {plan.features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={18} color={BookLoopColors.softTeal} />
+              <Ionicons name="checkmark-circle" size={18} color={BookLoopColors.teal} />
               <Text style={[styles.featureText, { color: colors.text }]}>
                 {feature}
               </Text>

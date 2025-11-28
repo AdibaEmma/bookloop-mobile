@@ -21,11 +21,24 @@ import { Platform } from 'react-native';
 
 /**
  * BookLoop Color Palette
+ *
+ * Design Document Reference:
+ * - Coffee Brown: #8B5E3C (primary actions, headers)
+ * - Muted Gold: #FFD580 (accents, highlights, badges)
+ * - Parchment Beige: #F4E1C1 (backgrounds, cards)
+ * - Deep Espresso: #4A3528 (text primary)
+ * - Soft Latte: #D4B896 (text secondary)
  */
 export const BookLoopColors = {
-  // Primary Colors
+  // Primary Colors (from design doc)
   coffeeBrown: '#8B5E3C',
-  cream: '#F5E6D3',
+  mutedGold: '#FFD580',
+  parchmentBeige: '#F4E1C1',
+  deepEspresso: '#4A3528',
+  softLatte: '#D4B896',
+
+  // Secondary/Legacy Colors
+  cream: '#FFF8F0', // White alternative
   burntOrange: '#D97941',
   deepBrown: '#2C1810',
 
@@ -36,17 +49,27 @@ export const BookLoopColors = {
   darkGray: '#4A4238',
   charcoal: '#1A1A1A',
 
+  // Listing Type Colors
+  teal: '#16B8AC',
+  sage: '#87A96B',
+
   // Semantic Colors
   success: '#4CAF50',
-  warning: '#FFA726',
-  error: '#EF5350',
-  info: '#42A5F5',
+  warning: '#FF9800', // Warning Amber from design doc
+  error: '#F44336', // Error Red from design doc
+  info: '#2196F3', // Info Blue from design doc
+
+  // Badge Colors
+  verifiedBadge: '#FFD580', // Gold for verified users
+  boostedListing: '#FF9800', // Amber glow for boosted
+  premiumFeature: '#8B5E3C', // Brown for premium
 
   // Glass Colors (with alpha for glassmorphism)
-  glassLight: 'rgba(245, 230, 211, 0.7)', // Cream with transparency
+  glassLight: 'rgba(244, 225, 193, 0.7)', // Parchment Beige with transparency
   glassDark: 'rgba(44, 24, 16, 0.7)', // Deep brown with transparency
   glassWhite: 'rgba(255, 255, 255, 0.2)',
   glassBlack: 'rgba(0, 0, 0, 0.3)',
+  glassGold: 'rgba(255, 213, 128, 0.3)', // Muted gold with transparency
 };
 
 /**
@@ -54,28 +77,31 @@ export const BookLoopColors = {
  */
 export const Colors = {
   light: {
-    // Text
-    text: BookLoopColors.deepBrown,
-    textSecondary: BookLoopColors.warmGray,
+    // Text (using design doc colors)
+    text: BookLoopColors.deepEspresso,
+    textSecondary: BookLoopColors.softLatte,
     textInverse: BookLoopColors.cream,
 
-    // Backgrounds
-    background: BookLoopColors.cream,
-    backgroundSecondary: '#FFFFFF',
+    // Backgrounds (using design doc colors)
+    background: BookLoopColors.parchmentBeige,
+    backgroundSecondary: BookLoopColors.cream,
     surface: BookLoopColors.lightGray,
+    card: BookLoopColors.cream,
 
     // Primary & Actions
     primary: BookLoopColors.coffeeBrown,
     primaryLight: '#A67C52',
     primaryDark: '#6B4428',
-    accent: BookLoopColors.burntOrange,
+    accent: BookLoopColors.mutedGold,
+    accentSecondary: BookLoopColors.burntOrange,
 
     // Glass Effect
     glass: BookLoopColors.glassLight,
     glassBorder: 'rgba(139, 94, 60, 0.2)',
+    glassGold: BookLoopColors.glassGold,
 
     // UI Elements
-    border: '#D4CAC0',
+    border: BookLoopColors.softLatte,
     divider: '#E8E3DE',
     shadow: 'rgba(44, 24, 16, 0.1)',
 
@@ -85,6 +111,10 @@ export const Colors = {
     tabIconDefault: BookLoopColors.warmGray,
     tabIconSelected: BookLoopColors.coffeeBrown,
     tint: BookLoopColors.coffeeBrown,
+
+    // Badges
+    verified: BookLoopColors.verifiedBadge,
+    boosted: BookLoopColors.boostedListing,
 
     // Semantic
     success: BookLoopColors.success,
@@ -102,16 +132,19 @@ export const Colors = {
     background: '#1A1410',
     backgroundSecondary: BookLoopColors.deepBrown,
     surface: '#3D2E24',
+    card: '#2C1F18',
 
     // Primary & Actions
     primary: BookLoopColors.burntOrange,
     primaryLight: '#E89A5D',
     primaryDark: '#B85E2D',
-    accent: BookLoopColors.coffeeBrown,
+    accent: BookLoopColors.mutedGold,
+    accentSecondary: BookLoopColors.coffeeBrown,
 
     // Glass Effect
     glass: BookLoopColors.glassDark,
     glassBorder: 'rgba(217, 121, 65, 0.3)',
+    glassGold: BookLoopColors.glassGold,
 
     // UI Elements
     border: '#4A4238',
@@ -124,6 +157,10 @@ export const Colors = {
     tabIconDefault: BookLoopColors.warmGray,
     tabIconSelected: BookLoopColors.burntOrange,
     tint: BookLoopColors.burntOrange,
+
+    // Badges
+    verified: BookLoopColors.verifiedBadge,
+    boosted: BookLoopColors.boostedListing,
 
     // Semantic
     success: BookLoopColors.success,

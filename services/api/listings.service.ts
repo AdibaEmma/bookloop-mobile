@@ -31,12 +31,13 @@ interface Listing {
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   description?: string;
   photos?: string[];
-  status: 'available' | 'pending' | 'exchanged' | 'unavailable';
+  status: 'draft' | 'available' | 'reserved' | 'exchanged' | 'expired' | 'cancelled';
   location?: {
     type: 'Point';
     coordinates: [number, number];
   };
   distance?: number; // in meters (only in search results)
+  exchangePreferences?: ExchangePreference[]; // Books wanted in exchange
   createdAt: string;
   updatedAt: string;
 }
@@ -65,7 +66,13 @@ interface CreateListingDto {
   listingType: 'exchange' | 'donate' | 'borrow';
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   description?: string;
-  photos?: string[];
+  latitude: number;
+  longitude: number;
+  address: string;
+  city: string;
+  region: string;
+  searchRadiusKm?: number;
+  preferredGenres?: string[];
 }
 
 interface UpdateListingDto {
@@ -73,6 +80,7 @@ interface UpdateListingDto {
   condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   description?: string;
   photos?: string[];
+  status?: 'draft' | 'available' | 'reserved' | 'exchanged' | 'expired' | 'cancelled';
 }
 
 interface PaginatedResponse<T> {
@@ -80,6 +88,15 @@ interface PaginatedResponse<T> {
   total: number;
   limit: number;
   offset: number;
+}
+
+interface ExchangePreference {
+  id: string;
+  listingId: string;
+  bookId: string;
+  book: Book;
+  priority: number;
+  createdAt: string;
 }
 
 /**
@@ -126,7 +143,7 @@ export const listingsService = {
   /**
    * Get current user's listings
    */
-  async getMyListings(status?: 'available' | 'pending' | 'exchanged' | 'unavailable'): Promise<Listing[]> {
+  async getMyListings(status?: 'available' | 'reserved' | 'exchanged' | 'expired' | 'cancelled'): Promise<Listing[]> {
     const response: AxiosResponse<Listing[]> = await apiClient.get('/listings/user/me', {
       params: { status },
     });
@@ -145,7 +162,22 @@ export const listingsService = {
    * Create new listing
    */
   async createListing(data: CreateListingDto): Promise<Listing> {
-    const response: AxiosResponse<Listing> = await apiClient.post('/listings', data);
+    // Transform camelCase to snake_case for backend
+    const payload = {
+      book_id: data.bookId,
+      listing_type: data.listingType,
+      book_condition: data.condition,
+      description: data.description,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      address: data.address,
+      city: data.city,
+      region: data.region,
+      search_radius_km: data.searchRadiusKm || 10,
+      preferred_genres: data.preferredGenres || [],
+    };
+
+    const response: AxiosResponse<Listing> = await apiClient.post('/listings', payload);
     return response.data;
   },
 
@@ -153,7 +185,15 @@ export const listingsService = {
    * Update listing
    */
   async updateListing(id: string, data: UpdateListingDto): Promise<Listing> {
-    const response: AxiosResponse<Listing> = await apiClient.patch(`/listings/${id}`, data);
+    // Transform camelCase to snake_case for backend
+    const payload: any = {};
+    if (data.listingType) payload.listing_type = data.listingType;
+    if (data.condition) payload.book_condition = data.condition;
+    if (data.description !== undefined) payload.description = data.description;
+    if (data.photos) payload.photos = data.photos;
+    if (data.status) payload.status = data.status;
+
+    const response: AxiosResponse<Listing> = await apiClient.patch(`/listings/${id}`, payload);
     return response.data;
   },
 
@@ -168,39 +208,45 @@ export const listingsService = {
    * Mark listing as exchanged
    */
   async markAsExchanged(id: string): Promise<Listing> {
-    const response: AxiosResponse<Listing> = await apiClient.patch(`/listings/${id}/mark-exchanged`);
-    return response.data;
+    return this.updateListing(id, { status: 'exchanged' });
   },
 
   /**
-   * Mark listing as unavailable
+   * Mark listing as unavailable (set to draft)
    */
   async markAsUnavailable(id: string): Promise<Listing> {
-    const response: AxiosResponse<Listing> = await apiClient.patch(`/listings/${id}/mark-unavailable`);
-    return response.data;
+    return this.updateListing(id, { status: 'draft' });
   },
 
   /**
-   * Reactivate listing
+   * Permanently cancel listing (cannot be changed again)
+   */
+  async cancelPermanently(id: string): Promise<Listing> {
+    return this.updateListing(id, { status: 'cancelled' });
+  },
+
+  /**
+   * Reactivate listing (mark as available)
    */
   async reactivateListing(id: string): Promise<Listing> {
-    const response: AxiosResponse<Listing> = await apiClient.patch(`/listings/${id}/reactivate`);
-    return response.data;
+    return this.updateListing(id, { status: 'available' });
   },
 
   /**
-   * Upload listing photo
+   * Upload listing images (after creating listing)
    */
-  async uploadPhoto(file: {
-    uri: string;
-    type: string;
-    name: string;
-  }): Promise<{ url: string }> {
+  async uploadImages(
+    listingId: string,
+    files: Array<{ uri: string; type: string; name: string }>
+  ): Promise<{ photos: string[] }> {
     const formData = new FormData();
-    formData.append('file', file as any);
 
-    const response: AxiosResponse<{ url: string }> = await apiClient.post(
-      '/listings/upload-photo',
+    files.forEach((file) => {
+      formData.append('files', file as any);
+    });
+
+    const response: AxiosResponse<{ photos: string[] }> = await apiClient.post(
+      `/listings/${listingId}/images`,
       formData,
       {
         headers: {
@@ -222,6 +268,65 @@ export const listingsService = {
     const response: AxiosResponse = await apiClient.get('/listings/stats');
     return response.data;
   },
+
+  // ===== Exchange Preferences =====
+
+  /**
+   * Add exchange preference to listing
+   */
+  async addPreference(
+    listingId: string,
+    bookId: string,
+    priority?: number,
+  ): Promise<ExchangePreference> {
+    const payload = {
+      book_id: bookId,
+      priority: priority || 1,
+    };
+    const response: AxiosResponse<ExchangePreference> = await apiClient.post(
+      `/listings/${listingId}/preferences`,
+      payload,
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all preferences for a listing
+   */
+  async getListingPreferences(listingId: string): Promise<ExchangePreference[]> {
+    const response: AxiosResponse<ExchangePreference[]> = await apiClient.get(
+      `/listings/${listingId}/preferences`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Remove preference
+   */
+  async removePreference(preferenceId: string): Promise<void> {
+    await apiClient.delete(`/preferences/${preferenceId}`);
+  },
+
+  /**
+   * Update preference priority
+   */
+  async updatePreferencePriority(
+    preferenceId: string,
+    priority: number,
+  ): Promise<ExchangePreference> {
+    const response: AxiosResponse<ExchangePreference> = await apiClient.patch(
+      `/preferences/${preferenceId}/priority`,
+      { priority },
+    );
+    return response.data;
+  },
+
+  /**
+   * Clear all preferences for a listing
+   */
+  async clearPreferences(listingId: string): Promise<void> {
+    await apiClient.delete(`/listings/${listingId}/preferences`);
+  },
 };
 
 export type {
@@ -230,4 +335,5 @@ export type {
   CreateListingDto,
   UpdateListingDto,
   PaginatedResponse,
+  ExchangePreference,
 };

@@ -48,6 +48,10 @@ export default function LoginScreen() {
     email?: string;
     password?: string;
   }>({});
+  const [touched, setTouched] = useState<{
+    email?: boolean;
+    password?: boolean;
+  }>({});
 
   /**
    * Validate email format
@@ -63,6 +67,76 @@ export default function LoginScreen() {
   const validatePassword = (password: string): boolean => {
     if (!usePasswordLogin) return true; // Password not required for OTP login
     return password.length >= 8;
+  };
+
+  /**
+   * Handle email change with live validation
+   */
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+
+    // Only validate if field has been touched
+    if (touched.email) {
+      if (!value.trim()) {
+        setErrors(prev => ({ ...prev, email: 'Email is required' }));
+      } else if (!validateEmail(value)) {
+        setErrors(prev => ({ ...prev, email: 'Invalid email address' }));
+      } else {
+        setErrors(prev => ({ ...prev, email: undefined }));
+      }
+    }
+  };
+
+  /**
+   * Handle password change with live validation
+   */
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+
+    // Only validate if field has been touched
+    if (touched.password && usePasswordLogin) {
+      if (!value.trim()) {
+        setErrors(prev => ({ ...prev, password: 'Password is required' }));
+      } else if (!validatePassword(value)) {
+        setErrors(prev => ({ ...prev, password: 'Password must be at least 8 characters' }));
+      } else {
+        setErrors(prev => ({ ...prev, password: undefined }));
+      }
+    }
+  };
+
+  /**
+   * Handle field blur to mark as touched
+   */
+  const handleEmailBlur = () => {
+    setTouched(prev => ({ ...prev, email: true }));
+
+    // Validate on blur
+    if (!email.trim()) {
+      setErrors(prev => ({ ...prev, email: 'Email is required' }));
+    } else if (!validateEmail(email)) {
+      setErrors(prev => ({ ...prev, email: 'Invalid email address' }));
+    } else {
+      setErrors(prev => ({ ...prev, email: undefined }));
+    }
+  };
+
+  /**
+   * Handle password blur to mark as touched
+   */
+  const handlePasswordBlur = () => {
+    setTouched(prev => ({ ...prev, password: true }));
+
+    // Validate on blur
+    if (usePasswordLogin) {
+      if (!password.trim()) {
+        setErrors(prev => ({ ...prev, password: 'Password is required' }));
+      } else if (!validatePassword(password)) {
+        setErrors(prev => ({ ...prev, password: 'Password must be at least 8 characters' }));
+      } else {
+        setErrors(prev => ({ ...prev, password: undefined }));
+      }
+    }
   };
 
   /**
@@ -156,7 +230,7 @@ export default function LoginScreen() {
               <GlassButton
                 title=""
                 icon="arrow-back"
-                onPress={() => router.back()}
+                onPress={() => router.push('/(auth)/welcome')}
                 variant="ghost"
                 size="md"
                 style={styles.backButton}
@@ -183,7 +257,8 @@ export default function LoginScreen() {
                 <GlassInput
                   label="Email Address"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
+                  onBlur={handleEmailBlur}
                   placeholder="kwame@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -210,7 +285,8 @@ export default function LoginScreen() {
                   <GlassInput
                     label="Password"
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={handlePasswordChange}
+                    onBlur={handlePasswordBlur}
                     placeholder="Enter your password"
                     secureTextEntry={!showPassword}
                     error={errors.password}

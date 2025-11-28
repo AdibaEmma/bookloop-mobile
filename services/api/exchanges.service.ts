@@ -221,6 +221,27 @@ export const exchangesService = {
     const response: AxiosResponse = await apiClient.get('/exchanges/stats');
     return response.data;
   },
+
+  /**
+   * Generate QR code for handover confirmation
+   */
+  async generateHandoverQR(exchangeId: string): Promise<{ code: string; expiresAt: string }> {
+    const response: AxiosResponse<{ code: string; expiresAt: string }> = await apiClient.post(
+      `/exchanges/${exchangeId}/generate-qr`
+    );
+    return response.data;
+  },
+
+  /**
+   * Confirm handover by scanning QR code
+   */
+  async confirmHandover(exchangeId: string, qrCode: string): Promise<Exchange> {
+    const response: AxiosResponse<Exchange> = await apiClient.post(
+      `/exchanges/${exchangeId}/confirm-handover`,
+      { qrCode }
+    );
+    return response.data;
+  },
 };
 
 export type {

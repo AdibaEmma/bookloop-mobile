@@ -35,7 +35,8 @@ interface OnboardingSlide {
   id: string;
   title: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
+  image?: any;
   color: string;
 }
 
@@ -44,7 +45,7 @@ const slides: OnboardingSlide[] = [
     id: '1',
     title: 'Welcome to BookLoop',
     description: 'Exchange books with readers in your community. Share knowledge, save money, and discover new reads.',
-    icon: 'book',
+    image: require('@/assets/images/bookloop-logo.png'),
     color: BookLoopColors.burntOrange,
   },
   {
@@ -52,7 +53,7 @@ const slides: OnboardingSlide[] = [
     title: 'Find Books Nearby',
     description: 'Browse available books in your area. Connect with local book lovers and arrange safe meetups.',
     icon: 'location',
-    color: BookLoopColors.softTeal,
+    color: BookLoopColors.teal,
   },
   {
     id: '3',
@@ -95,9 +96,21 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={styles.slide}>
-      <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-        <Ionicons name={item.icon} size={80} color={item.color} />
-      </View>
+      {item.image ? (
+        // Logo slide - no circular container, just the logo
+        <View style={styles.logoContainer}>
+          <Image
+            source={item.image}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+      ) : item.icon ? (
+        // Icon slides - keep circular container
+        <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
+          <Ionicons name={item.icon} size={80} color={item.color} />
+        </View>
+      ) : null}
 
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.description}>{item.description}</Text>
@@ -241,6 +254,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing['2xl'],
+  },
+  logoContainer: {
+    width: SCREEN_WIDTH * 0.8,
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing['2xl'],
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: Typography.fontSize['3xl'],

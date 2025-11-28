@@ -370,7 +370,7 @@ export default function UserProfileScreen() {
                   key={listing.id}
                   title={listing.book.title}
                   author={listing.book.author}
-                  coverImage={listing.book.coverImageUrl}
+                  coverImage={listing.book.coverImage}
                   condition={listing.condition}
                   listingType={listing.listingType}
                   onPress={() =>

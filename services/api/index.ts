@@ -24,6 +24,7 @@ export { usersService } from './users.service';
 export { default as notificationsService } from './notifications.service';
 export { default as meetupSpotsService } from './meetup-spots.service';
 export { default as paymentsService } from './payments.service';
+export { whatsappService, WhatsAppTemplates } from './whatsapp.service';
 
 // Export types
 export type {

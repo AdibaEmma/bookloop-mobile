@@ -77,16 +77,11 @@ export default function WelcomeScreen() {
         >
           {/* Logo and Branding */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Ionicons
-                name="book"
-                size={48}
-                color={BookLoopColors.coffeeBrown}
-              />
-            </View>
-            <Text style={[styles.title, { color: colors.text }]}>
-              BookLoop
-            </Text>
+            <Image
+              source={require('@/assets/images/bookloop-banner.png')}
+              style={styles.banner}
+              resizeMode="contain"
+            />
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Ghana's Book Exchange Community
             </Text>
@@ -96,14 +91,11 @@ export default function WelcomeScreen() {
           <View style={styles.heroContainer}>
             <GlassCard variant="lg" padding="xl" blurIntensity={30}>
               <View style={styles.heroContent}>
-                <Ionicons
-                  name="book-outline"
-                  size={120}
-                  color={BookLoopColors.burntOrange}
-                  style={styles.heroIcon}
-                />
                 <Text style={[styles.heroText, { color: colors.text }]}>
                   Your books deserve a second chapter
+                </Text>
+                <Text style={[styles.heroSubtext, { color: colors.textSecondary }]}>
+                  Trade, donate, and discover books in your neighborhood
                 </Text>
               </View>
             </GlassCard>
@@ -190,24 +182,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing['2xl'],
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${BookLoopColors.cream}80`,
-    justifyContent: 'center',
-    alignItems: 'center',
+  banner: {
+    width: width * 0.8,
+    height: width * 0.35,
     marginBottom: Spacing.md,
-  },
-  title: {
-    fontSize: Typography.fontSize['4xl'],
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    marginBottom: Spacing.xs,
   },
   subtitle: {
     fontSize: Typography.fontSize.base,
     fontFamily: Typography.fontFamily.body,
+    textAlign: 'center',
   },
   heroContainer: {
     marginBottom: Spacing['2xl'],
@@ -216,16 +199,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.xl,
   },
-  heroIcon: {
-    marginBottom: Spacing.lg,
-    opacity: 0.9,
-  },
   heroText: {
     fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.medium,
+    fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.literary,
     textAlign: 'center',
     lineHeight: 28,
+    marginBottom: Spacing.sm,
+  },
+  heroSubtext: {
+    fontSize: Typography.fontSize.base,
+    fontFamily: Typography.fontFamily.body,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   features: {
     marginBottom: Spacing['2xl'],

@@ -53,7 +53,7 @@ interface Exchange {
     book: {
       title: string;
       author: string;
-      coverImageUrl?: string;
+      coverImage?: string;
     };
   };
   requester: {
@@ -283,7 +283,7 @@ export default function MyExchangesScreen() {
           <Image
             source={{
               uri:
-                exchange.listing.book.coverImageUrl ||
+                exchange.listing.book.coverImage ||
                 'https://via.placeholder.com/60x90',
             }}
             style={styles.bookCover}

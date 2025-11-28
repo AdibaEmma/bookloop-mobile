@@ -51,7 +51,7 @@ export default function ProfileTab() {
   const loadListings = async () => {
     try {
       setIsLoading(true);
-      const userListings = await listingsService.getUserListings(user!.id);
+      const userListings = await listingsService.getMyListings('available');
       setListings(userListings.slice(0, 4)); // Show first 4
     } catch (error) {
       console.error('Failed to load listings:', error);
@@ -313,7 +313,7 @@ export default function ProfileTab() {
                   <BookCard
                     title={listing.book.title}
                     author={listing.book.author}
-                    coverImage={listing.book.coverImageUrl}
+                    coverImage={listing.book.coverImage}
                     condition={listing.condition}
                     listingType={listing.listingType}
                     onPress={() =>
@@ -329,18 +329,18 @@ export default function ProfileTab() {
             </View>
           </View>
         )}
-      </ScrollView>
 
-      {/* Logout Button - Fixed at Bottom */}
-      <View style={[styles.logoutContainer, { paddingBottom: insets.bottom || Spacing.lg }]}>
-        <GlassButton
-          title="Logout"
-          onPress={handleLogout}
-          variant="ghost"
-          size="lg"
-          icon="log-out-outline"
-        />
-      </View>
+        {/* Logout Button */}
+        <View style={[styles.logoutContainer, { paddingBottom: insets.bottom || Spacing.lg }]}>
+          <GlassButton
+            title="Logout"
+            onPress={handleLogout}
+            variant="ghost"
+            size="lg"
+            icon="log-out-outline"
+          />
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for fixed logout button
+    paddingBottom: Spacing.lg,
   },
   profileHeaderCentered: {
     alignItems: 'center',
@@ -498,12 +498,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   logoutContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    marginTop: Spacing.xl,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    backgroundColor: 'transparent',
   },
 });

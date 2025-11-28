@@ -1,11 +1,11 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Toast from 'react-native-toast-message';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { AlertManager } from '@/components/ui/AlertManager';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -25,8 +25,11 @@ export default function RootLayout() {
           <Stack.Screen name="search" />
           <Stack.Screen name="listing/[id]" />
           <Stack.Screen name="listing/create" />
+          <Stack.Screen name="listing/edit/[id]" />
           <Stack.Screen name="listings/my-listings" />
           <Stack.Screen name="exchange/request" />
+          <Stack.Screen name="exchange/meetup-selector" />
+          <Stack.Screen name="exchange/qr-handover" />
           <Stack.Screen name="exchange/my-exchanges" />
           <Stack.Screen name="exchange/rate/[id]" />
           <Stack.Screen name="profile/[id]" />
@@ -35,7 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
         </Stack>
         <StatusBar style="auto" />
-        <Toast />
+        <AlertManager />
       </ThemeProvider>
     </AuthProvider>
   );

@@ -206,7 +206,7 @@ export default function ListingDetailScreen() {
 
   const photos = listing.photos && listing.photos.length > 0
     ? listing.photos
-    : [listing.book.coverImageUrl].filter(Boolean);
+    : [listing.book.coverImage].filter(Boolean);
 
   return (
     <>
@@ -215,9 +215,19 @@ export default function ListingDetailScreen() {
           title: '',
           headerTransparent: true,
           headerRight: () => (
-            <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-              <Ionicons name="share-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              {listing.userId === user?.id && (
+                <TouchableOpacity
+                  onPress={() => router.push(`/listing/edit/${listing.id}`)}
+                  style={styles.headerButton}
+                >
+                  <Ionicons name="create-outline" size={24} color={colors.text} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
+                <Ionicons name="share-outline" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -263,6 +273,33 @@ export default function ListingDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* Image Thumbnails */}
+          {photos.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.thumbnailContainer}
+              contentContainerStyle={styles.thumbnailContent}
+            >
+              {photos.map((photo, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => setSelectedPhotoIndex(index)}
+                  style={[
+                    styles.thumbnail,
+                    selectedPhotoIndex === index && styles.thumbnailActive,
+                  ]}
+                >
+                  <Image
+                    source={{ uri: photo }}
+                    style={styles.thumbnailImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           <View style={styles.content}>
             {/* Book Info Card */}
@@ -390,7 +427,7 @@ export default function ListingDetailScreen() {
                 <Avatar
                   imageUrl={listing.user.avatarUrl}
                   name={`${listing.user.firstName} ${listing.user.lastName}`}
-                  size={48}
+                  size="lg"
                 />
 
                 <View style={styles.listerDetails}>
@@ -595,13 +632,40 @@ const styles = StyleSheet.create({
   bottomButton: {
     width: '100%',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   headerButton: {
-    marginRight: Spacing.md,
     padding: Spacing.sm,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   errorText: {
     fontSize: Typography.fontSize.lg,
+  },
+  thumbnailContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  thumbnailContent: {
+    gap: Spacing.sm,
+  },
+  thumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: Spacing.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  thumbnailActive: {
+    borderColor: BookLoopColors.burntOrange,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
 });
