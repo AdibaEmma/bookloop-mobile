@@ -22,7 +22,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -51,12 +53,26 @@
           }
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "color": "#D97941",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-web-browser",
-      "expo-maps"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e32353db-7f81-4c0c-8823-ddf9d84cff5d"
+      }
+    },
+    "owner": "aweperi"
   }
 }
