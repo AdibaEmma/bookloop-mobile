@@ -93,27 +93,31 @@ export default function UserProfileScreen() {
 
       // Load user profile
       const profileData = await usersService.getUserById(id);
-      setProfile(profileData);
 
-      // Load user's active listings
-      const userListings = await listingsService.getUserListings(id);
-      setListings(userListings.slice(0, 4)); // Show first 4
+      // Ensure stats has default values
+      const profileWithDefaults = {
+        ...profileData,
+        stats: profileData.stats || {
+          totalExchanges: 0,
+          activeListings: 0,
+          completedExchanges: 0,
+          averageRating: 0,
+        },
+      };
+      setProfile(profileWithDefaults);
+
+      // Load user's active listings (gracefully handle if endpoint doesn't exist)
+      try {
+        const userListings = await listingsService.getUserListings(id);
+        setListings(userListings.slice(0, 4)); // Show first 4
+      } catch (listingsError) {
+        console.log('Listings not available:', listingsError);
+        setListings([]); // Just show empty listings
+      }
 
       // Load ratings (mock for now)
       // TODO: Implement ratings API
-      const mockRatings: Rating[] = [
-        {
-          id: '1',
-          rating: 5,
-          review: 'Great exchange! Book was in excellent condition.',
-          reviewer: {
-            firstName: 'John',
-            lastName: 'Doe',
-            avatarUrl: undefined,
-          },
-          createdAt: new Date().toISOString(),
-        },
-      ];
+      const mockRatings: Rating[] = [];
       setRatings(mockRatings);
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -269,7 +273,7 @@ export default function UserProfileScreen() {
             {isOwnProfile ? (
               <GlassButton
                 title="Edit Profile"
-                onPress={() => router.push('/profile/edit')}
+                onPress={() => router.push({ pathname: '/profile/edit' })}
                 variant="ghost"
                 size="sm"
                 icon="create-outline"
@@ -299,7 +303,7 @@ export default function UserProfileScreen() {
             <View style={styles.statsGrid}>
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: colors.text }]}>
-                  {profile.stats.totalExchanges}
+                  {profile.stats?.totalExchanges ?? 0}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Total Exchanges
@@ -308,7 +312,7 @@ export default function UserProfileScreen() {
 
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: colors.text }]}>
-                  {profile.stats.activeListings}
+                  {profile.stats?.activeListings ?? 0}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Active Listings
@@ -317,7 +321,7 @@ export default function UserProfileScreen() {
 
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: colors.text }]}>
-                  {profile.stats.completedExchanges}
+                  {profile.stats?.completedExchanges ?? 0}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Completed
@@ -328,7 +332,7 @@ export default function UserProfileScreen() {
                 <View style={styles.ratingValue}>
                   <Ionicons name="star" size={20} color={BookLoopColors.burntOrange} />
                   <Text style={[styles.statValue, { color: colors.text }]}>
-                    {profile.stats.averageRating.toFixed(1)}
+                    {(profile.stats?.averageRating ?? 0).toFixed(1)}
                   </Text>
                 </View>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
