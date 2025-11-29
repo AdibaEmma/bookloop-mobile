@@ -2,7 +2,7 @@
  * Meetup Point Selector Screen
  *
  * Map-based selector for choosing safe exchange locations.
- * Uses Expo Maps for map display with markers for:
+ * Uses react-native-maps for map display with markers for:
  * - User location (blue dot)
  * - Book owner location (approximate)
  * - Verified safe meetup points (gold pins)
@@ -14,7 +14,7 @@
  * - Operating hours display
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,8 +29,7 @@ import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { AppleMaps, GoogleMaps } from 'expo-maps';
-import type { AppleMapsMarker, GoogleMapsMarker } from 'expo-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { GlassCard, GlassButton } from '@/components/ui';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { meetupSpotsService, MeetupSpot as ApiMeetupSpot } from '@/services/api';
@@ -85,12 +84,13 @@ export default function MeetupSelectorScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
+  const mapRef = useRef<MapView>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<LocationCoords | null>(null);
   const [ownerLocation, setOwnerLocation] = useState<LocationCoords | null>(null);
   const [meetupSpots, setMeetupSpots] = useState<MeetupSpot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<MeetupSpot | null>(null);
-  const [mapRegion, setMapRegion] = useState({
+  const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 5.6037, // Accra default
     longitude: -0.187,
     latitudeDelta: 0.05,
@@ -301,14 +301,13 @@ export default function MeetupSelectorScreen() {
    */
   const handleSelectSpot = (spot: MeetupSpot) => {
     setSelectedSpot(spot);
-    // Center map on selected spot
-    setMapRegion({
-      ...mapRegion,
+    // Animate map to selected spot
+    mapRef.current?.animateToRegion({
       latitude: spot.latitude,
       longitude: spot.longitude,
       latitudeDelta: 0.02,
       longitudeDelta: 0.02,
-    });
+    }, 500);
   };
 
   /**
@@ -326,92 +325,6 @@ export default function MeetupSelectorScreen() {
         meetupSpotName: selectedSpot.name,
       },
     });
-  };
-
-  /**
-   * Build markers array for Apple Maps
-   */
-  const buildAppleMarkers = (): AppleMapsMarker[] => {
-    const markers: AppleMapsMarker[] = [];
-
-    // User location marker
-    if (userLocation) {
-      markers.push({
-        id: 'user',
-        coordinates: userLocation,
-        title: 'You',
-        tintColor: '#007AFF',
-      });
-    }
-
-    // Owner location marker
-    if (ownerLocation) {
-      markers.push({
-        id: 'owner',
-        coordinates: ownerLocation,
-        title: 'Book Owner',
-        tintColor: BookLoopColors.coffeeBrown,
-      });
-    }
-
-    // Meetup spot markers
-    meetupSpots.forEach((spot) => {
-      markers.push({
-        id: spot.id,
-        coordinates: {
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-        },
-        title: spot.name,
-        tintColor: selectedSpot?.id === spot.id
-          ? BookLoopColors.mutedGold
-          : BookLoopColors.burntOrange,
-      });
-    });
-
-    return markers;
-  };
-
-  /**
-   * Build markers array for Google Maps
-   */
-  const buildGoogleMarkers = (): GoogleMapsMarker[] => {
-    const markers: GoogleMapsMarker[] = [];
-
-    // User location marker
-    if (userLocation) {
-      markers.push({
-        id: 'user',
-        coordinates: userLocation,
-        title: 'You',
-        snippet: 'Your current location',
-      });
-    }
-
-    // Owner location marker
-    if (ownerLocation) {
-      markers.push({
-        id: 'owner',
-        coordinates: ownerLocation,
-        title: 'Book Owner',
-        snippet: 'Approximate location',
-      });
-    }
-
-    // Meetup spot markers
-    meetupSpots.forEach((spot) => {
-      markers.push({
-        id: spot.id,
-        coordinates: {
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-        },
-        title: spot.name,
-        snippet: spot.address,
-      });
-    });
-
-    return markers;
   };
 
   if (isLoading) {
@@ -448,39 +361,53 @@ export default function MeetupSelectorScreen() {
       <View style={styles.container}>
         {/* Map View */}
         <View style={styles.mapContainer}>
-          {Platform.OS === 'ios' ? (
-            <AppleMaps.View
-              style={styles.map}
-              cameraPosition={{
-                coordinates: {
-                  latitude: mapRegion.latitude,
-                  longitude: mapRegion.longitude,
-                },
-                zoom: 13,
-              }}
-              markers={buildAppleMarkers()}
-              onMarkerClick={(event) => {
-                const spot = meetupSpots.find(s => s.id === event.id);
-                if (spot) handleSelectSpot(spot);
-              }}
-            />
-          ) : (
-            <GoogleMaps.View
-              style={styles.map}
-              cameraPosition={{
-                coordinates: {
-                  latitude: mapRegion.latitude,
-                  longitude: mapRegion.longitude,
-                },
-                zoom: 13,
-              }}
-              markers={buildGoogleMarkers()}
-              onMarkerClick={(event) => {
-                const spot = meetupSpots.find(s => s.id === event.id);
-                if (spot) handleSelectSpot(spot);
-              }}
-            />
-          )}
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+            initialRegion={mapRegion}
+            showsUserLocation
+            showsMyLocationButton
+          >
+            {/* User location marker (if not using showsUserLocation) */}
+            {userLocation && (
+              <Marker
+                coordinate={userLocation}
+                title="You"
+                description="Your current location"
+                pinColor="#007AFF"
+              />
+            )}
+
+            {/* Owner location marker */}
+            {ownerLocation && (
+              <Marker
+                coordinate={ownerLocation}
+                title="Book Owner"
+                description="Approximate location"
+                pinColor={BookLoopColors.coffeeBrown}
+              />
+            )}
+
+            {/* Meetup spot markers */}
+            {meetupSpots.map((spot) => (
+              <Marker
+                key={spot.id}
+                coordinate={{
+                  latitude: spot.latitude,
+                  longitude: spot.longitude,
+                }}
+                title={spot.name}
+                description={spot.address}
+                pinColor={
+                  selectedSpot?.id === spot.id
+                    ? BookLoopColors.mutedGold
+                    : BookLoopColors.burntOrange
+                }
+                onPress={() => handleSelectSpot(spot)}
+              />
+            ))}
+          </MapView>
 
           {/* Map Legend */}
           <View style={[styles.legend, { backgroundColor: colors.card }]}>

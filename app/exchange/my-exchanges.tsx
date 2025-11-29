@@ -41,37 +41,42 @@ type TabType = 'incoming' | 'outgoing';
 
 interface Exchange {
   id: string;
-  listingId: string;
-  requesterId: string;
-  ownerId: string;
+  listing_id: string;
+  requester_id: string;
+  owner_id: string;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  message?: string;
-  meetupLocation?: string;
-  meetupTime?: string;
-  listing: {
+  requester_message?: string;
+  owner_response?: string;
+  meetup_location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  meetup_address?: string;
+  meetup_time?: string;
+  listing?: {
     id: string;
-    book: {
+    book?: {
       title: string;
       author: string;
-      coverImage?: string;
+      cover_image?: string;
     };
   };
-  requester: {
+  requester?: {
     id: string;
-    firstName: string;
-    lastName: string;
-    avatarUrl?: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
     karma: number;
   };
-  owner: {
+  owner?: {
     id: string;
-    firstName: string;
-    lastName: string;
-    avatarUrl?: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
     karma: number;
   };
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function MyExchangesScreen() {
@@ -265,6 +270,7 @@ export default function MyExchangesScreen() {
   const renderExchange = ({ item: exchange }: { item: Exchange }) => {
     const isIncoming = activeTab === 'incoming';
     const otherUser = isIncoming ? exchange.requester : exchange.owner;
+    const book = exchange.listing?.book;
 
     return (
       <GlassCard variant="lg" padding="lg" style={styles.exchangeCard}>
@@ -283,7 +289,7 @@ export default function MyExchangesScreen() {
           <Image
             source={{
               uri:
-                exchange.listing.book.coverImage ||
+                book?.cover_image ||
                 'https://via.placeholder.com/60x90',
             }}
             style={styles.bookCover}
@@ -291,54 +297,56 @@ export default function MyExchangesScreen() {
 
           <View style={styles.bookInfo}>
             <Text style={[styles.bookTitle, { color: colors.text }]}>
-              {exchange.listing.book.title}
+              {book?.title || 'Unknown Book'}
             </Text>
             <Text style={[styles.bookAuthor, { color: colors.textSecondary }]}>
-              by {exchange.listing.book.author}
+              by {book?.author || 'Unknown Author'}
             </Text>
           </View>
         </View>
 
         {/* User Info */}
-        <View style={styles.userSection}>
-          <Avatar
-            imageUrl={otherUser.avatarUrl}
-            name={`${otherUser.firstName} ${otherUser.lastName}`}
-            size={40}
-          />
+        {otherUser && (
+          <View style={styles.userSection}>
+            <Avatar
+              imageUrl={otherUser.avatar_url}
+              name={`${otherUser.first_name} ${otherUser.last_name}`}
+              size={40}
+            />
 
-          <View style={styles.userInfo}>
-            <Text style={[styles.userName, { color: colors.text }]}>
-              {isIncoming ? 'Request from' : 'Request to'} {otherUser.firstName}{' '}
-              {otherUser.lastName}
-            </Text>
-            <View style={styles.karmaContainer}>
-              <Ionicons
-                name="trophy"
-                size={14}
-                color={BookLoopColors.burntOrange}
-              />
-              <Text style={[styles.karmaText, { color: colors.textSecondary }]}>
-                {otherUser.karma} Karma
+            <View style={styles.userInfo}>
+              <Text style={[styles.userName, { color: colors.text }]}>
+                {isIncoming ? 'Request from' : 'Request to'} {otherUser.first_name}{' '}
+                {otherUser.last_name}
               </Text>
+              <View style={styles.karmaContainer}>
+                <Ionicons
+                  name="trophy"
+                  size={14}
+                  color={BookLoopColors.burntOrange}
+                />
+                <Text style={[styles.karmaText, { color: colors.textSecondary }]}>
+                  {otherUser.karma} Karma
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Message */}
-        {exchange.message && (
+        {exchange.requester_message && (
           <View style={styles.messageSection}>
             <Text style={[styles.messageLabel, { color: colors.textSecondary }]}>
               Message:
             </Text>
             <Text style={[styles.messageText, { color: colors.text }]}>
-              {exchange.message}
+              {exchange.requester_message}
             </Text>
           </View>
         )}
 
         {/* Meetup Location */}
-        {exchange.meetupLocation && (
+        {exchange.meetup_address && (
           <View style={styles.locationSection}>
             <Ionicons
               name="location"
@@ -347,12 +355,7 @@ export default function MyExchangesScreen() {
             />
             <View style={{ flex: 1 }}>
               <Text style={[styles.locationName, { color: colors.text }]}>
-                {exchange.meetupLocation.name}
-              </Text>
-              <Text
-                style={[styles.locationAddress, { color: colors.textSecondary }]}
-              >
-                {exchange.meetupLocation.address}
+                {exchange.meetup_address}
               </Text>
             </View>
           </View>

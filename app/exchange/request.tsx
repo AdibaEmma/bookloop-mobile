@@ -104,10 +104,26 @@ export default function ExchangeRequestScreen() {
 
       // Convert API spots to local format
       const formattedSpots: MeetupSpot[] = spotsData.map((spot) => {
-        // Parse PostGIS POINT format: "POINT(longitude latitude)"
-        const match = spot.location.match(/POINT\(([^ ]+) ([^ ]+)\)/);
-        const longitude = match ? parseFloat(match[1]) : 0;
-        const latitude = match ? parseFloat(match[2]) : 0;
+        let longitude = 0;
+        let latitude = 0;
+
+        // Handle different location formats
+        if (spot.location) {
+          if (typeof spot.location === 'string') {
+            // Parse PostGIS WKT format: "POINT(longitude latitude)"
+            const match = spot.location.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+            if (match) {
+              longitude = parseFloat(match[1]);
+              latitude = parseFloat(match[2]);
+            }
+          } else if (typeof spot.location === 'object') {
+            // GeoJSON format: { type: 'Point', coordinates: [longitude, latitude] }
+            if (spot.location.coordinates && Array.isArray(spot.location.coordinates)) {
+              longitude = spot.location.coordinates[0];
+              latitude = spot.location.coordinates[1];
+            }
+          }
+        }
 
         return {
           id: spot.id,
@@ -190,9 +206,8 @@ export default function ExchangeRequestScreen() {
 
       // Create exchange request
       await exchangesService.createExchange({
-        listingId: listing.id,
-        message: message.trim(),
-        meetupLocationId: selectedMeetupSpot.id,
+        listing_id: listing.id,
+        message: message.trim() || undefined,
       });
 
       // Increment meetup spot usage count
