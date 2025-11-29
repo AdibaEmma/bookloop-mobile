@@ -19,46 +19,58 @@ import { Listing } from './listings.service';
 
 interface Exchange {
   id: string;
-  listingId: string;
-  listing: Listing;
-  requesterId: string;
-  requester: {
+  listing_id: string;
+  listing?: Listing;
+  offered_listing_id?: string;
+  offered_listing?: Listing;
+  requester_id: string;
+  requester?: {
     id: string;
-    firstName: string;
-    lastName: string;
-    avatarUrl?: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
     karma: number;
   };
-  ownerId: string;
-  owner: {
+  owner_id: string;
+  owner?: {
     id: string;
-    firstName: string;
-    lastName: string;
-    avatarUrl?: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
     karma: number;
   };
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  message?: string;
-  meetupLocation?: string;
-  meetupTime?: string;
-  createdAt: string;
-  updatedAt: string;
+  requester_message?: string;
+  owner_response?: string;
+  meetup_location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  meetup_address?: string;
+  meetup_time?: string;
+  requester_confirmed_meetup: boolean;
+  owner_confirmed_meetup: boolean;
+  requester_confirmed_completion: boolean;
+  owner_confirmed_completion: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Rating {
   id: string;
-  exchangeId: string;
-  raterId: string;
-  ratedUserId: string;
+  exchange_id: string;
+  rater_id: string;
+  rated_user_id: string;
   rating: number; // 1-5
-  comment?: string;
-  createdAt: string;
+  review?: string;
+  is_visible: boolean;
+  created_at: string;
 }
 
 interface CreateExchangeDto {
-  listingId: string;
+  listing_id: string;
+  offered_listing_id?: string;
   message?: string;
-  meetupLocationId?: string;
 }
 
 interface RespondExchangeDto {
@@ -67,13 +79,15 @@ interface RespondExchangeDto {
 }
 
 interface SetMeetupDto {
-  meetupLocation: string;
-  meetupTime: string; // ISO date string
+  latitude: number;
+  longitude: number;
+  address: string;
+  meetup_time: string; // ISO date string
 }
 
 interface CreateRatingDto {
   rating: number; // 1-5
-  comment?: string;
+  review?: string;
 }
 
 /**

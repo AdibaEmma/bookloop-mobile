@@ -13,7 +13,8 @@ export interface Notification {
   title: string;
   message: string;
   data?: Record<string, any>;
-  read: boolean;
+  is_read: boolean;
+  read_at?: string;
   created_at: string;
 }
 

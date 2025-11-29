@@ -73,6 +73,7 @@ interface CreateListingDto {
   region: string;
   searchRadiusKm?: number;
   preferredGenres?: string[];
+  status?: 'draft' | 'available';
 }
 
 interface UpdateListingDto {
@@ -175,6 +176,7 @@ export const listingsService = {
       region: data.region,
       search_radius_km: data.searchRadiusKm || 10,
       preferred_genres: data.preferredGenres || [],
+      status: data.status || 'draft',
     };
 
     const response: AxiosResponse<Listing> = await apiClient.post('/listings', payload);
@@ -304,7 +306,7 @@ export const listingsService = {
    * Remove preference
    */
   async removePreference(preferenceId: string): Promise<void> {
-    await apiClient.delete(`/preferences/${preferenceId}`);
+    await apiClient.delete(`/listings/preferences/${preferenceId}`);
   },
 
   /**
@@ -315,7 +317,7 @@ export const listingsService = {
     priority: number,
   ): Promise<ExchangePreference> {
     const response: AxiosResponse<ExchangePreference> = await apiClient.patch(
-      `/preferences/${preferenceId}/priority`,
+      `/listings/preferences/${preferenceId}/priority`,
       { priority },
     );
     return response.data;

@@ -213,8 +213,13 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest: any = error.config;
 
-    // Handle 401 Unauthorized (token expired)
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip token refresh for public auth endpoints (login, register, verify-otp, etc.)
+    // But allow refresh for protected auth endpoints like /auth/me
+    const publicAuthEndpoints = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password'];
+    const isPublicAuthEndpoint = publicAuthEndpoints.some(endpoint => originalRequest?.url?.includes(endpoint));
+
+    // Handle 401 Unauthorized (token expired) - but not for public auth endpoints
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicAuthEndpoint) {
       if (isRefreshing) {
         // Queue the request while token is being refreshed
         return new Promise((resolve, reject) => {

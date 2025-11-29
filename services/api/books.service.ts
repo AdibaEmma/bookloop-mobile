@@ -56,6 +56,27 @@ interface CreateBookFromISBNDto {
   isbn: string;
 }
 
+/**
+ * Google Books search result
+ * Represents a book from the Google Books API search
+ */
+interface GoogleBookResult {
+  googleBooksId: string;
+  title: string;
+  author: string;
+  coverImage?: string;
+  isbn?: string;
+  publisher?: string;
+  publishedYear?: number;
+  description?: string;
+}
+
+interface CreateBookFromGoogleDto {
+  googleBooksId: string;
+  title?: string;
+  author?: string;
+}
+
 interface UpdateBookDto {
   title?: string;
   author?: string;
@@ -178,6 +199,56 @@ export const booksService = {
     const response: AxiosResponse<Book[]> = await apiClient.get('/books/my-books');
     return response.data;
   },
+
+  /**
+   * Search Google Books API directly
+   *
+   * Returns books from Google Books that can be added to the catalog.
+   * Use this for discovering books not yet in the local database.
+   *
+   * @param query - Search query (title, author, or both)
+   * @param maxResults - Maximum number of results (default: 10)
+   * @returns Array of Google Books results
+   */
+  async searchGoogleBooks(query: string, maxResults: number = 10): Promise<GoogleBookResult[]> {
+    const response = await apiClient.get('/books/external/google', {
+      params: { query, maxResults },
+    });
+
+    // Transform response to match GoogleBookResult interface
+    return response.data.map((item: any) => ({
+      googleBooksId: item.provider_id,
+      title: item.title,
+      author: item.author,
+      coverImage: item.cover_image,
+      isbn: item.isbn,
+      publisher: item.publisher,
+      publishedYear: item.publication_year,
+      description: item.description,
+    }));
+  },
+
+  /**
+   * Create book from Google Books ID
+   *
+   * Creates a book in the local database using Google Books metadata.
+   * Returns the existing book if already cached.
+   *
+   * @param googleBooksId - Google Books volume ID
+   * @param fallback - Fallback title/author if API lookup fails
+   * @returns Created or existing book
+   */
+  async createFromGoogleBooks(
+    googleBooksId: string,
+    fallback?: { title: string; author: string },
+  ): Promise<Book> {
+    const response: AxiosResponse<Book> = await apiClient.post('/books/from-google', {
+      googleBooksId,
+      title: fallback?.title,
+      author: fallback?.author,
+    });
+    return response.data;
+  },
 };
 
 export type {
@@ -185,6 +256,8 @@ export type {
   SearchBookDto,
   CreateBookDto,
   CreateBookFromISBNDto,
+  CreateBookFromGoogleDto,
+  GoogleBookResult,
   UpdateBookDto,
   PaginatedResponse,
 };
