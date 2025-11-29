@@ -12,7 +12,7 @@
  * - Logout
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -35,6 +36,8 @@ import {
   Spacing,
   BookLoopColors,
 } from '@/constants/theme';
+import biometricService, { BiometricCapability, StoredCredentials } from '@/services/biometric.service';
+import { TokenManager } from '@/services/api';
 
 interface SettingItem {
   id: string;
@@ -64,6 +67,103 @@ export default function SettingsScreen() {
   // Privacy settings
   const [locationSharing, setLocationSharing] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
+
+  // Biometric settings
+  const [biometricCapability, setBiometricCapability] = useState<BiometricCapability | null>(null);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+
+  /**
+   * Check biometric availability on mount
+   */
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+
+  const checkBiometricAvailability = async () => {
+    try {
+      const capability = await biometricService.checkBiometricCapability();
+      setBiometricCapability(capability);
+
+      if (capability.isAvailable && capability.isEnrolled) {
+        const enabled = await biometricService.isBiometricEnabled();
+        setIsBiometricEnabled(enabled);
+      }
+    } catch (error) {
+      console.error('Failed to check biometric availability:', error);
+    }
+  };
+
+  /**
+   * Handle biometric toggle
+   */
+  const handleBiometricToggle = async (value: boolean) => {
+    if (isBiometricLoading) return;
+
+    setIsBiometricLoading(true);
+
+    try {
+      if (value) {
+        // Enable biometric
+        if (!user) {
+          Alert.alert('Error', 'You must be logged in to enable biometric login');
+          return;
+        }
+
+        // Get current token
+        const token = await TokenManager.getAccessToken();
+        if (!token) {
+          Alert.alert('Error', 'No active session found. Please log in again.');
+          return;
+        }
+
+        const credentials: StoredCredentials = {
+          phone: user.phone || '',
+          userId: user.id,
+          token,
+        };
+
+        const success = await biometricService.enableBiometric(credentials);
+        if (success) {
+          setIsBiometricEnabled(true);
+          Alert.alert(
+            'Success',
+            `${biometricService.getBiometricTypeName(biometricCapability?.biometricType || 'fingerprint')} login enabled`
+          );
+        }
+      } else {
+        // Disable biometric
+        const success = await biometricService.disableBiometric();
+        if (success) {
+          setIsBiometricEnabled(false);
+          Alert.alert('Success', 'Biometric login disabled');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle biometric:', error);
+      Alert.alert('Error', 'Failed to update biometric settings');
+    } finally {
+      setIsBiometricLoading(false);
+    }
+  };
+
+  /**
+   * Get biometric icon based on type
+   */
+  const getBiometricIcon = (): keyof typeof Ionicons.glyphMap => {
+    if (!biometricCapability) return 'finger-print';
+
+    switch (biometricCapability.biometricType) {
+      case 'facial':
+        return Platform.OS === 'ios' ? 'scan' : 'happy';
+      case 'fingerprint':
+        return 'finger-print';
+      case 'iris':
+        return 'eye';
+      default:
+        return 'finger-print';
+    }
+  };
 
   /**
    * Handle delete account
@@ -162,7 +262,21 @@ export default function SettingsScreen() {
     },
   ];
 
+  // Build privacy settings dynamically to include biometric if available
   const privacySettings: SettingItem[] = [
+    // Only show biometric toggle if device supports it
+    ...(biometricCapability?.isAvailable && biometricCapability.isEnrolled
+      ? [
+          {
+            id: 'biometric',
+            title: `${biometricService.getBiometricTypeName(biometricCapability.biometricType)} Login`,
+            icon: getBiometricIcon(),
+            type: 'toggle' as const,
+            value: isBiometricEnabled,
+            onValueChange: handleBiometricToggle,
+          },
+        ]
+      : []),
     {
       id: 'location',
       title: 'Location Sharing',

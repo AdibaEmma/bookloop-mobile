@@ -32,6 +32,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { GlassCard, GlassButton, BookCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
@@ -46,6 +47,7 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -381,9 +383,13 @@ export default function HomeScreen() {
                   <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
                     <Ionicons name="notifications" size={18} color={BookLoopColors.burntOrange} />
                     {/* Notification badge */}
-                    <View style={styles.notificationBadge}>
-                      <View style={styles.notificationDot} />
-                    </View>
+                    {unreadCount > 0 && (
+                      <View style={styles.notificationBadge}>
+                        <Text style={styles.notificationBadgeText}>
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -709,14 +715,20 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  notificationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -2,
+    right: -2,
     backgroundColor: BookLoopColors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: Typography.fontWeight.bold,
   },
   greetingSection: {
     marginTop: Spacing.xs,
