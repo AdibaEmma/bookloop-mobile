@@ -31,6 +31,7 @@ import * as Location from 'expo-location';
 import { GlassCard, GlassButton, GlassInput } from '@/components/ui';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { BookSearchCreate } from '@/components/BookSearchCreate';
+import { QuickBookSearch } from '@/components/QuickBookSearch';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingsService, booksService, Book } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -83,7 +84,7 @@ export default function CreateListingScreen() {
   const [condition, setCondition] = useState<Condition>('good');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
-  const [publishImmediately, setPublishImmediately] = useState(false);
+  const [publishImmediately, setPublishImmediately] = useState(true);
 
   // Location
   const [location, setLocation] = useState<{
@@ -549,7 +550,7 @@ export default function CreateListingScreen() {
         bookId = newBook.id;
       }
 
-      // Create listing (without photos first) - defaults to 'draft' status
+      // Create listing (without photos first)
       const listing = await listingsService.createListing({
         bookId,
         listingType,
@@ -560,6 +561,7 @@ export default function CreateListingScreen() {
         address: location!.address,
         city: location!.city,
         region: location!.region,
+        status: publishImmediately ? 'available' : 'draft',
       });
 
       // Upload photos after creating listing
@@ -600,11 +602,6 @@ export default function CreateListingScreen() {
             'Listing Created'
           );
         }
-      }
-
-      // If user wants to publish immediately, update status to available
-      if (publishImmediately) {
-        await listingsService.updateListing(listing.id, { status: 'available' });
       }
 
       // Use Alert.alert for success with navigation callback
@@ -648,43 +645,29 @@ export default function CreateListingScreen() {
         onScan={handleScannedISBN}
       />
 
-      {/* Exchange Preference Selector Modal */}
-      {showPreferenceSelector && (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
-          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom', 'left', 'right']}>
-            <BookSearchCreate
-              onSelectBook={(book) => {
-                // Check if book already added
-                if (exchangePreferences.some((b) => b.id === book.id)) {
-                  showWarningAlert('This book is already in your preferences', 'Already Added');
-                  return;
-                }
+      {/* Quick Book Search Bottom Sheet */}
+      <QuickBookSearch
+        visible={showPreferenceSelector}
+        onClose={() => setShowPreferenceSelector(false)}
+        onConfirm={(books) => {
+          // Merge new books with existing preferences
+          const startPriority = exchangePreferences.length;
+          const newPreferences = books.map((book, index) => ({
+            ...book,
+            priority: startPriority + index + 1,
+          }));
 
-                // Check subscription tier limits
-                const maxBooks = user?.subscriptionTier === 'premium' ? 3 : user?.subscriptionTier === 'basic' ? 2 : 1;
+          // Check for duplicates and filter them out
+          const existingIds = new Set(exchangePreferences.map(b => b.id));
+          const uniqueNewBooks = newPreferences.filter(b => !existingIds.has(b.id));
 
-                if (exchangePreferences.length >= maxBooks) {
-                  showWarningAlert(
-                    `Your ${user?.subscriptionTier || 'free'} plan allows up to ${maxBooks} book preference(s)`,
-                    'Limit Reached'
-                  );
-                  return;
-                }
-
-                // Add book with priority
-                const newPreference = {
-                  ...book,
-                  priority: exchangePreferences.length + 1,
-                };
-                setExchangePreferences([...exchangePreferences, newPreference]);
-                setShowPreferenceSelector(false);
-              }}
-              onCancel={() => setShowPreferenceSelector(false)}
-              placeholder="Search for a book you want..."
-            />
-          </SafeAreaView>
-        </View>
-      )}
+          setExchangePreferences([...exchangePreferences, ...uniqueNewBooks]);
+          setShowPreferenceSelector(false);
+        }}
+        existingBookIds={exchangePreferences.map(b => b.id)}
+        maxBooks={user?.subscriptionTier === 'premium' ? 3 : user?.subscriptionTier === 'basic' ? 2 : 1}
+        placeholder="Search by title, author, or both..."
+      />
 
       <View style={styles.container}>
         {/* Background Gradient */}
