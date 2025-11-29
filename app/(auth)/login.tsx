@@ -1,15 +1,16 @@
 /**
  * Login Screen
  *
- * Login for existing users with dual authentication.
+ * Login for existing users with multiple authentication options.
  *
  * Features:
  * - Email-based authentication (primary)
  * - Password OR OTP login
+ * - Biometric authentication (Face ID / Touch ID / Fingerprint)
  * - Form validation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +20,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +29,7 @@ import { GlassButton, GlassInput, GlassCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showErrorToastMessage, showSuccessToastMessage } from '@/utils/errorHandler';
+import biometricService, { BiometricCapability } from '@/services/biometric.service';
 import {
   Colors,
   Typography,
@@ -36,7 +39,7 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, biometricLogin, isLoading } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -52,6 +55,83 @@ export default function LoginScreen() {
     email?: boolean;
     password?: boolean;
   }>({});
+
+  // Biometric state
+  const [biometricCapability, setBiometricCapability] = useState<BiometricCapability | null>(null);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+
+  /**
+   * Check biometric availability on mount
+   */
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+
+  const checkBiometricAvailability = async () => {
+    try {
+      const capability = await biometricService.checkBiometricCapability();
+      setBiometricCapability(capability);
+
+      if (capability.isAvailable && capability.isEnrolled) {
+        const enabled = await biometricService.isBiometricEnabled();
+        // Also check if credentials are actually stored
+        if (enabled) {
+          const credentials = await biometricService.getStoredCredentials();
+          setIsBiometricEnabled(enabled && !!credentials?.token);
+        } else {
+          setIsBiometricEnabled(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check biometric availability:', error);
+    }
+  };
+
+  /**
+   * Handle biometric login
+   */
+  const handleBiometricLogin = async () => {
+    if (!biometricCapability?.isAvailable || !isBiometricEnabled) {
+      return;
+    }
+
+    setIsBiometricLoading(true);
+
+    try {
+      const result = await biometricService.authenticateAndGetCredentials();
+
+      if (result.success && result.credentials?.token) {
+        // Use stored token to login
+        await biometricLogin(result.credentials.token);
+        showSuccessToastMessage('Welcome back!', 'Login Successful');
+      } else if (result.error && result.error !== 'Authentication cancelled') {
+        showErrorToastMessage(result.error, 'Biometric Login Failed');
+      }
+    } catch (error: any) {
+      showErrorToastMessage(error, 'Biometric Login Failed');
+    } finally {
+      setIsBiometricLoading(false);
+    }
+  };
+
+  /**
+   * Get biometric icon based on type
+   */
+  const getBiometricIcon = (): keyof typeof Ionicons.glyphMap => {
+    if (!biometricCapability) return 'finger-print';
+
+    switch (biometricCapability.biometricType) {
+      case 'facial':
+        return Platform.OS === 'ios' ? 'scan' : 'happy';
+      case 'fingerprint':
+        return 'finger-print';
+      case 'iris':
+        return 'eye';
+      default:
+        return 'finger-print';
+    }
+  };
 
   /**
    * Validate email format
@@ -306,6 +386,37 @@ export default function LoginScreen() {
                   icon="arrow-forward"
                   iconPosition="right"
                 />
+
+                {/* Biometric Login Button */}
+                {biometricCapability?.isAvailable && biometricCapability.isEnrolled && isBiometricEnabled && (
+                  <View style={styles.biometricSection}>
+                    <View style={styles.dividerContainer}>
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      <Text style={[styles.dividerText, { color: colors.textSecondary }]}>or</Text>
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.biometricButton, { borderColor: BookLoopColors.burntOrange }]}
+                      onPress={handleBiometricLogin}
+                      disabled={isBiometricLoading}
+                      activeOpacity={0.7}
+                    >
+                      {isBiometricLoading ? (
+                        <ActivityIndicator size="small" color={BookLoopColors.burntOrange} />
+                      ) : (
+                        <Ionicons
+                          name={getBiometricIcon()}
+                          size={32}
+                          color={BookLoopColors.burntOrange}
+                        />
+                      )}
+                      <Text style={[styles.biometricButtonText, { color: colors.text }]}>
+                        {biometricService.getBiometricTypeName(biometricCapability.biometricType)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </GlassCard>
 
@@ -416,5 +527,35 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: Typography.fontSize.base,
+  },
+  biometricSection: {
+    marginTop: Spacing.md,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    paddingHorizontal: Spacing.md,
+    fontSize: Typography.fontSize.sm,
+  },
+  biometricButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.lg,
+    borderWidth: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  biometricButtonText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
   },
 });

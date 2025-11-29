@@ -19,6 +19,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password?: string) => Promise<{ message?: string; reference?: string; expires_at?: string }>;
+  biometricLogin: (token: string) => Promise<void>;
   register: (email: string, phone: string, firstName: string, lastName: string, password?: string) => Promise<void>;
   verifyOtp: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -173,6 +174,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
+   * Biometric login using stored token
+   */
+  const biometricLogin = async (token: string) => {
+    try {
+      setError(null);
+      setIsLoading(true);
+
+      // Set the stored token
+      await TokenManager.setAccessToken(token);
+
+      // Fetch current user to validate token
+      const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
+    } catch (err: any) {
+      // Clear invalid token
+      await TokenManager.clearTokens();
+      const errorMessage = err.response?.data?.message || 'Biometric login failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
    * Logout
    */
   const logout = async () => {
@@ -215,6 +241,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated,
     login,
+    biometricLogin,
     register,
     verifyOtp,
     logout,

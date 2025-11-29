@@ -380,13 +380,7 @@ export default function PhoneInputScreen() {
                   placeholder="Kwame"
                   autoCapitalize="words"
                   error={errors.firstName}
-                  icon={
-                    <Ionicons
-                      name="person"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  }
+                  leftIcon="person"
                 />
 
                 <GlassInput
@@ -396,13 +390,7 @@ export default function PhoneInputScreen() {
                   placeholder="Mensah"
                   autoCapitalize="words"
                   error={errors.lastName}
-                  icon={
-                    <Ionicons
-                      name="person-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  }
+                  leftIcon="person-outline"
                 />
 
                 <GlassInput
@@ -413,13 +401,7 @@ export default function PhoneInputScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   error={errors.email}
-                  icon={
-                    <Ionicons
-                      name="mail"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  }
+                  leftIcon="mail"
                 />
 
                 <GlassInput
@@ -429,13 +411,7 @@ export default function PhoneInputScreen() {
                   placeholder="0241234567"
                   keyboardType="phone-pad"
                   error={errors.phone}
-                  icon={
-                    <Ionicons
-                      name="call"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  }
+                  leftIcon="call"
                 />
 
                 {/* Password Toggle */}
@@ -462,22 +438,9 @@ export default function PhoneInputScreen() {
                       placeholder="Min. 8 characters"
                       secureTextEntry={!showPassword}
                       error={errors.password}
-                      icon={
-                        <Ionicons
-                          name="lock-closed"
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                      }
-                      rightIcon={
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                          <Ionicons
-                            name={showPassword ? "eye-off" : "eye"}
-                            size={24}
-                            color={colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      }
+                      leftIcon="lock-closed"
+                      rightIcon={showPassword ? "eye-off" : "eye"}
+                      onRightIconPress={() => setShowPassword(!showPassword)}
                     />
 
                     <GlassInput
@@ -487,22 +450,9 @@ export default function PhoneInputScreen() {
                       placeholder="Re-enter password"
                       secureTextEntry={!showConfirmPassword}
                       error={errors.confirmPassword}
-                      icon={
-                        <Ionicons
-                          name="lock-closed-outline"
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                      }
-                      rightIcon={
-                        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                          <Ionicons
-                            name={showConfirmPassword ? "eye-off" : "eye"}
-                            size={24}
-                            color={colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      }
+                      leftIcon="lock-closed-outline"
+                      rightIcon={showConfirmPassword ? "eye-off" : "eye"}
+                      onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
                     />
                   </>
                 )}
