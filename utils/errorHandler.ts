@@ -49,7 +49,7 @@ export const getErrorMessage = (error: unknown): string => {
         return data?.message || 'Invalid request. Please check your input.';
 
       case 401:
-        return 'Session expired. Please login again.';
+        return data?.message || 'Authentication failed. Please try again.';
 
       case 403:
         return 'You don\'t have permission to perform this action.';
