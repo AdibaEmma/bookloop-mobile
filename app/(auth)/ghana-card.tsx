@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Alert } from 'react-native';
 import { ArrowLeft, ScanLine, ShieldCheck } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { usersService } from '@/services/api';
@@ -55,9 +56,17 @@ export default function GhanaCardScreen() {
     if (!isValidCard(card)) return;
     setSubmitting(true);
     try {
-      await usersService.submitGhanaCard(card.trim().toUpperCase());
+      const result: any = await usersService.submitGhanaCard(card.trim().toUpperCase());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      goNext();
+      // SourceID may auto-verify instantly; otherwise it's pending admin review.
+      const verified = result?.ghanaCardVerified ?? result?.ghana_card_verified ?? false;
+      Alert.alert(
+        verified ? 'Identity verified ✅' : 'Submitted for review',
+        verified
+          ? 'Your Ghana Card was verified. You’re all set!'
+          : 'Thanks! Our team will review your Ghana Card within 24–48 hours.',
+        [{ text: 'Continue', onPress: goNext }],
+      );
     } catch (error) {
       showError(error, 'Could not submit Ghana Card');
     } finally {
