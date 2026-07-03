@@ -87,6 +87,20 @@ export const usersService = {
   },
 
   /**
+   * Upload a photo of the Ghana Card (for admin verification)
+   */
+  async uploadGhanaCardImage(file: { uri: string; type: string; name: string }): Promise<User> {
+    const formData = new FormData();
+    formData.append('file', file as any);
+    const response: AxiosResponse<User> = await apiClient.post(
+      '/users/me/ghana-card/image',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data;
+  },
+
+  /**
    * Submit Ghana Card number for verification (pending admin approval)
    */
   async submitGhanaCard(ghanaCardNumber: string): Promise<User> {

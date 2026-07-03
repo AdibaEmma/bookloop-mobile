@@ -23,8 +23,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Alert } from 'react-native';
-import { ArrowLeft, ScanLine, ShieldCheck } from 'lucide-react-native';
+import { Alert, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ArrowLeft, Camera, Check, ShieldCheck } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { usersService } from '@/services/api';
 import { showError } from '@/utils/errorHandler';
@@ -49,8 +50,40 @@ export default function GhanaCardScreen() {
   const router = useRouter();
   const [card, setCard] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const goNext = () => router.replace('/(auth)/profile-setup');
+
+  const scanCard = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Camera needed', 'Allow camera access to photograph your Ghana Card.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1586, 1000],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      setCapturedUri(asset.uri);
+      setScanning(true);
+      const name = asset.uri.split('/').pop() || 'ghana-card.jpg';
+      const type = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      await usersService.uploadGhanaCardImage({ uri: asset.uri, type, name });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setCapturedUri(null);
+      showError(error, 'Could not upload the photo');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const submit = async () => {
     if (!isValidCard(card)) return;
@@ -106,29 +139,45 @@ export default function GhanaCardScreen() {
               Add your Ghana Card so others know they can trust you. This is a one-time check.
             </Text>
 
-            {/* Viewfinder graphic */}
-            <View style={styles.viewfinder}>
-              <View style={styles.cardMock}>
-                <View style={styles.cardMockRow}>
-                  <Text style={styles.cardMockLabel}>GHANA CARD</Text>
-                  <View style={styles.cardChip} />
+            {/* Viewfinder / captured image */}
+            <TouchableOpacity style={styles.viewfinder} onPress={scanCard} activeOpacity={0.9}>
+              {capturedUri ? (
+                <Image source={{ uri: capturedUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              ) : (
+                <View style={styles.cardMock}>
+                  <View style={styles.cardMockRow}>
+                    <Text style={styles.cardMockLabel}>GHANA CARD</Text>
+                    <View style={styles.cardChip} />
+                  </View>
+                  <View style={styles.cardPhoto} />
+                  <View>
+                    <View style={[styles.cardLine, { width: '60%' }]} />
+                    <View style={[styles.cardLine, { width: '40%', marginTop: 4 }]} />
+                  </View>
                 </View>
-                <View style={styles.cardPhoto} />
-                <View>
-                  <View style={[styles.cardLine, { width: '60%' }]} />
-                  <View style={[styles.cardLine, { width: '40%', marginTop: 4 }]} />
-                </View>
-              </View>
+              )}
               <View style={[styles.corner, styles.tl]} />
               <View style={[styles.corner, styles.tr]} />
               <View style={[styles.corner, styles.bl]} />
               <View style={[styles.corner, styles.br]} />
-            </View>
+            </TouchableOpacity>
 
-            <View style={styles.scanSoon}>
-              <ScanLine size={14} color={C.muted} strokeWidth={2} />
-              <Text style={styles.scanSoonText}>Auto-scan coming soon — enter your number below</Text>
-            </View>
+            {/* Scan button */}
+            <TouchableOpacity style={styles.scanBtn} onPress={scanCard} activeOpacity={0.85} disabled={scanning}>
+              {scanning ? (
+                <ActivityIndicator size="small" color={C.active} />
+              ) : capturedUri ? (
+                <>
+                  <Check size={16} color={BookLoopColors.success} strokeWidth={2.4} />
+                  <Text style={styles.scanBtnText}>Photo added — tap to retake</Text>
+                </>
+              ) : (
+                <>
+                  <Camera size={16} color={C.active} strokeWidth={2} />
+                  <Text style={styles.scanBtnText}>Scan Ghana Card</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             {/* Manual entry */}
             <Text style={styles.fieldLabel}>Ghana Card number</Text>
@@ -220,8 +269,19 @@ const styles = StyleSheet.create({
   tr: { top: 12, right: 14, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
   bl: { bottom: 12, left: 14, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
   br: { bottom: 12, right: 14, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
-  scanSoon: { flexDirection: 'row', alignItems: 'center', gap: 7, justifyContent: 'center', marginTop: 12 },
-  scanSoonText: { fontFamily: 'Inter-Regular', fontSize: 12, color: C.muted, fontWeight: '500' },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    justifyContent: 'center',
+    marginTop: 12,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D4C9B6',
+    backgroundColor: '#fff',
+  },
+  scanBtnText: { fontFamily: 'Inter-SemiBold', fontSize: 13, color: C.active, fontWeight: '600' },
   fieldLabel: { fontFamily: 'Inter-SemiBold', fontSize: 12, color: C.label, marginTop: 20, marginBottom: 8, fontWeight: '600' },
   input: {
     height: 52,
