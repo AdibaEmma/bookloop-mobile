@@ -144,9 +144,8 @@ export default function PhoneInputScreen() {
     setEmail(value);
     const newErrors = { ...errors };
 
-    if (!value.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(value)) {
+    // Email is optional — only flag a bad format, never "required".
+    if (value.trim() && !validateEmail(value)) {
       newErrors.email = 'Invalid email address';
     } else {
       delete newErrors.email;
@@ -240,9 +239,9 @@ export default function PhoneInputScreen() {
       newErrors.lastName = 'Last name must be at least 2 characters';
     }
 
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(email)) {
+    // Email is optional now (phone is the primary identifier) — validate
+    // format only when one is entered.
+    if (email.trim() && !validateEmail(email)) {
       newErrors.email = 'Invalid email address';
     }
 
@@ -280,16 +279,16 @@ export default function PhoneInputScreen() {
       const normalizedPhone = normalizePhone(phone);
 
       await register(
-        email.trim(),
         normalizedPhone,
         firstName.trim(),
         lastName.trim(),
+        email.trim() || undefined,
         showPasswordField && password.trim() ? password.trim() : undefined,
       );
 
       // Show success toast
       showSuccessToastMessage(
-        'OTP sent to your email. Please check your inbox.',
+        'Verification code sent by SMS to your phone.',
         'Registration Successful'
       );
 
@@ -297,7 +296,7 @@ export default function PhoneInputScreen() {
       router.push({
         pathname: '/(auth)/verify-otp',
         params: {
-          email: email.trim(),
+          phone: normalizedPhone,
           firstName: firstName.trim(),
           isRegistration: 'true',
         },
@@ -394,7 +393,7 @@ export default function PhoneInputScreen() {
                 />
 
                 <GlassInput
-                  label="Email Address"
+                  label="Email Address (optional)"
                   value={email}
                   onChangeText={validateEmailLive}
                   placeholder="kwame@example.com"

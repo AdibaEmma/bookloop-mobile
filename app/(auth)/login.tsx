@@ -141,6 +141,12 @@ export default function LoginScreen() {
     return emailRegex.test(email);
   };
 
+  // The identifier field now collects a Ghana phone number.
+  const validatePhone = (value: string): boolean => {
+    const cleaned = value.replace(/\s+/g, '');
+    return /^0\d{9}$/.test(cleaned) || /^\+?233\d{9}$/.test(cleaned);
+  };
+
   /**
    * Validate password
    */
@@ -155,12 +161,12 @@ export default function LoginScreen() {
   const handleEmailChange = (value: string) => {
     setEmail(value);
 
-    // Only validate if field has been touched
+    // Only validate if field has been touched (field now holds a phone number)
     if (touched.email) {
       if (!value.trim()) {
-        setErrors(prev => ({ ...prev, email: 'Email is required' }));
-      } else if (!validateEmail(value)) {
-        setErrors(prev => ({ ...prev, email: 'Invalid email address' }));
+        setErrors(prev => ({ ...prev, email: 'Phone number is required' }));
+      } else if (!validatePhone(value)) {
+        setErrors(prev => ({ ...prev, email: 'Invalid Ghana phone number' }));
       } else {
         setErrors(prev => ({ ...prev, email: undefined }));
       }
@@ -191,11 +197,11 @@ export default function LoginScreen() {
   const handleEmailBlur = () => {
     setTouched(prev => ({ ...prev, email: true }));
 
-    // Validate on blur
+    // Validate on blur (phone identifier)
     if (!email.trim()) {
-      setErrors(prev => ({ ...prev, email: 'Email is required' }));
-    } else if (!validateEmail(email)) {
-      setErrors(prev => ({ ...prev, email: 'Invalid email address' }));
+      setErrors(prev => ({ ...prev, email: 'Phone number is required' }));
+    } else if (!validatePhone(email)) {
+      setErrors(prev => ({ ...prev, email: 'Invalid Ghana phone number' }));
     } else {
       setErrors(prev => ({ ...prev, email: undefined }));
     }
@@ -226,9 +232,9 @@ export default function LoginScreen() {
     const newErrors: typeof errors = {};
 
     if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(email)) {
-      newErrors.email = 'Invalid email address';
+      newErrors.email = 'Phone number is required';
+    } else if (!validatePhone(email)) {
+      newErrors.email = 'Invalid Ghana phone number';
     }
 
     if (usePasswordLogin) {
@@ -252,22 +258,32 @@ export default function LoginScreen() {
     }
 
     try {
+      // Normalize Ghana phone to +233XXXXXXXXX for the backend.
+      const cleaned = email.trim().replace(/\s+/g, '');
+      const phone = cleaned.startsWith('+')
+        ? cleaned
+        : cleaned.startsWith('233')
+          ? `+${cleaned}`
+          : cleaned.startsWith('0')
+            ? `+233${cleaned.slice(1)}`
+            : cleaned;
+
       const response = await login(
-        email.trim(),
+        phone,
         usePasswordLogin && password.trim() ? password.trim() : undefined,
       );
 
       // If OTP was sent (not password login), navigate to OTP verification
       if (response.message) {
         showSuccessToastMessage(
-          'OTP sent to your email. Please check your inbox.',
+          'Verification code sent by SMS to your phone.',
           'Login'
         );
 
         router.push({
           pathname: '/(auth)/verify-otp',
           params: {
-            email: email.trim(),
+            phone,
             isRegistration: 'false',
           },
         });
@@ -335,15 +351,15 @@ export default function LoginScreen() {
             <GlassCard variant="lg" padding="lg">
               <View style={styles.form}>
                 <GlassInput
-                  label="Email Address"
+                  label="Phone Number"
                   value={email}
                   onChangeText={handleEmailChange}
                   onBlur={handleEmailBlur}
-                  placeholder="kwame@example.com"
-                  keyboardType="email-address"
+                  placeholder="0241234567"
+                  keyboardType="phone-pad"
                   autoCapitalize="none"
                   error={errors.email}
-                  leftIcon="mail"
+                  leftIcon="call"
                 />
 
                 {/* Password Toggle */}

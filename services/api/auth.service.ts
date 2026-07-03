@@ -16,8 +16,8 @@ import apiClient, { TokenManager } from './client';
 import { AxiosResponse } from 'axios';
 
 interface RegisterDto {
-  email: string;
   phone: string;
+  email?: string; // Optional — phone is the primary identifier
   password?: string; // Optional password for dual auth
   firstName: string;
   middleName?: string;
@@ -25,13 +25,13 @@ interface RegisterDto {
 }
 
 interface VerifyOtpDto {
-  email: string;
+  phone: string; // OTP is sent by SMS, keyed on phone
   code: string; // Backend expects 'code' not 'otp'
 }
 
 interface LoginDto {
-  email: string;
-  password?: string; // Optional - if not provided, OTP will be sent
+  phone: string;
+  password?: string; // Optional - if not provided, an SMS OTP is sent
 }
 
 interface AuthResponse {
@@ -80,10 +80,10 @@ export const authService = {
    * Optionally accepts password for dual auth
    */
   async register(data: RegisterDto): Promise<{ message: string; reference: string; expires_at: string }> {
-    // Transform camelCase to snake_case for backend
+    // Transform camelCase to snake_case for backend (email optional)
     const payload = {
-      email: data.email,
       phone: data.phone,
+      email: data.email || undefined,
       password: data.password,
       first_name: data.firstName,
       middle_name: data.middleName,
@@ -99,7 +99,7 @@ export const authService = {
    */
   async verifyOtp(data: VerifyOtpDto): Promise<AuthResponse> {
     const payload = {
-      email: data.email,
+      phone: data.phone,
       code: data.code, // Backend expects 'code' field
     };
     const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/verify-otp', payload);
@@ -250,8 +250,8 @@ export const authService = {
   /**
    * Resend OTP
    */
-  async resendOtp(email: string): Promise<{ message: string; reference: string; expires_at: string }> {
-    const response: AxiosResponse = await apiClient.post('/auth/login', { email });
+  async resendOtp(phone: string): Promise<{ message: string; reference: string; expires_at: string }> {
+    const response: AxiosResponse = await apiClient.post('/auth/resend-otp', { phone });
     return response.data;
   },
 

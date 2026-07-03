@@ -18,10 +18,10 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password?: string) => Promise<{ message?: string; reference?: string; expires_at?: string }>;
+  login: (phone: string, password?: string) => Promise<{ message?: string; reference?: string; expires_at?: string }>;
   biometricLogin: (token: string) => Promise<void>;
-  register: (email: string, phone: string, firstName: string, lastName: string, password?: string) => Promise<void>;
-  verifyOtp: (email: string, code: string) => Promise<void>;
+  register: (phone: string, firstName: string, lastName: string, email?: string, password?: string) => Promise<void>;
+  verifyOtp: (phone: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   error: string | null;
@@ -89,10 +89,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Optionally accepts password for dual auth
    */
   const register = async (
-    email: string,
     phone: string,
     firstName: string,
     lastName: string,
+    email?: string,
     password?: string,
   ) => {
     try {
@@ -100,14 +100,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
 
       await authService.register({
-        email,
         phone,
+        email,
         password,
         firstName,
         lastName,
       });
 
-      // OTP sent to email, user needs to verify
+      // OTP sent by SMS to the phone, user needs to verify
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Registration failed';
       setError(errorMessage);
@@ -121,12 +121,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Verify OTP code
    * Completes registration or login
    */
-  const verifyOtp = async (email: string, code: string) => {
+  const verifyOtp = async (phone: string, code: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      await authService.verifyOtp({ email, code });
+      await authService.verifyOtp({ phone, code });
 
       // Get the user data from storage (auth service already stored it)
       const userData = await TokenManager.getUserData();
@@ -145,12 +145,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * If password provided: direct login
    * If no password: sends OTP to email
    */
-  const login = async (email: string, password?: string) => {
+  const login = async (phone: string, password?: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      const response = await authService.login({ email, password });
+      const response = await authService.login({ phone, password });
 
       // If password was provided and login successful, user data is already set
       if ('tokens' in response) {
