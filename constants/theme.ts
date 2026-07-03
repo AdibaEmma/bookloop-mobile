@@ -70,6 +70,57 @@ export const BookLoopColors = {
   glassWhite: 'rgba(255, 255, 255, 0.2)',
   glassBlack: 'rgba(0, 0, 0, 0.3)',
   glassGold: 'rgba(255, 213, 128, 0.3)', // Muted gold with transparency
+
+  // Design-refresh tokens (from BookLoop Mobile.dc.html — 3a/3b converged base)
+  // Light surface tones
+  creamTop: '#FBEFD9', // top of home gradient
+  mutedText: '#A88C6E', // greeting / secondary label (light)
+  authorText: '#8B7355', // book author / meta (light)
+  goldDeep: '#F5B942', // gold gradient bottom (FAB, boosted)
+  // Dark surface tones (3b)
+  darkBg: '#1E1712',
+  darkBgDeep: '#17110D',
+  darkSurface: '#241C16',
+  darkSurfaceRaised: '#2A211B',
+  darkBorder: '#362B22',
+  darkBorderSoft: '#3A2E24',
+  darkText: '#FBF3E9',
+  darkTextMuted: '#B49B7E',
+};
+
+/**
+ * Condition badge palette (color-coded, from the design's BookCard).
+ * Each entry: soft tint background + saturated label — for light and dark.
+ */
+export const ConditionBadge: Record<
+  'new' | 'like_new' | 'good' | 'fair' | 'poor',
+  { label: string; light: { bg: string; fg: string }; dark: { bg: string; fg: string } }
+> = {
+  new: {
+    label: 'New',
+    light: { bg: '#E8F3E9', fg: '#3B7A3F' },
+    dark: { bg: 'rgba(76,175,80,.18)', fg: '#7BC47F' },
+  },
+  like_new: {
+    label: 'Like new',
+    light: { bg: '#E8F3E9', fg: '#3B7A3F' },
+    dark: { bg: 'rgba(76,175,80,.18)', fg: '#7BC47F' },
+  },
+  good: {
+    label: 'Good',
+    light: { bg: '#E9F2FB', fg: '#2373B8' },
+    dark: { bg: 'rgba(33,150,243,.18)', fg: '#5DAEF5' },
+  },
+  fair: {
+    label: 'Fair',
+    light: { bg: '#FBF0E0', fg: '#B26A16' },
+    dark: { bg: 'rgba(255,152,0,.18)', fg: '#F0A94D' },
+  },
+  poor: {
+    label: 'Poor',
+    light: { bg: '#FBE7E6', fg: '#C0392B' },
+    dark: { bg: 'rgba(244,67,54,.18)', fg: '#F07A72' },
+  },
 };
 
 /**

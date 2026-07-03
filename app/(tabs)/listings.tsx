@@ -282,7 +282,7 @@ export default function MyListingsScreen() {
         condition={item.condition}
         listingType={item.listingType}
         onPress={() => handleListingPress(item)}
-        variant="compact"
+        isOwnListing
       />
 
       {/* Status Badge */}

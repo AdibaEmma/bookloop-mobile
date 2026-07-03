@@ -2,31 +2,45 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Home, Compass, Plus, Repeat, User } from 'lucide-react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BookLoopColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+/**
+ * Tab bar — design refresh.
+ *
+ * Warm glass bar with a gold FAB in the centre. Icon set matches the design
+ * (Home / Explore / [+] / Swaps / Profile) via lucide-react-native.
+ *
+ * NOTE: the centre FAB currently routes to the `exchanges` screen (unchanged
+ * from before) so navigation isn't broken. In the design the FAB is a "create
+ * listing" action and the 4th slot is "Swaps". Flipping that is a small
+ * structural change flagged for product sign-off before rewiring.
+ */
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const scheme = useColorScheme() ?? 'light';
+  const isDark = scheme === 'dark';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: BookLoopColors.burntOrange,
-        tabBarInactiveTintColor: colorScheme === 'light' ? BookLoopColors.warmGray : BookLoopColors.lightGray,
+        tabBarActiveTintColor: isDark ? BookLoopColors.burntOrange : BookLoopColors.coffeeBrown,
+        tabBarInactiveTintColor: isDark ? '#8C7660' : '#B39C82',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: colorScheme === 'light' ? BookLoopColors.cream : BookLoopColors.deepBrown,
-          borderTopColor: colorScheme === 'light' ? BookLoopColors.lightGray : BookLoopColors.darkGray,
+          backgroundColor: isDark ? '#1C150F' : BookLoopColors.cream,
+          borderTopColor: isDark ? BookLoopColors.darkBorder : 'rgba(139,94,60,0.1)',
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 70 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 8 : 8,
+          height: Platform.OS === 'ios' ? 74 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontFamily: 'Inter-Regular',
+          fontSize: 9.5,
           fontWeight: '600',
         },
       }}>
@@ -34,14 +48,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Home
+              size={23}
+              color={color}
+              strokeWidth={1.8}
+              fill={focused ? BookLoopColors.mutedGold : 'transparent'}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
+          tabBarIcon: ({ color }) => <Compass size={23} color={color} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
@@ -49,37 +70,32 @@ export default function TabLayout() {
         options={{
           title: '',
           tabBarIcon: () => (
-            <View style={[
-              styles.floatingButton,
-              { backgroundColor: colorScheme === 'light' ? BookLoopColors.cream : BookLoopColors.deepBrown }
-            ]}>
+            <View style={[styles.fabWrap, { backgroundColor: isDark ? '#1C150F' : BookLoopColors.cream }]}>
               <LinearGradient
-                colors={[BookLoopColors.burntOrange, '#B85E2D']}
+                colors={[BookLoopColors.mutedGold, BookLoopColors.goldDeep]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.gradientButton}
+                style={styles.fab}
               >
-                <IconSymbol size={32} name="arrow.left.arrow.right" color="#FFFFFF" />
+                <Plus size={26} color={BookLoopColors.deepEspresso} strokeWidth={2.4} />
               </LinearGradient>
             </View>
           ),
-          tabBarButton: (props) => (
-            <HapticTab {...props} style={styles.floatingButtonContainer} />
-          ),
+          tabBarButton: (props) => <HapticTab {...props} style={styles.fabButton} />,
         }}
       />
       <Tabs.Screen
         name="listings"
         options={{
           title: 'My Listings',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
+          tabBarIcon: ({ color }) => <Repeat size={23} color={color} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          tabBarIcon: ({ color }) => <User size={23} color={color} strokeWidth={1.8} />,
         }}
       />
     </Tabs>
@@ -87,33 +103,30 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  floatingButtonContainer: {
+  fabButton: {
     top: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  floatingButton: {
+  fabWrap: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     padding: 4,
+    marginTop: -18,
   },
-  gradientButton: {
+  fab: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: BookLoopColors.goldDeep,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.65,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });

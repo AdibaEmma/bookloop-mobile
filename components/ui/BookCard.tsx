@@ -5,56 +5,92 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { GlassCard } from './GlassCard';
+import { Heart, ArrowLeftRight, Zap, ShieldCheck } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  Colors,
-  Typography,
+  BookLoopColors,
+  ConditionBadge,
   Spacing,
-  BorderRadius,
 } from '@/constants/theme';
 
 /**
- * BookCard Component
+ * BookCard
  *
- * Displays a book listing with cover, title, author, and metadata.
+ * Book listing card, restyled to the design refresh (3a/3b):
+ * - spine-textured cover (falls back to the real cover image when present)
+ * - color-coded condition badge, "Exchange" chip, beige distance chip
+ * - "Wants:" preference line with priority numbering
+ * - owner row with verified shield
+ * - boosted variant: gold border + floating BOOSTED ribbon + warm glow
  *
- * Features:
- * - Book cover image
- * - Title and author
- * - Book condition badge
- * - Distance indicator
- * - Listing type (exchange/donate/borrow)
- * - Tap to view details
+ * Theme-aware (light 3a / dark 3b). Kept flat and cheap for low-end Android.
  */
+
+type Condition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 
 interface ExchangePreference {
   id: string;
-  bookId: string;
-  book: {
-    id: string;
-    title: string;
-    author: string;
-    coverImage?: string;
-  };
+  book: { id: string; title: string; author?: string };
   priority: number;
+}
+
+interface Owner {
+  name: string;
+  initials?: string;
+  avatarUrl?: string;
+  verified?: boolean;
 }
 
 interface BookCardProps {
   title: string;
   author: string;
   coverImage?: string;
-  condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+  condition: Condition;
   listingType: 'exchange' | 'donate' | 'borrow';
-  distance?: number; // in meters
+  distance?: number; // meters
   onPress: () => void;
-  onTypePress?: () => void; // Optional callback for listing type interaction
-  variant?: 'default' | 'compact'; // Size variant
-  exchangePreferences?: ExchangePreference[]; // Books wanted in exchange
-  onInitiateExchange?: () => void; // Callback when user wants to initiate exchange
-  isOwnListing?: boolean; // Whether this listing belongs to current user
+  boosted?: boolean;
+  favorited?: boolean;
+  onToggleFavorite?: () => void;
+  exchangePreferences?: ExchangePreference[];
+  owner?: Owner;
+  isOwnListing?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
+
+// Deterministic warm spine tint from the title, so placeholder covers vary.
+const SPINE_LIGHT = [
+  ['#C9A97E', '#BE9A6B'],
+  ['#B98A6B', '#AC7C5E'],
+  ['#BFA47C', '#B2946A'],
+  ['#C2A17A', '#B58F66'],
+];
+const SPINE_DARK = [
+  ['#4A3B2C', '#3E3124'],
+  ['#453626', '#3A2D20'],
+  ['#4E3E2E', '#42342572'],
+  ['#463724', '#3B2E1F'],
+];
+
+function spineFor(title: string, isDark: boolean): [string, string] {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % 997;
+  const set = isDark ? SPINE_DARK : SPINE_LIGHT;
+  return set[h % set.length] as [string, string];
+}
+
+const listingTypeLabel: Record<string, string> = {
+  exchange: 'Exchange',
+  donate: 'Donate',
+  borrow: 'Borrow',
+};
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1)}km`;
 }
 
 export function BookCard({
@@ -65,314 +101,319 @@ export function BookCard({
   listingType,
   distance,
   onPress,
-  onTypePress,
-  variant = 'default',
+  boosted = false,
+  favorited = false,
+  onToggleFavorite,
   exchangePreferences,
-  onInitiateExchange,
+  owner,
   isOwnListing = false,
+  style,
 }: BookCardProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const scheme = useColorScheme() ?? 'light';
+  const isDark = scheme === 'dark';
 
-  // Determine dimensions based on variant
-  const coverWidth = variant === 'compact' ? 60 : 80;
-  const coverHeight = variant === 'compact' ? 90 : 120;
-  const iconSize = variant === 'compact' ? 24 : 32;
+  const cond = ConditionBadge[condition] ?? ConditionBadge.good;
+  const condColors = isDark ? cond.dark : cond.light;
+  const [spineA, spineB] = spineFor(title, isDark);
 
-  const conditionLabels = {
-    new: 'New',
-    like_new: 'Like New',
-    good: 'Good',
-    fair: 'Fair',
-    poor: 'Poor',
-  };
-
-  const conditionColors = {
-    new: colors.success,
-    like_new: colors.success,
-    good: colors.info,
-    fair: colors.warning,
-    poor: colors.error,
-  };
-
-  const listingTypeIcons: Record<string, any> = {
-    exchange: 'swap-horizontal',
-    donate: 'gift',
-    borrow: 'time',
-  };
-
-  const formatDistance = (meters: number): string => {
-    if (meters < 1000) {
-      return `${Math.round(meters)}m`;
-    }
-    return `${(meters / 1000).toFixed(1)}km`;
-  };
+  const c = isDark
+    ? {
+        card: BookLoopColors.darkSurface,
+        border: BookLoopColors.darkBorder,
+        title: BookLoopColors.darkText,
+        author: BookLoopColors.darkTextMuted,
+        meta: BookLoopColors.darkTextMuted,
+        wantsHi: BookLoopColors.darkText,
+        distBg: BookLoopColors.darkBgDeep,
+        distFg: '#C9B79C',
+        heart: '#6B5844',
+        exchange: '#E89A5D',
+        ownerAvatar: '#4A3B2C',
+        ownerName: '#F2E9DE',
+        spineText: '#E4D4C0',
+      }
+    : {
+        card: '#FFFFFF',
+        border: '#EFE2CE',
+        title: BookLoopColors.deepEspresso,
+        author: BookLoopColors.authorText,
+        meta: BookLoopColors.authorText,
+        wantsHi: BookLoopColors.deepEspresso,
+        distBg: BookLoopColors.parchmentBeige,
+        distFg: '#6B5240',
+        heart: '#C9B79C',
+        exchange: BookLoopColors.coffeeBrown,
+        ownerAvatar: BookLoopColors.softLatte,
+        ownerName: BookLoopColors.deepEspresso,
+        spineText: '#3d2c1e',
+      };
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <GlassCard variant="md" padding="md" shadow="md">
-        <View style={styles.container}>
-          {/* Book Cover */}
-          <View style={styles.coverContainer}>
-            {coverImage ? (
-              <Image
-                source={{ uri: coverImage }}
-                style={[styles.cover, { width: coverWidth, height: coverHeight }]}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[
-                styles.coverPlaceholder,
-                {
-                  backgroundColor: colors.surface,
-                  width: coverWidth,
-                  height: coverHeight
-                }
-              ]}>
-                <Ionicons name="book" size={iconSize} color={colors.textSecondary} />
-              </View>
-            )}
-          </View>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`${title} by ${author}`}
+      style={[
+        styles.card,
+        {
+          backgroundColor: c.card,
+          borderColor: boosted ? BookLoopColors.mutedGold : c.border,
+          borderWidth: boosted ? 1.5 : 1,
+        },
+        boosted && styles.boostedGlow,
+        style,
+      ]}
+    >
+      {boosted && (
+        <View style={styles.boostedRibbon}>
+          <Zap size={10} color="#5A3E1E" fill="#5A3E1E" strokeWidth={0} />
+          <Text style={styles.boostedText}>BOOSTED</Text>
+        </View>
+      )}
 
-          {/* Book Info */}
-          <View style={styles.info}>
-            <Text
-              style={[styles.title, { color: colors.text }]}
-              numberOfLines={2}
-            >
+      {/* Cover */}
+      {coverImage ? (
+        <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
+      ) : (
+        <View style={[styles.cover, styles.coverSpine, { backgroundColor: spineA, borderColor: spineB }]}>
+          <Text style={[styles.spineText, { color: c.spineText }]} numberOfLines={3}>
+            {title}
+          </Text>
+        </View>
+      )}
+
+      {/* Info */}
+      <View style={styles.info}>
+        <View style={styles.titleRow}>
+          <View style={styles.titleWrap}>
+            <Text style={[styles.title, { color: c.title }]} numberOfLines={1}>
               {title}
             </Text>
-            <Text
-              style={[styles.author, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.author, { color: c.author }]} numberOfLines={1}>
               {author}
             </Text>
+          </View>
+          {!isOwnListing && (
+            <TouchableOpacity
+              hitSlop={8}
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleFavorite?.();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={favorited ? 'Remove from saved' : 'Save book'}
+            >
+              <Heart
+                size={20}
+                color={favorited ? BookLoopColors.error : c.heart}
+                fill={favorited ? BookLoopColors.error : 'transparent'}
+                strokeWidth={1.8}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
 
-            {/* Metadata */}
-            <View style={styles.metadata}>
-              {/* Condition Badge */}
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: `${conditionColors[condition]}20` },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: conditionColors[condition] },
-                  ]}
-                >
-                  {conditionLabels[condition]}
-                </Text>
-              </View>
-
-              {/* Listing Type */}
-              {onTypePress ? (
-                <TouchableOpacity
-                  style={styles.typeContainer}
-                  onPress={onTypePress}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={listingTypeIcons[listingType]}
-                    size={14}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[styles.typeText, { color: colors.primary }]}
-                  >
-                    {listingType}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.typeContainer}>
-                  <Ionicons
-                    name={listingTypeIcons[listingType]}
-                    size={14}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[styles.typeText, { color: colors.primary }]}
-                  >
-                    {listingType}
-                  </Text>
-                </View>
-              )}
-
-              {/* Distance */}
-              {distance !== undefined && (
-                <View style={styles.distanceContainer}>
-                  <Ionicons
-                    name="location"
-                    size={14}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.distanceText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {formatDistance(distance)}
-                  </Text>
-                </View>
-              )}
+        {/* Meta chips */}
+        <View style={styles.metaRow}>
+          <View style={[styles.condBadge, { backgroundColor: condColors.bg }]}>
+            <Text style={[styles.condText, { color: condColors.fg }]}>{cond.label}</Text>
+          </View>
+          <View style={styles.typeChip}>
+            <ArrowLeftRight size={12} color={c.exchange} strokeWidth={2} />
+            <Text style={[styles.typeText, { color: c.exchange }]}>
+              {listingTypeLabel[listingType]}
+            </Text>
+          </View>
+          {distance !== undefined && (
+            <View style={[styles.distChip, { backgroundColor: c.distBg }]}>
+              <Text style={[styles.distText, { color: c.distFg }]}>{formatDistance(distance)}</Text>
             </View>
+          )}
+        </View>
 
-            {/* Exchange Preferences (only for exchange type listings) */}
-            {listingType === 'exchange' && exchangePreferences && exchangePreferences.length > 0 && (
-              <View style={styles.preferencesContainer}>
-                <Text style={[styles.preferencesLabel, { color: colors.textSecondary }]}>
-                  Wants in exchange:
+        {/* Wants line */}
+        {listingType === 'exchange' && exchangePreferences && exchangePreferences.length > 0 && (
+          <Text style={[styles.wants, { color: c.meta }]} numberOfLines={1}>
+            Wants:{' '}
+            <Text style={[styles.wantsHi, { color: c.wantsHi }]}>
+              1. {exchangePreferences[0].book.title}
+              {exchangePreferences.length > 1 ? ` +${exchangePreferences.length - 1}` : ''}
+            </Text>
+          </Text>
+        )}
+
+        {/* Owner */}
+        {owner && (
+          <View style={styles.ownerRow}>
+            {owner.avatarUrl ? (
+              <Image source={{ uri: owner.avatarUrl }} style={styles.ownerAvatar} />
+            ) : (
+              <View style={[styles.ownerAvatar, { backgroundColor: c.ownerAvatar }]}>
+                <Text style={styles.ownerInitials}>
+                  {owner.initials ?? owner.name.slice(0, 2).toUpperCase()}
                 </Text>
-                <View style={styles.preferencesList}>
-                  {exchangePreferences.slice(0, 2).map((pref, index) => (
-                    <View key={pref.id} style={styles.preferenceChip}>
-                      <Text style={[styles.preferenceNumber, { color: colors.primary }]}>
-                        {pref.priority}.
-                      </Text>
-                      <Text style={[styles.preferenceTitle, { color: colors.text }]} numberOfLines={1}>
-                        {pref.book.title}
-                      </Text>
-                    </View>
-                  ))}
-                  {exchangePreferences.length > 2 && (
-                    <Text style={[styles.moreText, { color: colors.textSecondary }]}>
-                      +{exchangePreferences.length - 2} more
-                    </Text>
-                  )}
-                </View>
               </View>
             )}
-
-            {/* Initiate Exchange Button (for exchange type, not own listing) */}
-            {listingType === 'exchange' && !isOwnListing && onInitiateExchange && (
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onInitiateExchange();
-                }}
-                style={styles.initiateButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="swap-horizontal" size={16} color="#FFFFFF" />
-                <Text style={styles.initiateButtonText}>Initiate Exchange</Text>
-              </TouchableOpacity>
+            <Text style={[styles.ownerName, { color: c.ownerName }]} numberOfLines={1}>
+              {owner.name}
+            </Text>
+            {owner.verified && (
+              <ShieldCheck size={14} color={BookLoopColors.coffeeBrown} fill={BookLoopColors.mutedGold} strokeWidth={1.4} />
             )}
           </View>
-        </View>
-      </GlassCard>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  card: {
     flexDirection: 'row',
+    gap: 12,
+    padding: 13,
+    borderRadius: 16,
+    position: 'relative',
   },
-  coverContainer: {
-    marginRight: Spacing.md,
+  boostedGlow: {
+    shadowColor: '#FFB43C',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  boostedRibbon: {
+    position: 'absolute',
+    top: -9,
+    left: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 9,
+    backgroundColor: BookLoopColors.mutedGold,
+    zIndex: 2,
+  },
+  boostedText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: '#5A3E1E',
   },
   cover: {
-    borderRadius: BorderRadius.md,
+    width: 64,
+    height: 92,
+    borderRadius: 8,
   },
-  coverPlaceholder: {
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+  coverSpine: {
+    borderLeftWidth: 6,
+    justifyContent: 'flex-end',
+    padding: 7,
+    overflow: 'hidden',
+  },
+  spineText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 9,
+    fontWeight: '600',
+    lineHeight: 11,
   },
   info: {
     flex: 1,
+    minWidth: 0,
+  },
+  titleRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 6,
+  },
+  titleWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   title: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.xs,
+    fontFamily: 'Inter-Bold',
+    fontSize: 14.5,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   author: {
-    fontSize: Typography.fontSize.sm,
-    marginBottom: Spacing.sm,
-  },
-  metadata: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-  },
-  badge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  badgeText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  typeText: {
-    fontSize: Typography.fontSize.xs,
-    textTransform: 'capitalize',
-  },
-  distanceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  distanceText: {
-    fontSize: Typography.fontSize.xs,
-  },
-  preferencesContainer: {
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(128, 128, 128, 0.2)',
-  },
-  preferencesLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: Spacing.xs / 2,
-  },
-  preferencesList: {
-    gap: Spacing.xs / 2,
-  },
-  preferenceChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs / 2,
-  },
-  preferenceNumber: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  preferenceTitle: {
-    fontSize: 11,
-    flex: 1,
-  },
-  moreText: {
-    fontSize: 10,
-    fontStyle: 'italic',
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    fontWeight: '500',
     marginTop: 2,
   },
-  initiateButton: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    backgroundColor: '#E86B3E', // BookLoopColors.burntOrange
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.sm,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
   },
-  initiateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  condBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  condText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 10,
     fontWeight: '600',
+  },
+  typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  typeText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  distChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  distText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  wants: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  wantsHi: {
+    fontWeight: '600',
+  },
+  ownerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  ownerAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ownerInitials: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 9,
+    fontWeight: '700',
+    color: BookLoopColors.deepEspresso,
+  },
+  ownerName: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
   },
 });

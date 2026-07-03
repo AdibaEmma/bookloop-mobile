@@ -1,164 +1,117 @@
 /**
- * Welcome Screen
+ * Welcome Screen — design refresh 4a
  *
- * First screen shown to unauthenticated users.
+ * First screen for unauthenticated users. Logo tile + wordmark, a literary
+ * hero card, three value-prop rows, and the primary / ghost CTAs.
  *
- * Features:
- * - App logo and branding
- * - Hero illustration
- * - Value propositions
- * - Get Started / Login buttons
- * - Beautiful glassmorphic design
+ * Navigation and routes are unchanged (Get Started → phone-input, secondary →
+ * login); only the presentation was reworked to the design language.
  */
 
 import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { GlassButton, GlassCard } from '@/components/ui';
+import { BookOpen, ArrowLeftRight, Gift, MapPin } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BookLoopColors,
-} from '@/constants/theme';
+import { BookLoopColors } from '@/constants/theme';
 
-const { width, height } = Dimensions.get('window');
+const FEATURES = [
+  { Icon: ArrowLeftRight, title: 'Exchange Books', desc: 'Trade with readers nearby' },
+  { Icon: Gift, title: 'Donate & Share', desc: 'Give books a new home' },
+  { Icon: MapPin, title: 'Find Locally', desc: 'Books in your neighbourhood' },
+];
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const isDark = (useColorScheme() ?? 'light') === 'dark';
 
-  const features = [
-    {
-      icon: 'swap-horizontal' as const,
-      title: 'Exchange Books',
-      description: 'Trade your books with readers nearby',
-    },
-    {
-      icon: 'gift' as const,
-      title: 'Donate & Share',
-      description: 'Give books a new home, spread knowledge',
-    },
-    {
-      icon: 'location' as const,
-      title: 'Find Locally',
-      description: 'Discover books in your neighborhood',
-    },
-  ];
+  const c = isDark
+    ? {
+        grad: [BookLoopColors.darkBg, BookLoopColors.darkBgDeep] as const,
+        text: BookLoopColors.darkText,
+        muted: BookLoopColors.darkTextMuted,
+        sub: '#B49B7E',
+        heroBg: BookLoopColors.darkSurface,
+        heroBorder: BookLoopColors.darkBorder,
+        featureTile: 'rgba(217,121,65,0.16)',
+        featureIcon: BookLoopColors.burntOrange,
+        ghost: BookLoopColors.burntOrange,
+      }
+    : {
+        grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
+        text: BookLoopColors.deepEspresso,
+        muted: BookLoopColors.mutedText,
+        sub: BookLoopColors.authorText,
+        heroBg: 'rgba(255,255,255,0.6)',
+        heroBorder: 'rgba(139,94,60,0.14)',
+        featureTile: 'rgba(217,121,65,0.14)',
+        featureIcon: BookLoopColors.burntOrange,
+        ghost: BookLoopColors.coffeeBrown,
+      };
 
   return (
     <View style={styles.container}>
-      {/* Background Gradient */}
-      <LinearGradient
-        colors={
-          colorScheme === 'light'
-            ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-            : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-        }
-        style={StyleSheet.absoluteFillObject}
-      />
-
+      <LinearGradient colors={c.grad} style={StyleSheet.absoluteFillObject} />
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Logo and Branding */}
-          <View style={styles.header}>
-            <Image
-              source={require('@/assets/images/bookloop-banner.png')}
-              style={styles.banner}
-              resizeMode="contain"
-            />
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Ghana's Book Exchange Community
-            </Text>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Brand */}
+          <View style={styles.brand}>
+            <View style={styles.logoTile}>
+              <BookOpen size={34} color={BookLoopColors.cream} strokeWidth={2} />
+            </View>
+            <Text style={[styles.wordmark, { color: c.text }]}>BookLoop</Text>
+            <Text style={[styles.tagline, { color: c.muted }]}>Ghana's Book Exchange Community</Text>
           </View>
 
-          {/* Hero Illustration */}
-          <View style={styles.heroContainer}>
-            <GlassCard variant="lg" padding="xl" blurIntensity={30}>
-              <View style={styles.heroContent}>
-                <Text style={[styles.heroText, { color: colors.text }]}>
-                  Your books deserve a second chapter
-                </Text>
-                <Text style={[styles.heroSubtext, { color: colors.textSecondary }]}>
-                  Trade, donate, and discover books in your neighborhood
-                </Text>
-              </View>
-            </GlassCard>
+          {/* Hero */}
+          <View style={[styles.hero, { backgroundColor: c.heroBg, borderColor: c.heroBorder }]}>
+            <Text style={[styles.heroTitle, { color: c.text }]}>
+              Your books deserve a second chapter
+            </Text>
+            <Text style={[styles.heroSub, { color: c.sub }]}>
+              Trade, donate, and discover books in your neighbourhood
+            </Text>
           </View>
 
           {/* Features */}
           <View style={styles.features}>
-            {features.map((feature, index) => (
-              <GlassCard
-                key={index}
-                variant="md"
-                padding="md"
-                style={styles.featureCard}
-              >
-                <View style={styles.featureContent}>
-                  <View
-                    style={[
-                      styles.featureIconContainer,
-                      { backgroundColor: `${BookLoopColors.burntOrange}20` },
-                    ]}
-                  >
-                    <Ionicons
-                      name={feature.icon}
-                      size={24}
-                      color={BookLoopColors.burntOrange}
-                    />
-                  </View>
-                  <View style={styles.featureText}>
-                    <Text
-                      style={[styles.featureTitle, { color: colors.text }]}
-                    >
-                      {feature.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.featureDescription,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {feature.description}
-                    </Text>
-                  </View>
+            {FEATURES.map(({ Icon, title, desc }) => (
+              <View key={title} style={styles.featureRow}>
+                <View style={[styles.featureTile, { backgroundColor: c.featureTile }]}>
+                  <Icon size={22} color={c.featureIcon} strokeWidth={2} />
                 </View>
-              </GlassCard>
+                <View style={styles.featureText}>
+                  <Text style={[styles.featureTitle, { color: c.text }]}>{title}</Text>
+                  <Text style={[styles.featureDesc, { color: c.sub }]}>{desc}</Text>
+                </View>
+              </View>
             ))}
           </View>
 
-          {/* CTA Buttons */}
+          {/* CTAs */}
           <View style={styles.actions}>
-            <GlassButton
-              title="Get Started"
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.85}
               onPress={() => router.push('/(auth)/phone-input')}
-              variant="primary"
-              size="lg"
-              style={styles.primaryButton}
-            />
-
-            <GlassButton
-              title="I Already Have an Account"
+            >
+              <Text style={styles.primaryText}>Get Started</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              activeOpacity={0.7}
               onPress={() => router.push('/(auth)/login')}
-              variant="ghost"
-              size="lg"
-            />
+            >
+              <Text style={[styles.ghostText, { color: c.ghost }]}>I already have an account</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -167,87 +120,124 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 28,
   },
-  safeArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing['2xl'],
-    paddingBottom: Spacing['3xl'],
-  },
-  header: {
+  brand: {
     alignItems: 'center',
-    marginBottom: Spacing['2xl'],
+    marginTop: 14,
   },
-  banner: {
-    width: width * 0.8,
-    height: width * 0.35,
-    marginBottom: Spacing.md,
-  },
-  subtitle: {
-    fontSize: Typography.fontSize.base,
-    fontFamily: Typography.fontFamily.body,
-    textAlign: 'center',
-  },
-  heroContainer: {
-    marginBottom: Spacing['2xl'],
-  },
-  heroContent: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xl,
-  },
-  heroText: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.literary,
-    textAlign: 'center',
-    lineHeight: 28,
-    marginBottom: Spacing.sm,
-  },
-  heroSubtext: {
-    fontSize: Typography.fontSize.base,
-    fontFamily: Typography.fontFamily.body,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  features: {
-    marginBottom: Spacing['2xl'],
-    gap: Spacing.md,
-  },
-  featureCard: {
-    marginBottom: 0,
-  },
-  featureContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  logoTile: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: BookLoopColors.coffeeBrown,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
+    shadowColor: BookLoopColors.coffeeBrown,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  featureText: {
-    flex: 1,
+  wordmark: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    marginTop: 14,
   },
-  featureTitle: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.xs,
+  tagline: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 3,
   },
-  featureDescription: {
-    fontSize: Typography.fontSize.sm,
+  hero: {
+    marginTop: 22,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontFamily: 'LibreBaskerville-Regular',
+    fontSize: 19,
+    fontWeight: '600',
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  heroSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 13,
     lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  features: {
+    marginTop: 18,
+    gap: 12,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  featureTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featureText: { flex: 1 },
+  featureTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  featureDesc: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    marginTop: 1,
   },
   actions: {
-    gap: Spacing.md,
+    marginTop: 'auto',
+    paddingTop: 22,
+    gap: 10,
   },
-  primaryButton: {
-    marginBottom: 0,
+  primaryBtn: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: BookLoopColors.coffeeBrown,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: BookLoopColors.coffeeBrown,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  primaryText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 15,
+    fontWeight: '600',
+    color: BookLoopColors.cream,
+  },
+  ghostBtn: {
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ghostText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

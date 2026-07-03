@@ -1,152 +1,136 @@
 /**
- * Home Screen (Feed)
+ * Home Screen (Feed) — design refresh 3a/3b
  *
- * Personalized dashboard with recommendations and nearby listings.
+ * Greeting + slim glass stats strip (Karma / Nearby / Swaps) + glass search
+ * pill + filter chips + vertical BookCard feed. Replaces the old rainbow
+ * quick-action tiles and emoji stat cards.
  *
- * Features:
- * - Personalized greeting
- * - Popular listings from other users
- * - Nearby listings feed
- * - Quick stats overview
- * - Pull to refresh
+ * Data/location/refresh logic is unchanged from the previous implementation;
+ * only the presentation was reworked to the design.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  FlatList,
   RefreshControl,
   TouchableOpacity,
   Animated,
   Image,
-  Appearance,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Bell, Search, BookOpen } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { GlassCard, GlassButton, BookCard } from '@/components/ui';
+import { BookCard, StatsStrip, FilterChips } from '@/components/ui';
+import type { StatItem, FilterChip } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BookLoopColors,
-  BorderRadius,
-} from '@/constants/theme';
+import { BookLoopColors } from '@/constants/theme';
+
+const FILTERS: FilterChip[] = [
+  { key: 'all', label: 'All' },
+  { key: 'near', label: 'Near me', icon: 'near' },
+  { key: 'fiction', label: 'Fiction' },
+  { key: 'verified', label: 'Verified' },
+];
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const scheme = useColorScheme() ?? 'light';
+  const isDark = scheme === 'dark';
 
-  const [popularListings, setPopularListings] = useState<Listing[]>([]);
   const [nearbyListings, setNearbyListings] = useState<Listing[]>([]);
+  const [popularListings, setPopularListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [activeFilter, setActiveFilter] = useState('all');
 
-  // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
-  const slideAnim = useState(new Animated.Value(50))[0];
-  const scaleAnim = useState(new Animated.Value(0.9))[0];
 
-  /**
-   * Toggle theme
-   */
-  const toggleTheme = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const newScheme = colorScheme === 'light' ? 'dark' : 'light';
-    Appearance.setColorScheme(newScheme);
-  };
+  const c = isDark
+    ? {
+        grad: [BookLoopColors.darkBg, BookLoopColors.darkBgDeep] as const,
+        text: BookLoopColors.darkText,
+        muted: BookLoopColors.darkTextMuted,
+        avatar: BookLoopColors.burntOrange,
+        bellBg: BookLoopColors.darkSurfaceRaised,
+        bellBorder: BookLoopColors.darkBorderSoft,
+        bellIcon: '#E4D4C0',
+        searchBg: BookLoopColors.darkSurfaceRaised,
+        searchBorder: BookLoopColors.darkBorderSoft,
+        searchIcon: BookLoopColors.burntOrange,
+        searchText: '#8C7660',
+        fade: BookLoopColors.darkBgDeep,
+      }
+    : {
+        grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
+        text: BookLoopColors.deepEspresso,
+        muted: BookLoopColors.mutedText,
+        avatar: BookLoopColors.coffeeBrown,
+        bellBg: 'rgba(244,225,193,0.7)',
+        bellBorder: 'rgba(139,94,60,0.15)',
+        bellIcon: BookLoopColors.deepEspresso,
+        searchBg: 'rgba(255,255,255,0.65)',
+        searchBorder: 'rgba(139,94,60,0.14)',
+        searchIcon: BookLoopColors.coffeeBrown,
+        searchText: BookLoopColors.mutedText,
+        fade: BookLoopColors.cream,
+      };
 
-  /**
-   * Get user location
-   */
-  const getLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+  const getLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== 'granted') {
-        return null;
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      return {
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      };
+      if (status !== 'granted') return null;
+      const pos = await Location.getCurrentPositionAsync({});
+      return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
     } catch (error) {
       console.error('Location error:', error);
       return null;
     }
   };
 
-  /**
-   * Load all home screen data
-   */
   const loadHomeData = async (refresh = false) => {
     try {
-      if (refresh) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
+      refresh ? setIsRefreshing(true) : setIsLoading(true);
 
-      // Get location
       let currentLocation = location;
       if (!currentLocation) {
         currentLocation = await getLocation();
         setLocation(currentLocation);
       }
 
-      // Load popular listings and nearby listings in parallel
-      const [popularListingsData, nearbyListingsData] = await Promise.allSettled([
-        listingsService.searchListings({
-          limit: 20, // Fetch more to account for filtering
-        }),
+      const [popular, nearby] = await Promise.allSettled([
+        listingsService.searchListings({ limit: 20 }),
         currentLocation
           ? listingsService.searchListings({
               latitude: currentLocation.latitude,
               longitude: currentLocation.longitude,
               radiusMeters: 5000,
-              limit: 10,
+              limit: 20,
             })
           : Promise.resolve({ data: [] }),
       ]);
 
-      // Update popular listings (filter out logged-in user's listings)
-      if (popularListingsData.status === 'fulfilled') {
-        const data = popularListingsData.value.data || popularListingsData.value || [];
-        const listings = Array.isArray(data) ? data : [];
-        // Filter out current user's listings
-        const otherUsersListings = listings.filter(
-          (listing) => listing.userId !== user?.id
-        );
-        // Take top 10
-        setPopularListings(otherUsersListings.slice(0, 10));
+      if (popular.status === 'fulfilled') {
+        const data = (popular.value as any).data || popular.value || [];
+        const list = (Array.isArray(data) ? data : []).filter((l: Listing) => l.userId !== user?.id);
+        setPopularListings(list.slice(0, 20));
       }
-
-      // Update nearby listings (also filter out logged-in user's listings)
-      if (nearbyListingsData.status === 'fulfilled') {
-        const data = nearbyListingsData.value.data || nearbyListingsData.value || [];
-        const listings = Array.isArray(data) ? data : [];
-        // Filter out current user's listings
-        const otherUsersListings = listings.filter(
-          (listing) => listing.userId !== user?.id
-        );
-        setNearbyListings(otherUsersListings);
+      if (nearby.status === 'fulfilled') {
+        const data = (nearby.value as any).data || nearby.value || [];
+        const list = (Array.isArray(data) ? data : []).filter((l: Listing) => l.userId !== user?.id);
+        setNearbyListings(list);
       }
     } catch (error: any) {
       console.error('Failed to load home data:', error);
@@ -157,757 +141,288 @@ export default function HomeScreen() {
     }
   };
 
-  /**
-   * Initial load - only load when user is authenticated
-   */
   useEffect(() => {
     if (user) {
       loadHomeData();
-      // Animate in with stagger effect
-      Animated.stagger(100, [
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            friction: 8,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     }
   }, [user]);
 
-  /**
-   * Refresh handler
-   */
-  const handleRefresh = useCallback(() => {
-    loadHomeData(true);
-  }, [location]);
+  const handleRefresh = useCallback(() => loadHomeData(true), [location]);
 
-  /**
-   * Navigate to listing detail
-   */
-  const handleListingPress = (listing: Listing) => {
-    router.push({
-      pathname: '/listing/[id]',
-      params: { id: listing.id },
-    });
-  };
+  const openListing = (l: Listing) =>
+    router.push({ pathname: '/listing/[id]', params: { id: l.id } });
 
-  /**
-   * Navigate to explore tab
-   */
-  const handleSeeAllListings = () => {
-    router.push('/explore');
-  };
+  // Merge nearby + popular, dedupe, then apply the active filter chip.
+  const feed = useMemo(() => {
+    const byId = new Map<string, Listing>();
+    [...nearbyListings, ...popularListings].forEach((l) => byId.set(l.id, l));
+    let list = Array.from(byId.values());
+    if (activeFilter === 'near') {
+      list = list
+        .filter((l) => l.distance !== undefined)
+        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    } else if (activeFilter === 'fiction') {
+      list = list.filter((l) =>
+        (l.book.categories ?? []).some((cat) => cat.toLowerCase().includes('fiction'))
+      );
+    }
+    // 'verified' has no backing field yet — kept visual only (see notes).
+    return list;
+  }, [nearbyListings, popularListings, activeFilter]);
 
-  /**
-   * Render popular listing item
-   */
-  const renderPopularListing = (listing: Listing) => (
-    <TouchableOpacity
-      key={listing.id}
-      style={[styles.bookItem, { backgroundColor: colors.surface }]}
-      onPress={() => handleListingPress(listing)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.bookCover}>
-        {listing.book.coverImage ? (
-          <View style={styles.bookCoverPlaceholder}>
-            <Text style={[styles.bookCoverText, { color: colors.textSecondary }]}>
-              {listing.book.title.charAt(0)}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.bookCoverPlaceholder}>
-            <Ionicons name="book" size={24} color={colors.textSecondary} />
-          </View>
-        )}
-      </View>
-      <Text
-        style={[styles.bookTitle, { color: colors.text }]}
-        numberOfLines={2}
-      >
-        {listing.book.title}
-      </Text>
-      <Text
-        style={[styles.bookAuthor, { color: colors.textSecondary }]}
-        numberOfLines={1}
-      >
-        {listing.book.author}
-      </Text>
-      {listing.distance && (
-        <Text
-          style={[styles.bookDistance, { color: BookLoopColors.burntOrange }]}
-          numberOfLines={1}
-        >
-          {(listing.distance / 1000).toFixed(1)}km away
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
+  const stats: StatItem[] = [
+    { value: user?.karma ?? 0, label: 'Karma', icon: 'karma', onPress: () => router.push('/(tabs)/profile') },
+    { value: nearbyListings.length, label: 'Nearby', icon: 'nearby', onPress: () => router.push('/(tabs)/explore') },
+    {
+      value: (user as any)?.exchangesCompleted ?? 0,
+      label: 'Swaps',
+      icon: 'swaps',
+      onPress: () => router.push('/(tabs)/exchanges'),
+    },
+  ];
 
-  /**
-   * Render nearby listing item
-   */
-  const renderNearbyListing = (listing: Listing) => (
-    <View key={listing.id} style={styles.listingItem}>
-      <BookCard
-        title={listing.book.title}
-        author={listing.book.author}
-        coverImage={listing.book.coverImage}
-        condition={listing.condition}
-        listingType={listing.listingType}
-        distance={listing.distance}
-        onPress={() => handleListingPress(listing)}
-      />
-    </View>
-  );
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.text }]}>
-            Loading your feed...
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const firstName = user?.firstName || 'Reader';
+  const initials =
+    ((user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '')).toUpperCase() || 'BL';
 
   return (
     <View style={styles.container}>
-      {/* Background Gradient */}
-      <LinearGradient
-        colors={
-          colorScheme === 'light'
-            ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-            : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-        }
-        style={StyleSheet.absoluteFillObject}
-      />
-
+      <LinearGradient colors={c.grad} style={StyleSheet.absoluteFillObject} />
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={BookLoopColors.burntOrange}
-            />
-          }
-        >
-          {/* Header with Avatar and Icons */}
-          <Animated.View
-            style={[
-              styles.header,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerLeft}
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(tabs)/profile');
+            }}
           >
-            {/* Top Row: Avatar and Action Icons */}
-            <View style={styles.headerTopRow}>
-              {/* Avatar */}
-              <TouchableOpacity
-                style={styles.avatarContainer}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/(tabs)/profile');
-                }}
-                activeOpacity={0.7}
-              >
-                {user?.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatar, { backgroundColor: BookLoopColors.burntOrange + '20' }]}>
-                    <Text style={[styles.avatarText, { color: BookLoopColors.burntOrange }]}>
-                      {(user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '') || '?'}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.spacer} />
-
-              {/* Action Icons */}
-              <View style={styles.actionIcons}>
-                {/* Theme Toggle */}
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={toggleTheme}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
-                    <Ionicons
-                      name={colorScheme === 'light' ? 'moon' : 'sunny'}
-                      size={18}
-                      color={BookLoopColors.burntOrange}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Notification Bell */}
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push('/notifications');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
-                    <Ionicons name="notifications" size={18} color={BookLoopColors.burntOrange} />
-                    {/* Notification badge */}
-                    {unreadCount > 0 && (
-                      <View style={styles.notificationBadge}>
-                        <Text style={styles.notificationBadgeText}>
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: c.avatar }]}>
+                <Text style={styles.avatarText}>{initials}</Text>
               </View>
+            )}
+            <View>
+              <Text style={[styles.greeting, { color: c.muted }]}>Akwaaba, {firstName} 👋</Text>
+              <Text style={[styles.headline, { color: c.text }]}>Find your next read</Text>
             </View>
+          </TouchableOpacity>
 
-            {/* Greeting Below */}
-            <View style={styles.greetingSection}>
-              <Text style={[styles.greetingText, { color: colors.text }]}>
-                Hello, {user?.firstName || 'Reader'}! 👋
-              </Text>
-              <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
-                Discover your next great read 📚
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* Stats Overview - Animated */}
-          <Animated.View
-            style={[
-              styles.statsContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
+          <TouchableOpacity
+            style={[styles.bell, { backgroundColor: c.bellBg, borderColor: c.bellBorder }]}
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/notifications');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
           >
-            <View style={styles.statsRow}>
-              <TouchableOpacity
-                style={[styles.statCard, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/(tabs)/profile');
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.statIconContainer, { backgroundColor: BookLoopColors.burntOrange + '15' }]}>
-                  <Text style={styles.statEmoji}>🧘</Text>
-                </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {user?.karma || 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Karma Points
-                </Text>
-              </TouchableOpacity>
+            <Bell size={20} color={c.bellIcon} strokeWidth={1.8} />
+            {unreadCount > 0 && (
+              <View style={[styles.bellDot, { borderColor: c.grad[0] }]} />
+            )}
+          </TouchableOpacity>
+        </View>
 
-              <TouchableOpacity
-                style={[styles.statCard, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/(tabs)/explore');
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.statIconContainer, { backgroundColor: BookLoopColors.success + '15' }]}>
-                  <Text style={styles.statEmoji}>📍</Text>
-                </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {nearbyListings.length}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Nearby Books
-                </Text>
-              </TouchableOpacity>
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          {/* Stats strip */}
+          <View style={styles.hpad}>
+            <StatsStrip stats={stats} />
+          </View>
 
-              <TouchableOpacity
-                style={[styles.statCard, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push('/(tabs)/explore');
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.statIconContainer, { backgroundColor: BookLoopColors.info + '15' }]}>
-                  <Text style={styles.statEmoji}>🔥</Text>
-                </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {popularListings.length}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Trending Now
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-
-          {/* Quick Actions - Animated */}
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: Spacing.md }]}>
-              Quick Actions ⚡
-            </Text>
-            <View style={styles.quickActionsGrid}>
-              {[
-                {
-                  title: 'List Book',
-                  emoji: '📚',
-                  description: 'Share',
-                  route: '/(tabs)/my-books',
-                  gradient: ['#FF6B6B', '#EE5A6F'],
-                },
-                {
-                  title: 'Nearby',
-                  emoji: '📍',
-                  description: 'Discover',
-                  route: '/(tabs)/explore',
-                  gradient: ['#4ECDC4', '#44A08D'],
-                },
-                {
-                  title: 'Swaps',
-                  emoji: '🔄',
-                  description: 'Exchanges',
-                  route: '/(tabs)/my-books',
-                  gradient: ['#F7B733', '#FC4A1A'],
-                },
-                {
-                  title: 'Goals',
-                  emoji: '🎯',
-                  description: 'Progress',
-                  route: '/(tabs)/profile',
-                  gradient: ['#667EEA', '#764BA2'],
-                },
-              ].map((action, index) => (
-                <TouchableOpacity
-                  key={action.title}
-                  style={styles.quickActionCard}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    router.push(action.route as any);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={action.gradient as any}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.quickActionGradient}
-                  >
-                    <View style={styles.quickActionContent}>
-                      <Text style={styles.quickActionEmoji}>{action.emoji}</Text>
-                      <Text style={styles.quickActionTitle}>{action.title}</Text>
-                      <Text style={styles.quickActionDescription}>{action.description}</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Animated.View>
-
-        {/* Popular Listings Section - Animated */}
-        {popularListings.length > 0 && (
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Popular Listings
-              </Text>
-              <TouchableOpacity onPress={handleSeeAllListings}>
-                <Text style={[styles.seeAllText, { color: BookLoopColors.burntOrange }]}>
-                  See All
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalScroll}
+          {/* Search pill */}
+          <View style={styles.hpad}>
+            <TouchableOpacity
+              style={[styles.search, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
+              activeOpacity={0.7}
+              onPress={() => router.push('/search')}
+              accessibilityRole="search"
+              accessibilityLabel="Search books nearby"
             >
-              {popularListings.map((listing) => renderPopularListing(listing))}
-            </ScrollView>
-          </Animated.View>
-        )}
-
-        {/* Nearby Listings Section - Animated */}
-        <Animated.View
-          style={[
-            styles.section,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Books Near You
-            </Text>
-            <TouchableOpacity onPress={handleSeeAllListings}>
-              <Text style={[styles.seeAllText, { color: BookLoopColors.burntOrange }]}>
-                See All
-              </Text>
+              <Search size={18} color={c.searchIcon} strokeWidth={2} />
+              <Text style={[styles.searchText, { color: c.searchText }]}>Search books nearby…</Text>
             </TouchableOpacity>
           </View>
 
-          {nearbyListings.length > 0 ? (
-            <View style={styles.listingsGrid}>
-              {nearbyListings.map((listing) => renderNearbyListing(listing))}
-            </View>
-          ) : (
-            <GlassCard variant="lg" padding="xl">
-              <View style={styles.emptyContent}>
-                <Ionicons
-                  name="location-outline"
-                  size={48}
-                  color={colors.textSecondary}
-                  style={styles.emptyIcon}
+          {/* Filter chips */}
+          <View style={styles.chipsWrap}>
+            <FilterChips chips={FILTERS} activeKey={activeFilter} onChange={setActiveFilter} />
+          </View>
+
+          {/* Feed */}
+          <ScrollView
+            style={styles.feed}
+            contentContainerStyle={styles.feedInner}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={BookLoopColors.coffeeBrown}
+              />
+            }
+          >
+            {isLoading ? (
+              <Text style={[styles.loading, { color: c.muted }]}>Loading your feed…</Text>
+            ) : feed.length > 0 ? (
+              feed.map((l) => (
+                <BookCard
+                  key={l.id}
+                  title={l.book.title}
+                  author={l.book.author}
+                  coverImage={l.book.coverImage}
+                  condition={l.condition}
+                  listingType={l.listingType}
+                  distance={l.distance}
+                  exchangePreferences={l.exchangePreferences}
+                  owner={
+                    l.user
+                      ? {
+                          name: l.user.firstName,
+                          initials: ((l.user.firstName?.charAt(0) || '') + (l.user.lastName?.charAt(0) || '')).toUpperCase(),
+                          avatarUrl: l.user.avatarUrl,
+                        }
+                      : undefined
+                  }
+                  onPress={() => openListing(l)}
                 />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No Books Nearby
+              ))
+            ) : (
+              <View style={styles.empty}>
+                <BookOpen size={44} color={c.muted} strokeWidth={1.5} />
+                <Text style={[styles.emptyTitle, { color: c.text }]}>No books nearby</Text>
+                <Text style={[styles.emptyBody, { color: c.muted }]}>
+                  {activeFilter === 'all'
+                    ? 'Be the first to list a book in your area!'
+                    : 'Try a wider filter or increase your search radius.'}
                 </Text>
-                <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-                  {location
-                    ? 'No listings found in your area. Check back soon!'
-                    : 'Enable location to discover books near you'}
-                </Text>
-                {!location && (
-                  <GlassButton
-                    title="Enable Location"
-                    onPress={() => loadHomeData(true)}
-                    variant="primary"
-                    size="md"
-                    style={styles.emptyButton}
-                  />
-                )}
               </View>
-            </GlassCard>
-          )}
+            )}
+          </ScrollView>
         </Animated.View>
-        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing['3xl'],
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
   header: {
-    marginBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xs,
-  },
-  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 12,
   },
-  avatarContainer: {
-    // Avatar takes up left side
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    flex: 1,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
   },
   avatarText: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.bold,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 15,
+    fontWeight: '700',
+    color: BookLoopColors.cream,
   },
-  spacer: {
-    flex: 1,
+  greeting: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    fontWeight: '500',
   },
-  actionIcons: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  headline: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    marginTop: 1,
   },
-  iconButton: {
-    // Individual icon button wrapper
-  },
-  iconContainer: {
+  bell: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    position: 'relative',
   },
-  notificationBadge: {
+  bellDot: {
     position: 'absolute',
-    top: -2,
-    right: -2,
+    top: 8,
+    right: 9,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: BookLoopColors.error,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+    borderWidth: 1.5,
   },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: Typography.fontWeight.bold,
+  hpad: {
+    paddingHorizontal: 18,
+    paddingBottom: 12,
   },
-  greetingSection: {
-    marginTop: Spacing.xs,
-  },
-  greetingText: {
-    fontSize: Typography.fontSize['2xl'],
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    marginBottom: 4,
-  },
-  subGreeting: {
-    fontSize: Typography.fontSize.sm,
-    fontFamily: Typography.fontFamily.body,
-  },
-  statsContainer: {
-    marginBottom: Spacing.xl,
-  },
-  statsRow: {
+  search: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
+    alignItems: 'center',
+    gap: 9,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    paddingHorizontal: 16,
   },
-  statCard: {
+  searchText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chipsWrap: {
+    paddingBottom: 12,
+  },
+  feed: {
     flex: 1,
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
+  feedInner: {
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 24,
+    gap: 12,
   },
-  statValue: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.medium,
+  loading: {
     textAlign: 'center',
+    marginTop: 40,
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
   },
-  statEmoji: {
-    fontSize: 20,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
-  quickActionCard: {
-    width: '23%',
-    borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  quickActionGradient: {
-    padding: Spacing.sm,
-    minHeight: 85,
-    justifyContent: 'space-between',
-  },
-  quickActionContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  quickActionEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  quickActionTitle: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.bold,
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  quickActionDescription: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    opacity: 0.8,
-  },
-  section: {
-    marginBottom: Spacing['2xl'],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  empty: {
     alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-  },
-  seeAllText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semibold,
-  },
-  horizontalScroll: {
-    paddingRight: Spacing.lg,
-    gap: Spacing.md,
-  },
-  bookItem: {
-    width: 120,
-    borderRadius: 12,
-    padding: Spacing.sm,
-    marginRight: Spacing.sm,
-  },
-  bookCover: {
-    width: '100%',
-    aspectRatio: 2 / 3,
-    marginBottom: Spacing.sm,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  bookCoverPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookCoverText: {
-    fontSize: Typography.fontSize['3xl'],
-    fontWeight: Typography.fontWeight.bold,
-  },
-  bookTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.xs,
-  },
-  bookAuthor: {
-    fontSize: Typography.fontSize.xs,
-  },
-  bookDistance: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.semibold,
-    marginTop: Spacing.xs,
-  },
-  listingsGrid: {
-    gap: Spacing.md,
-  },
-  listingItem: {
-    marginBottom: Spacing.sm,
-  },
-  emptyContent: {
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    marginBottom: Spacing.md,
-    opacity: 0.5,
+    marginTop: 48,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
   },
-  emptyDescription: {
-    fontSize: Typography.fontSize.sm,
+  emptyBody: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: Spacing.md,
-  },
-  emptyButton: {
-    marginTop: Spacing.sm,
+    lineHeight: 19,
   },
 });

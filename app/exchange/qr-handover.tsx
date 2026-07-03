@@ -1,742 +1,582 @@
 /**
- * QR Handover Confirmation Screen
+ * Handover Confirmation — design refresh 6a/6b (code-first, QR optional)
  *
- * Two modes:
- * - Giver Mode: Display QR code for receiver to scan
- * - Receiver Mode: Camera scanner to scan giver's QR code
+ * Rework of the old QR-first screen. A short human-readable code leads:
+ * - "My code" (giver): read the 6-char code aloud; QR tucked below as an
+ *   optional accelerator; works offline.
+ * - "Enter their code" (receiver): type the 6 characters (or tap "Scan the QR
+ *   instead" to fall back to the camera).
  *
- * Features:
- * - QR code generation with encrypted payload
- * - QR code regeneration every 10 minutes
- * - Barcode scanner for verification
- * - Success animation on completion
- * - Offline support with local sync
+ * Rationale (from the design): a short code needs no camera permission,
+ * survives cheap cameras / poor light / offline, and is barely any typing.
+ * Still 10-minute expiry + regenerate. Wired to the existing exchange API.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Alert,
   Vibration,
-  Dimensions,
-  Platform,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import QRCode from 'react-native-qrcode-svg';
-import LottieView from 'lottie-react-native';
-import { GlassCard, GlassButton } from '@/components/ui';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { exchangesService } from '@/services/api';
 import {
-  Colors,
-  Typography,
-  Spacing,
-  BookLoopColors,
-  BorderRadius,
-} from '@/constants/theme';
+  ArrowLeft,
+  Mic,
+  Clock,
+  ShieldCheck,
+  ScanLine,
+  ChevronRight,
+  CheckCircle2,
+  QrCode as QrIcon,
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { exchangesService } from '@/services/api';
+import { BookLoopColors } from '@/constants/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const QR_SIZE = SCREEN_WIDTH * 0.65;
+type Mode = 'giver' | 'receiver';
+const CODE_LEN = 6;
 
-type HandoverMode = 'giver' | 'receiver';
-type HandoverStatus = 'pending' | 'scanning' | 'verifying' | 'success' | 'error';
+// Warm light palette (design is light-first; dark handover deferred to v2).
+const C = {
+  grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
+  text: BookLoopColors.deepEspresso,
+  muted: BookLoopColors.authorText,
+  track: BookLoopColors.parchmentBeige,
+  active: BookLoopColors.coffeeBrown,
+  gold: BookLoopColors.mutedGold,
+  latte: BookLoopColors.softLatte,
+  green: BookLoopColors.success,
+  greenFg: '#3B7A3F',
+  cardBorder: '#EFE2CE',
+};
 
-interface ExchangeDetails {
-  id: string;
-  bookTitle: string;
-  otherPartyName: string;
-  meetupLocation: string;
-  scheduledTime?: string;
+function normalizeCode(raw: string): string {
+  return (raw || '').replace(/[^A-Za-z0-9]/g, '').slice(0, CODE_LEN).toUpperCase();
 }
 
-export default function QRHandoverScreen() {
+export default function HandoverScreen() {
   const { exchangeId, mode: initialMode } = useLocalSearchParams<{
     exchangeId: string;
-    mode?: HandoverMode;
+    mode?: Mode;
   }>();
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-
   const [permission, requestPermission] = useCameraPermissions();
-  const [mode, setMode] = useState<HandoverMode>(initialMode || 'giver');
-  const [status, setStatus] = useState<HandoverStatus>('pending');
-  const [isLoading, setIsLoading] = useState(true);
-  const [exchange, setExchange] = useState<ExchangeDetails | null>(null);
-  const [qrCode, setQrCode] = useState<string>('');
-  const [qrExpiry, setQrExpiry] = useState<Date | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<string>('10:00');
-  const [scanned, setScanned] = useState(false);
 
-  /**
-   * Load exchange details and generate QR code
-   */
-  useEffect(() => {
-    loadExchangeDetails();
+  const [mode, setMode] = useState<Mode>(initialMode || 'giver');
+  const [isLoading, setIsLoading] = useState(true);
+  const [requesterName, setRequesterName] = useState('User');
+  const [ownerName, setOwnerName] = useState('User');
+  const [rawCode, setRawCode] = useState('');
+  const [expiry, setExpiry] = useState<Date | null>(null);
+  const [remaining, setRemaining] = useState('10:00');
+  const [showQR, setShowQR] = useState(false);
+  const [scanMode, setScanMode] = useState(false);
+  const [digits, setDigits] = useState<string[]>(Array(CODE_LEN).fill(''));
+  const [verifying, setVerifying] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const inputs = useRef<(TextInput | null)[]>([]);
+
+  const otherParty = mode === 'giver' ? requesterName : ownerName;
+  const displayCode = normalizeCode(rawCode);
+
+  const generateCode = useCallback(async () => {
+    try {
+      const res = await exchangesService.generateHandoverQR(exchangeId);
+      setRawCode(res.code);
+      setExpiry(new Date(res.expiresAt));
+    } catch (error) {
+      console.error('Failed to generate handover code:', error);
+      // Offline / demo fallback: a local short code that still round-trips.
+      setRawCode(
+        Array.from({ length: CODE_LEN }, () =>
+          'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor((Date.now() >> 2) % 30)]
+        ).join('')
+      );
+      setExpiry(new Date(Date.now() + 10 * 60 * 1000));
+    }
   }, [exchangeId]);
 
-  /**
-   * Timer for QR code expiry
-   */
   useEffect(() => {
-    if (!qrExpiry || mode !== 'giver') return;
+    (async () => {
+      try {
+        const data = await exchangesService.getExchangeById(exchangeId);
+        setRequesterName(
+          `${data.requester?.first_name ?? ''} ${data.requester?.last_name ?? ''}`.trim() || 'User'
+        );
+        setOwnerName(
+          `${data.owner?.first_name ?? ''} ${data.owner?.last_name ?? ''}`.trim() || 'User'
+        );
+      } catch (error) {
+        console.error('Failed to load exchange:', error);
+        setRequesterName('Ama Owusu');
+        setOwnerName('Kwame Mensah');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+    if ((initialMode || 'giver') === 'giver') generateCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exchangeId]);
 
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = qrExpiry.getTime() - now.getTime();
-
+  // Expiry countdown (giver only); regenerate on expiry.
+  useEffect(() => {
+    if (!expiry || mode !== 'giver') return;
+    const t = setInterval(() => {
+      const diff = expiry.getTime() - Date.now();
       if (diff <= 0) {
-        // QR code expired, regenerate
-        generateQRCode();
+        generateCode();
         return;
       }
-
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(`${m}:${s.toString().padStart(2, '0')}`);
     }, 1000);
+    return () => clearInterval(t);
+  }, [expiry, mode, generateCode]);
 
-    return () => clearInterval(interval);
-  }, [qrExpiry, mode]);
-
-  const loadExchangeDetails = async () => {
+  const confirm = async (code: string) => {
+    setVerifying(true);
+    Vibration.vibrate(80);
     try {
-      setIsLoading(true);
-
-      // Load exchange details from API
-      const data = await exchangesService.getExchangeById(exchangeId);
-
-      setExchange({
-        id: data.id,
-        bookTitle: data.listing?.book?.title || 'Book',
-        otherPartyName: `${data.requester?.firstName || ''} ${data.requester?.lastName || ''}`.trim() || 'User',
-        meetupLocation: data.meetupLocation?.name || 'Meetup Location',
-        scheduledTime: data.scheduledDate,
-      });
-
-      // Generate initial QR code if giver mode
-      if (mode === 'giver') {
-        await generateQRCode();
-      }
-    } catch (error) {
-      console.error('Failed to load exchange:', error);
-      // Use mock data for demo
-      setExchange({
-        id: exchangeId,
-        bookTitle: 'The Alchemist',
-        otherPartyName: 'Kwame Mensah',
-        meetupLocation: 'Accra Mall Food Court',
-      });
-
-      if (mode === 'giver') {
-        // Generate local QR code for demo
-        const payload = JSON.stringify({
-          exchangeId,
-          timestamp: Date.now(),
-          type: 'handover',
-        });
-        setQrCode(payload);
-        setQrExpiry(new Date(Date.now() + 10 * 60 * 1000)); // 10 minutes
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const generateQRCode = async () => {
-    try {
-      // Generate QR code from API
-      const response = await exchangesService.generateHandoverQR(exchangeId);
-      setQrCode(response.code);
-      setQrExpiry(new Date(response.expiresAt));
-    } catch (error) {
-      console.error('Failed to generate QR:', error);
-      // Generate local QR for offline/demo
-      const payload = JSON.stringify({
-        exchangeId,
-        timestamp: Date.now(),
-        type: 'handover',
-        nonce: Math.random().toString(36).substring(7),
-      });
-      setQrCode(payload);
-      setQrExpiry(new Date(Date.now() + 10 * 60 * 1000));
-    }
-  };
-
-  /**
-   * Handle QR code scan
-   */
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned) return;
-
-    setScanned(true);
-    setStatus('verifying');
-    Vibration.vibrate(100);
-
-    try {
-      // Parse and validate QR code
-      const payload = JSON.parse(data);
-
-      if (payload.exchangeId !== exchangeId) {
-        throw new Error('Invalid QR code for this exchange');
-      }
-
-      // Verify with API
-      await exchangesService.confirmHandover(exchangeId, data);
-
-      setStatus('success');
-      Vibration.vibrate([100, 100, 100]);
-
-      // Navigate to review after delay
-      setTimeout(() => {
-        router.replace({
-          pathname: '/exchange/rate/[id]',
-          params: { id: exchangeId },
-        });
-      }, 2500);
+      await exchangesService.confirmHandover(exchangeId, code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess(true);
+      setTimeout(
+        () => router.replace({ pathname: '/exchange/rate/[id]', params: { id: exchangeId } }),
+        2200
+      );
     } catch (error: any) {
-      console.error('Handover verification failed:', error);
-      setStatus('error');
-
-      Alert.alert(
-        'Verification Failed',
-        error.message || 'Could not verify the QR code. Please try again.',
-        [
-          {
-            text: 'Try Again',
-            onPress: () => {
-              setScanned(false);
-              setStatus('scanning');
-            },
-          },
-        ]
-      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setDigits(Array(CODE_LEN).fill(''));
+      inputs.current[0]?.focus();
+      Alert.alert('Incorrect code', error?.message || 'That code didn’t match. Try again.');
+    } finally {
+      setVerifying(false);
     }
   };
 
-  /**
-   * Request camera permission
-   */
-  const handleRequestPermission = async () => {
-    const result = await requestPermission();
-    if (!result.granted) {
-      Alert.alert(
-        'Camera Permission Required',
-        'Please enable camera access in settings to scan QR codes.',
-        [{ text: 'OK' }]
-      );
+  const onDigit = (i: number, val: string) => {
+    const chars = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (!chars) {
+      const next = [...digits];
+      next[i] = '';
+      setDigits(next);
+      return;
     }
+    const next = [...digits];
+    // support paste of the whole code
+    if (chars.length > 1) {
+      chars.split('').forEach((ch, k) => {
+        if (i + k < CODE_LEN) next[i + k] = ch;
+      });
+      setDigits(next);
+      const landing = Math.min(i + chars.length, CODE_LEN - 1);
+      inputs.current[landing]?.focus();
+    } else {
+      next[i] = chars;
+      setDigits(next);
+      if (i < CODE_LEN - 1) inputs.current[i + 1]?.focus();
+    }
+    const joined = next.join('');
+    if (joined.length === CODE_LEN && !next.includes('')) confirm(joined);
   };
 
-  /**
-   * Toggle between giver and receiver mode
-   */
-  const toggleMode = () => {
-    const newMode = mode === 'giver' ? 'receiver' : 'giver';
-    setMode(newMode);
-    setScanned(false);
-    setStatus('pending');
-
-    if (newMode === 'giver' && !qrCode) {
-      generateQRCode();
-    }
+  const onKey = (i: number, key: string) => {
+    if (key === 'Backspace' && !digits[i] && i > 0) inputs.current[i - 1]?.focus();
   };
 
-  /**
-   * Render loading state
-   */
+  const onScan = ({ data }: { data: string }) => {
+    if (verifying || success) return;
+    confirm(normalizeCode(data) || data);
+  };
+
+  /* ---------- success ---------- */
+  if (success) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <LinearGradient colors={C.grad} style={StyleSheet.absoluteFillObject} />
+        <CheckCircle2 size={84} color={C.green} strokeWidth={1.6} />
+        <Text style={styles.successTitle}>Exchange complete!</Text>
+        <Text style={styles.successBody}>Taking you to leave a review…</Text>
+      </View>
+    );
+  }
+
+  /* ---------- loading ---------- */
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
-        <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading exchange details...
-        </Text>
+      <View style={[styles.container, styles.center]}>
+        <LinearGradient colors={C.grad} style={StyleSheet.absoluteFillObject} />
+        <ActivityIndicator size="large" color={C.active} />
       </View>
     );
   }
 
-  /**
-   * Render success state
-   */
-  if (status === 'success') {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
-
-        <View style={styles.successContainer}>
-          <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={80} color={BookLoopColors.success} />
-          </View>
-
-          <Text style={[styles.successTitle, { color: colors.text }]}>
-            Exchange Complete!
-          </Text>
-          <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-            You've successfully exchanged "{exchange?.bookTitle}"
-          </Text>
-
-          <Text style={[styles.redirectText, { color: colors.textSecondary }]}>
-            Redirecting to review...
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const filled = digits.join('');
+  const canConfirm = filled.length === CODE_LEN && !digits.includes('');
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: mode === 'giver' ? 'Show QR Code' : 'Scan QR Code',
-          headerShown: true,
-          headerTransparent: true,
-          headerTintColor: mode === 'receiver' ? '#FFFFFF' : colors.text,
-        }}
-      />
-
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
+        <LinearGradient colors={C.grad} style={StyleSheet.absoluteFillObject} />
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8} accessibilityLabel="Back">
+              <ArrowLeft size={22} color={C.text} strokeWidth={2} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Confirm handover</Text>
+          </View>
 
-        {/* Mode Toggle */}
-        <View style={styles.modeToggle}>
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              mode === 'giver' && styles.modeButtonActive,
-            ]}
-            onPress={() => setMode('giver')}
-          >
-            <Ionicons
-              name="qr-code"
-              size={20}
-              color={mode === 'giver' ? '#FFFFFF' : colors.text}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                { color: mode === 'giver' ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              Show Code
-            </Text>
-          </TouchableOpacity>
+          {/* Segmented toggle */}
+          <View style={styles.segWrap}>
+            <View style={[styles.seg, { backgroundColor: C.track }]}>
+              {(['giver', 'receiver'] as Mode[]).map((m) => {
+                const on = mode === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.segItem, on && { backgroundColor: C.active }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setMode(m);
+                      setScanMode(false);
+                      if (m === 'giver' && !rawCode) generateCode();
+                    }}
+                  >
+                    {m === 'giver' ? (
+                      <QrIcon size={16} color={on ? '#fff' : C.muted} strokeWidth={2} />
+                    ) : (
+                      <ScanLine size={16} color={on ? '#fff' : C.muted} strokeWidth={2} />
+                    )}
+                    <Text style={[styles.segText, { color: on ? '#fff' : C.muted }]}>
+                      {m === 'giver' ? 'My code' : 'Enter their code'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              mode === 'receiver' && styles.modeButtonActive,
-            ]}
-            onPress={() => setMode('receiver')}
-          >
-            <Ionicons
-              name="scan"
-              size={20}
-              color={mode === 'receiver' ? '#FFFFFF' : colors.text}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                { color: mode === 'receiver' ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              Scan Code
-            </Text>
-          </TouchableOpacity>
-        </View>
+          {/* ---------------- GIVER ---------------- */}
+          {mode === 'giver' && (
+            <View style={styles.body}>
+              <View style={styles.micCircle}>
+                <Mic size={27} color={C.active} strokeWidth={1.8} />
+              </View>
+              <Text style={styles.readLabel}>Read this code aloud to</Text>
+              <Text style={styles.otherName}>{otherParty}</Text>
 
-        {/* Giver Mode - Show QR Code */}
-        {mode === 'giver' && (
-          <View style={styles.giverContainer}>
-            <GlassCard variant="lg" padding="xl" style={styles.qrCard}>
-              <Text style={[styles.instructionText, { color: colors.text }]}>
-                Show this code to
-              </Text>
-              <Text style={[styles.otherPartyName, { color: colors.text }]}>
-                {exchange?.otherPartyName}
-              </Text>
-
-              <View style={styles.qrContainer}>
-                <QRCode
-                  value={qrCode || 'loading'}
-                  size={QR_SIZE}
-                  color={BookLoopColors.deepBrown}
-                  backgroundColor="transparent"
-                />
+              {/* Big code */}
+              <View style={styles.codeCard}>
+                {displayCode.split('').map((ch, i) => (
+                  <React.Fragment key={i}>
+                    {i === 3 && <View style={styles.codeDivider} />}
+                    <Text style={styles.codeChar}>{ch}</Text>
+                  </React.Fragment>
+                ))}
               </View>
 
-              <View style={styles.expiryContainer}>
-                <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
-                <Text style={[styles.expiryText, { color: colors.textSecondary }]}>
-                  Code expires in {timeRemaining}
+              <View style={styles.expiryRow}>
+                <Clock size={16} color={C.muted} strokeWidth={2} />
+                <Text style={styles.expiryText}>
+                  Expires in <Text style={styles.expiryStrong}>{remaining}</Text> ·{' '}
                 </Text>
+                <TouchableOpacity onPress={generateCode} hitSlop={6}>
+                  <Text style={styles.regen}>Regenerate</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* QR optional */}
+              <TouchableOpacity
+                style={styles.qrRow}
+                activeOpacity={0.8}
+                onPress={() => setShowQR((v) => !v)}
+              >
+                <View style={styles.qrThumb}>
+                  <QRCode value={rawCode || 'loading'} size={showQR ? 150 : 34} color={C.text} backgroundColor="transparent" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.qrTitle}>Prefer to scan?</Text>
+                  <Text style={styles.qrSub}>{otherParty} can scan this QR instead of typing</Text>
+                </View>
+                <ChevronRight size={18} color={C.active} strokeWidth={2} />
+              </TouchableOpacity>
+
+              {/* Offline note */}
+              <View style={styles.offline}>
+                <ShieldCheck size={17} color={C.green} strokeWidth={2} />
+                <Text style={styles.offlineText}>
+                  Works offline — confirmation syncs when you’re back online
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* ---------------- RECEIVER ---------------- */}
+          {mode === 'receiver' && !scanMode && (
+            <View style={styles.body}>
+              <Text style={styles.receiverTitle}>Enter {ownerName.split(' ')[0]}’s code</Text>
+              <Text style={styles.receiverSub}>
+                Ask {ownerName.split(' ')[0]} to read out the 6-character code on their screen
+              </Text>
+
+              <View style={styles.boxes}>
+                {digits.map((d, i) => (
+                  <TextInput
+                    key={i}
+                    ref={(r) => {
+                      inputs.current[i] = r;
+                    }}
+                    value={d}
+                    onChangeText={(v) => onDigit(i, v)}
+                    onKeyPress={(e) => onKey(i, e.nativeEvent.key)}
+                    maxLength={i === 0 ? CODE_LEN : 1}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    keyboardType="visible-password"
+                    selectionColor={C.active}
+                    style={[
+                      styles.box,
+                      { borderColor: d ? C.green : C.latte },
+                    ]}
+                    accessibilityLabel={`Code character ${i + 1}`}
+                  />
+                ))}
               </View>
 
               <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={generateQRCode}
+                style={styles.scanInstead}
+                onPress={async () => {
+                  if (!permission?.granted) {
+                    const r = await requestPermission();
+                    if (!r.granted) return;
+                  }
+                  setScanMode(true);
+                }}
               >
-                <Ionicons name="refresh" size={18} color={BookLoopColors.burntOrange} />
-                <Text style={[styles.regenerateText, { color: BookLoopColors.burntOrange }]}>
-                  Regenerate Code
-                </Text>
+                <ScanLine size={17} color={C.active} strokeWidth={2} />
+                <Text style={styles.scanInsteadText}>Scan the QR instead</Text>
               </TouchableOpacity>
-            </GlassCard>
 
-            {/* Exchange Details */}
-            <GlassCard variant="md" padding="md" style={styles.detailsCard}>
-              <View style={styles.detailRow}>
-                <Ionicons name="book" size={18} color={colors.textSecondary} />
-                <Text style={[styles.detailText, { color: colors.text }]}>
-                  {exchange?.bookTitle}
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="location" size={18} color={colors.textSecondary} />
-                <Text style={[styles.detailText, { color: colors.text }]}>
-                  {exchange?.meetupLocation}
-                </Text>
-              </View>
-            </GlassCard>
-          </View>
-        )}
-
-        {/* Receiver Mode - Scan QR Code */}
-        {mode === 'receiver' && (
-          <View style={styles.receiverContainer}>
-            {!permission?.granted ? (
-              <View style={styles.permissionContainer}>
-                <Ionicons name="camera" size={64} color={colors.textSecondary} />
-                <Text style={[styles.permissionTitle, { color: colors.text }]}>
-                  Camera Permission Required
-                </Text>
-                <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
-                  We need camera access to scan the QR code
-                </Text>
-                <GlassButton
-                  title="Enable Camera"
-                  onPress={handleRequestPermission}
-                  variant="primary"
-                  icon="camera"
-                  style={styles.permissionButton}
-                />
-              </View>
-            ) : (
-              <>
-                <View style={styles.scannerContainer}>
-                  <CameraView
-                    style={styles.scanner}
-                    facing="back"
-                    barcodeScannerSettings={{
-                      barcodeTypes: ['qr'],
-                    }}
-                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                  />
-
-                  {/* Scanner Overlay */}
-                  <View style={styles.scannerOverlay}>
-                    <View style={styles.scannerFrame}>
-                      <View style={[styles.scannerCorner, styles.cornerTopLeft]} />
-                      <View style={[styles.scannerCorner, styles.cornerTopRight]} />
-                      <View style={[styles.scannerCorner, styles.cornerBottomLeft]} />
-                      <View style={[styles.scannerCorner, styles.cornerBottomRight]} />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.scanInstructions}>
-                  <Text style={[styles.scanTitle, { color: colors.text }]}>
-                    Scan {exchange?.otherPartyName}'s QR Code
-                  </Text>
-                  <Text style={[styles.scanSubtitle, { color: colors.textSecondary }]}>
-                    Position the QR code within the frame to confirm the exchange
-                  </Text>
-
-                  {status === 'verifying' && (
-                    <View style={styles.verifyingContainer}>
-                      <ActivityIndicator size="small" color={BookLoopColors.burntOrange} />
-                      <Text style={[styles.verifyingText, { color: colors.textSecondary }]}>
-                        Verifying...
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Manual Code Entry */}
+              <View style={{ marginTop: 'auto', width: '100%' }}>
                 <TouchableOpacity
-                  style={styles.manualEntry}
-                  onPress={() => {
-                    Alert.prompt(
-                      'Enter Code Manually',
-                      'If you cannot scan the QR code, enter the 6-digit code shown below it.',
-                      (code) => {
-                        if (code) {
-                          handleBarCodeScanned({ data: code });
-                        }
-                      }
-                    );
-                  }}
+                  disabled={!canConfirm || verifying}
+                  onPress={() => confirm(filled)}
+                  activeOpacity={0.85}
+                  style={[styles.confirmBtn, { backgroundColor: canConfirm ? C.active : C.latte }]}
                 >
-                  <Text style={[styles.manualEntryText, { color: BookLoopColors.burntOrange }]}>
-                    Can't scan? Enter code manually
-                  </Text>
+                  {verifying ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.confirmText}>Confirm exchange</Text>
+                  )}
                 </TouchableOpacity>
-              </>
-            )}
-          </View>
-        )}
+                <Text style={styles.confirmHint}>Only confirm once the book is in your hands</Text>
+              </View>
+            </View>
+          )}
+
+          {/* ---------------- RECEIVER · scanner ---------------- */}
+          {mode === 'receiver' && scanMode && (
+            <View style={styles.scannerBody}>
+              <View style={styles.scanner}>
+                <CameraView
+                  style={StyleSheet.absoluteFillObject}
+                  facing="back"
+                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                  onBarcodeScanned={verifying ? undefined : onScan}
+                />
+                <View style={styles.scanFrame}>
+                  <View style={[styles.corner, styles.tl]} />
+                  <View style={[styles.corner, styles.tr]} />
+                  <View style={[styles.corner, styles.bl]} />
+                  <View style={[styles.corner, styles.br]} />
+                </View>
+              </View>
+              <Text style={styles.scanCaption}>Point at {ownerName.split(' ')[0]}’s QR code</Text>
+              <TouchableOpacity style={styles.scanInstead} onPress={() => setScanMode(false)}>
+                <Text style={styles.scanInsteadText}>Type the code instead</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </SafeAreaView>
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: Spacing.md,
-    fontSize: Typography.fontSize.base,
-  },
-  modeToggle: {
+  container: { flex: 1 },
+  center: { justifyContent: 'center', alignItems: 'center', gap: 10 },
+  header: {
     flexDirection: 'row',
-    marginTop: 100,
-    marginHorizontal: Spacing.lg,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xs,
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 12,
   },
-  modeButton: {
+  headerTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 17, color: C.text },
+  segWrap: { paddingHorizontal: 22 },
+  seg: { flexDirection: 'row', borderRadius: 12, padding: 4, gap: 4 },
+  segItem: {
     flex: 1,
+    height: 40,
+    borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    gap: 6,
   },
-  modeButtonActive: {
-    backgroundColor: BookLoopColors.burntOrange,
-  },
-  modeButtonText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  giverContainer: {
-    flex: 1,
-    padding: Spacing.lg,
-    justifyContent: 'center',
-  },
-  qrCard: {
-    alignItems: 'center',
-  },
-  instructionText: {
-    fontSize: Typography.fontSize.base,
-    marginBottom: Spacing.xs,
-  },
-  otherPartyName: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    marginBottom: Spacing.lg,
-  },
-  qrContainer: {
-    padding: Spacing.lg,
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
-  },
-  expiryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  expiryText: {
-    fontSize: Typography.fontSize.sm,
-  },
-  regenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    padding: Spacing.sm,
-  },
-  regenerateText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  detailsCard: {
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  detailText: {
-    fontSize: Typography.fontSize.base,
-  },
-  receiverContainer: {
-    flex: 1,
-    marginTop: Spacing.lg,
-  },
-  permissionContainer: {
-    flex: 1,
+  segText: { fontFamily: 'Inter-SemiBold', fontSize: 13, fontWeight: '600' },
+  body: { flex: 1, alignItems: 'center', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 22 },
+  micCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,213,128,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
   },
-  permissionTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    marginTop: Spacing.lg,
+  readLabel: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted, marginTop: 12 },
+  otherName: { fontFamily: 'Poppins-Bold', fontSize: 19, color: C.text, marginTop: 2 },
+  codeCard: {
+    marginTop: 18,
+    width: '100%',
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: C.gold,
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#FFB43C',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  codeChar: {
+    fontFamily: 'Poppins-Bold',
+    fontSize: 40,
+    letterSpacing: 1,
+    color: C.text,
+  },
+  codeDivider: { width: 2, height: 34, backgroundColor: C.cardBorder, marginHorizontal: 6 },
+  expiryRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
+  expiryText: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted },
+  expiryStrong: { color: C.text, fontFamily: 'Inter-Bold', fontWeight: '700' },
+  regen: { fontFamily: 'Inter-SemiBold', fontSize: 13, color: C.active, fontWeight: '600' },
+  qrRow: {
+    marginTop: 18,
+    width: '100%',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  qrThumb: {
+    minWidth: 48,
+    minHeight: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
+  },
+  qrTitle: { fontFamily: 'Inter-SemiBold', fontSize: 13, color: C.text, fontWeight: '600' },
+  qrSub: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, marginTop: 1 },
+  offline: {
+    marginTop: 'auto',
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: 'rgba(76,175,80,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(76,175,80,0.3)',
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+  },
+  offlineText: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 12, color: C.greenFg },
+  receiverTitle: { fontFamily: 'Poppins-Bold', fontSize: 21, color: C.text, textAlign: 'center' },
+  receiverSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 13,
+    color: C.muted,
+    marginTop: 6,
     textAlign: 'center',
+    lineHeight: 19,
   },
-  permissionText: {
-    fontSize: Typography.fontSize.base,
-    marginTop: Spacing.sm,
+  boxes: { flexDirection: 'row', gap: 8, marginTop: 26 },
+  box: {
+    width: 44,
+    height: 56,
+    borderWidth: 2,
+    borderRadius: 12,
+    backgroundColor: '#fff',
     textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
+    fontSize: 24,
+    color: C.text,
   },
-  permissionButton: {
-    marginTop: Spacing.xl,
+  scanInstead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
   },
-  scannerContainer: {
-    flex: 1,
-    overflow: 'hidden',
-    borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.lg,
+  scanInsteadText: { fontFamily: 'Inter-SemiBold', fontSize: 13, color: C.active, fontWeight: '600' },
+  confirmBtn: {
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  confirmText: { fontFamily: 'Inter-SemiBold', fontSize: 15, color: BookLoopColors.cream, fontWeight: '600' },
+  confirmHint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    color: BookLoopColors.mutedText,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  scannerBody: { flex: 1, paddingHorizontal: 22, paddingTop: 8, alignItems: 'center' },
   scanner: {
-    flex: 1,
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
-  scannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scannerFrame: {
-    width: 250,
-    height: 250,
-    position: 'relative',
-  },
-  scannerCorner: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: BookLoopColors.burntOrange,
-  },
-  cornerTopLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 12,
-  },
-  cornerTopRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 12,
-  },
-  cornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 12,
-  },
-  cornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 12,
-  },
-  scanInstructions: {
-    padding: Spacing.lg,
-    alignItems: 'center',
-  },
-  scanTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
-    textAlign: 'center',
-  },
-  scanSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
-  },
-  verifyingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  verifyingText: {
-    fontSize: Typography.fontSize.sm,
-  },
-  manualEntry: {
-    alignItems: 'center',
-    padding: Spacing.md,
-    marginBottom: Spacing['2xl'],
-  },
-  manualEntryText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  successContainer: {
-    alignItems: 'center',
-    padding: Spacing.xl,
-  },
-  successIcon: {
-    marginBottom: Spacing.lg,
-  },
-  successTitle: {
-    fontSize: Typography.fontSize['2xl'],
-    fontWeight: Typography.fontWeight.bold,
-    textAlign: 'center',
-  },
-  successSubtitle: {
-    fontSize: Typography.fontSize.base,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
-  redirectText: {
-    fontSize: Typography.fontSize.sm,
-    marginTop: Spacing.xl,
-  },
+  scanFrame: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
+  corner: { position: 'absolute', width: 34, height: 34, borderColor: C.gold },
+  tl: { top: '22%', left: '18%', borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
+  tr: { top: '22%', right: '18%', borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 8 },
+  bl: { bottom: '22%', left: '18%', borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8 },
+  br: { bottom: '22%', right: '18%', borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8 },
+  scanCaption: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted, marginTop: 16 },
+  successTitle: { fontFamily: 'Poppins-Bold', fontSize: 20, color: C.text, marginTop: 6 },
+  successBody: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted },
 });

@@ -1,7 +1,26 @@
+import { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
+import {
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
+import {
+  LibreBaskerville_400Regular,
+  LibreBaskerville_400Regular_Italic,
+} from '@expo-google-fonts/libre-baskerville';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -12,8 +31,33 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// Keep the native splash up until fonts resolve so text doesn't flash
+// in the system font first.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Register Google Fonts under the family names the design system already
+  // references (see constants/theme.ts and the UI components).
+  const [fontsLoaded] = useFonts({
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Medium': Inter_500Medium,
+    'Inter-SemiBold': Inter_600SemiBold,
+    'Inter-Bold': Inter_700Bold,
+    'Inter-ExtraBold': Inter_800ExtraBold,
+    'Poppins-Medium': Poppins_500Medium,
+    'Poppins-SemiBold': Poppins_600SemiBold,
+    'Poppins-Bold': Poppins_700Bold,
+    'LibreBaskerville-Regular': LibreBaskerville_400Regular,
+    'LibreBaskerville-Italic': LibreBaskerville_400Regular_Italic,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
 
   return (
     <AuthProvider>
