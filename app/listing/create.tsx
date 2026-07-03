@@ -670,38 +670,23 @@ export default function CreateListingScreen() {
       />
 
       <View style={styles.container}>
-        {/* Background Gradient */}
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
+        {/* Flat cream background (design 10c) */}
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: colorScheme === 'light' ? BookLoopColors.cream : BookLoopColors.darkBg },
+          ]}
         />
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
           {/* Custom Header */}
           <View style={styles.customHeader}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={BookLoopColors.burntOrange}
-              />
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {getStepTitle(currentStep)}
+            </Text>
+            <TouchableOpacity onPress={() => router.back()} style={styles.closeButton} accessibilityLabel="Close">
+              <Ionicons name="close" size={18} color="#6B5240" />
             </TouchableOpacity>
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {getStepTitle(currentStep)}
-              </Text>
-              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                Step {currentStep} of {totalSteps}
-              </Text>
-            </View>
-            <View style={styles.headerSpacer} />
           </View>
 
           {/* Progress Indicator */}
@@ -713,13 +698,12 @@ export default function CreateListingScreen() {
                   styles.progressStep,
                   {
                     backgroundColor:
-                      index < currentStep
-                        ? BookLoopColors.burntOrange
-                        : colors.border,
+                      index < currentStep ? BookLoopColors.coffeeBrown : '#E4DAC8',
                   },
                 ]}
               />
             ))}
+            <Text style={styles.progressLabel}>{currentStep} / {totalSteps}</Text>
           </View>
 
           <ScrollView
@@ -1290,24 +1274,23 @@ export default function CreateListingScreen() {
           {/* Navigation Controls */}
           <View style={styles.navigationControls}>
             {currentStep > 1 && (
-              <GlassButton
-                title="Back"
+              <TouchableOpacity
                 onPress={handlePreviousStep}
-                variant="secondary"
-                size="md"
-                icon="arrow-back"
-                style={styles.navButton}
-              />
+                activeOpacity={0.8}
+                style={styles.backNavBtn}
+              >
+                <Text style={styles.backNavText}>Back</Text>
+              </TouchableOpacity>
             )}
             {currentStep < totalSteps && (
-              <GlassButton
-                title="Next"
+              <TouchableOpacity
                 onPress={handleNextStep}
-                variant="primary"
-                size="md"
-                icon="arrow-forward"
-                style={styles.navButton}
-              />
+                activeOpacity={0.85}
+                style={styles.continueBtn}
+              >
+                <Text style={styles.continueText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={18} color={BookLoopColors.cream} />
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -1329,41 +1312,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
+    paddingTop: 4,
     paddingBottom: Spacing.sm,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
   headerTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
   },
-  headerSubtitle: {
-    fontSize: Typography.fontSize.xs,
-    marginTop: 2,
-  },
-  headerSpacer: {
-    width: 40,
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1E7D6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.xs,
+    paddingBottom: Spacing.md,
+    gap: 6,
   },
   progressStep: {
     flex: 1,
     height: 4,
     borderRadius: 2,
+  },
+  progressLabel: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11,
+    fontWeight: '600',
+    color: BookLoopColors.authorText,
+    marginLeft: 6,
   },
   scrollView: {
     flex: 1,
@@ -1641,11 +1623,39 @@ const styles = StyleSheet.create({
   },
   navigationControls: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: 10,
     paddingTop: Spacing.md,
     paddingBottom: Spacing['2xl'],
   },
-  navButton: {
+  backNavBtn: {
+    width: 88,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D4C9B6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backNavText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: BookLoopColors.coffeeBrown,
+  },
+  continueBtn: {
     flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: BookLoopColors.coffeeBrown,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  continueText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 15,
+    fontWeight: '600',
+    color: BookLoopColors.cream,
   },
 });
