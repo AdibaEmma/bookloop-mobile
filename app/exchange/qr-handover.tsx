@@ -35,7 +35,8 @@ import {
   ShieldCheck,
   ScanLine,
   ChevronRight,
-  CheckCircle2,
+  Check,
+  Award,
   QrCode as QrIcon,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -75,6 +76,7 @@ export default function HandoverScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [requesterName, setRequesterName] = useState('User');
   const [ownerName, setOwnerName] = useState('User');
+  const [bookTitle, setBookTitle] = useState('the book');
   const [rawCode, setRawCode] = useState('');
   const [expiry, setExpiry] = useState<Date | null>(null);
   const [remaining, setRemaining] = useState('10:00');
@@ -115,6 +117,7 @@ export default function HandoverScreen() {
         setOwnerName(
           `${data.owner?.first_name ?? ''} ${data.owner?.last_name ?? ''}`.trim() || 'User'
         );
+        setBookTitle((data.listing as any)?.book?.title || 'the book');
       } catch (error) {
         console.error('Failed to load exchange:', error);
         setRequesterName('Ama Owusu');
@@ -150,10 +153,6 @@ export default function HandoverScreen() {
       await exchangesService.confirmHandover(exchangeId, code);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSuccess(true);
-      setTimeout(
-        () => router.replace({ pathname: '/exchange/rate/[id]', params: { id: exchangeId } }),
-        2200
-      );
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setDigits(Array(CODE_LEN).fill(''));
@@ -199,14 +198,44 @@ export default function HandoverScreen() {
     confirm(normalizeCode(data) || data);
   };
 
-  /* ---------- success ---------- */
+  /* ---------- success · completion (5d) ---------- */
   if (success) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={styles.container}>
         <LinearGradient colors={C.grad} style={StyleSheet.absoluteFillObject} />
-        <CheckCircle2 size={84} color={C.green} strokeWidth={1.6} />
-        <Text style={styles.successTitle}>Exchange complete!</Text>
-        <Text style={styles.successBody}>Taking you to leave a review…</Text>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.doneBody}>
+            <View style={styles.doneRing}>
+              <View style={styles.doneCircle}>
+                <Check size={42} color="#fff" strokeWidth={2.6} />
+              </View>
+            </View>
+            <Text style={styles.doneTitle}>Exchange Complete!</Text>
+            <Text style={styles.doneSub}>
+              You’ve successfully swapped{'\n'}
+              <Text style={styles.doneStrong}>{bookTitle}</Text> with{' '}
+              <Text style={styles.doneStrong}>{otherParty.split(' ')[0]}</Text>
+            </Text>
+            <View style={styles.karma}>
+              <Award size={18} color={C.active} strokeWidth={2} />
+              <Text style={styles.karmaText}>+15 Karma earned</Text>
+            </View>
+          </View>
+          <View style={styles.doneFooter}>
+            <TouchableOpacity
+              style={styles.confirmBtn2}
+              activeOpacity={0.85}
+              onPress={() =>
+                router.replace({ pathname: '/exchange/rate/[id]', params: { id: exchangeId } })
+              }
+            >
+              <Text style={styles.confirmText}>Rate your exchange</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ghostBtn} activeOpacity={0.7} onPress={() => router.replace('/(tabs)')}>
+              <Text style={styles.ghostText}>Back to home</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
@@ -577,6 +606,70 @@ const styles = StyleSheet.create({
   bl: { bottom: '22%', left: '18%', borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8 },
   br: { bottom: '22%', right: '18%', borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8 },
   scanCaption: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted, marginTop: 16 },
-  successTitle: { fontFamily: 'Poppins-Bold', fontSize: 20, color: C.text, marginTop: 6 },
-  successBody: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted },
+  // completion (5d)
+  doneBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  doneRing: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(76,175,80,0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneCircle: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: C.green,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: C.green,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  doneTitle: { fontFamily: 'Poppins-Bold', fontSize: 25, color: C.text, marginTop: 24 },
+  doneSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: C.muted,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  doneStrong: { color: C.text, fontFamily: 'Inter-SemiBold', fontWeight: '600' },
+  karma: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 22,
+    backgroundColor: 'rgba(255,213,128,0.35)',
+    borderWidth: 1,
+    borderColor: C.gold,
+    borderRadius: 22,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+  },
+  karmaText: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.active, fontWeight: '700' },
+  doneFooter: { paddingHorizontal: 24, paddingBottom: 24, gap: 10 },
+  confirmBtn2: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: C.active,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: C.active,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  ghostBtn: { height: 48, justifyContent: 'center', alignItems: 'center' },
+  ghostText: { fontFamily: 'Inter-SemiBold', fontSize: 14, color: C.active, fontWeight: '600' },
 });
