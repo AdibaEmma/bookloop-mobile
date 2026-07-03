@@ -1,13 +1,9 @@
 /**
- * Profile Setup Screen
+ * Profile Setup — design refresh 4e (Step 4 of 4)
  *
- * Optional profile completion after registration.
- *
- * Features:
- * - Avatar upload
- * - Bio/description
- * - Location sharing
- * - Skip option
+ * Avatar, full name (pre-filled, editable) and location, then into the app.
+ * Preserves the original save logic (avatar upload, profile update, location).
+ * Username is omitted — the User model has no username column yet.
  */
 
 import React, { useState } from 'react';
@@ -21,317 +17,209 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  TextInput,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { User, Camera, MapPin, Check } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { GlassButton, GlassInput, GlassCard } from '@/components/ui';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/api';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePreventBack } from '@/hooks/usePreventBack';
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  BookLoopColors,
-} from '@/constants/theme';
+import { BookLoopColors } from '@/constants/theme';
+
+const C = {
+  grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
+  text: BookLoopColors.deepEspresso,
+  muted: BookLoopColors.authorText,
+  active: BookLoopColors.coffeeBrown,
+  latte: BookLoopColors.softLatte,
+  label: '#6B5240',
+  fieldBg: 'rgba(244,225,193,0.35)',
+};
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
 
-  const [bio, setBio] = useState('');
+  const [fullName, setFullName] = useState(
+    `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+  );
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [locationEnabled, setLocationEnabled] = useState(false);
-  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Prevent going back after reaching profile setup screen
   usePreventBack();
 
-  /**
-   * Pick avatar image
-   */
   const pickImage = async () => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photo library to upload an avatar',
-        );
+        Alert.alert('Permission required', 'Allow photo access to add a profile photo.');
         return;
       }
-
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
+      if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
     } catch (error) {
       console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
-  /**
-   * Enable location sharing
-   */
   const enableLocation = async () => {
     try {
-      setIsLocationLoading(true);
-
-      // Request permission
+      setIsLocating(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
-
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Location access is needed to find books near you',
-        );
+        Alert.alert('Permission required', 'Location helps you find books nearby.');
         return;
       }
-
-      // Get current location
-      const location = await Location.getCurrentPositionAsync({});
-
-      // Update user location
+      const pos = await Location.getCurrentPositionAsync({});
       await usersService.updateLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
       });
-
-      setLocationEnabled(true);
-      Alert.alert('Success', 'Location enabled successfully');
+      // Best-effort human-readable label
+      try {
+        const [place] = await Location.reverseGeocodeAsync({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        setLocationLabel(
+          [place?.district || place?.subregion || place?.name, place?.city]
+            .filter(Boolean)
+            .join(', ') || 'Location set',
+        );
+      } catch {
+        setLocationLabel('Location set');
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Location error:', error);
-      Alert.alert('Error', 'Failed to get location');
+      Alert.alert('Error', 'Could not get your location.');
     } finally {
-      setIsLocationLoading(false);
+      setIsLocating(false);
     }
   };
 
-  /**
-   * Complete profile setup
-   */
   const handleComplete = async () => {
     try {
-      setIsUploading(true);
+      setSaving(true);
 
-      // Upload avatar if selected
       if (avatarUri) {
         const fileName = avatarUri.split('/').pop() || 'avatar.jpg';
         const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        await usersService.uploadAvatar({ uri: avatarUri, type: fileType, name: fileName });
+      }
 
-        await usersService.uploadAvatar({
-          uri: avatarUri,
-          type: fileType,
-          name: fileName,
+      const parts = fullName.trim().split(/\s+/).filter(Boolean);
+      if (parts.length >= 1) {
+        await usersService.updateProfile({
+          firstName: parts[0],
+          lastName: parts.length > 1 ? parts.slice(1).join(' ') : parts[0],
         });
       }
 
-      // Update bio if provided
-      if (bio.trim()) {
-        await usersService.updateProfile({ bio: bio.trim() });
-      }
-
-      // Refresh user data
       await refreshUser();
-
-      // Navigate to main app
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Profile setup error:', error);
-      Alert.alert('Error', error.message || 'Failed to update profile');
+      Alert.alert('Error', error?.message || 'Failed to update profile');
     } finally {
-      setIsUploading(false);
+      setSaving(false);
     }
   };
 
-  /**
-   * Skip profile setup
-   */
-  const handleSkip = () => {
-    router.replace('/(tabs)');
-  };
+  const initials =
+    ((user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '')).toUpperCase();
+  const firstName = user?.firstName || 'there';
 
   return (
     <View style={styles.container}>
-      {/* Background Gradient */}
-      <LinearGradient
-        colors={
-          colorScheme === 'light'
-            ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-            : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-        }
-        style={StyleSheet.absoluteFillObject}
-      />
+      <LinearGradient colors={C.grad} style={StyleSheet.absoluteFillObject} />
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+            {/* Progress */}
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
+            </View>
+            <Text style={styles.step}>Step 4 of 4</Text>
 
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.titleContainer}>
-                <Ionicons
-                  name="person-circle"
-                  size={48}
-                  color={BookLoopColors.burntOrange}
-                />
-                <Text style={[styles.title, { color: colors.text }]}>
-                  Complete Your Profile
-                </Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Help others get to know you
-                </Text>
-              </View>
+            <Text style={styles.title}>Set up your profile</Text>
+            <Text style={styles.subtitle}>Almost done, {firstName} — this is how neighbours will see you.</Text>
 
-              {/* Skip Button */}
-              <GlassButton
-                title="Skip"
-                onPress={handleSkip}
-                variant="ghost"
-                size="sm"
-                style={styles.skipButton}
-              />
+            {/* Avatar */}
+            <View style={styles.avatarWrap}>
+              <TouchableOpacity style={styles.avatar} onPress={pickImage} activeOpacity={0.8}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+                ) : initials ? (
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                ) : (
+                  <User size={30} color="#B39C82" strokeWidth={1.8} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cameraBadge} onPress={pickImage} activeOpacity={0.8}>
+                <Camera size={15} color={BookLoopColors.cream} strokeWidth={2} />
+              </TouchableOpacity>
             </View>
 
-            {/* Form */}
-            <GlassCard variant="lg" padding="lg">
-              <View style={styles.form}>
-                {/* Avatar Upload */}
-                <View style={styles.avatarSection}>
-                  <Text style={[styles.label, { color: colors.text }]}>
-                    Profile Photo
-                  </Text>
-                  <TouchableOpacity
-                    onPress={pickImage}
-                    style={styles.avatarContainer}
-                  >
-                    {avatarUri ? (
-                      <Image source={{ uri: avatarUri }} style={styles.avatar} />
-                    ) : (
-                      <View
-                        style={[
-                          styles.avatarPlaceholder,
-                          { backgroundColor: colors.surface },
-                        ]}
-                      >
-                        <Ionicons
-                          name="camera"
-                          size={32}
-                          color={colors.textSecondary}
-                        />
-                      </View>
-                    )}
-                    <View
-                      style={[
-                        styles.avatarBadge,
-                        { backgroundColor: BookLoopColors.burntOrange },
-                      ]}
-                    >
-                      <Ionicons name="add" size={20} color="#FFFFFF" />
-                    </View>
-                  </TouchableOpacity>
-                  <Text style={[styles.hint, { color: colors.textSecondary }]}>
-                    Tap to upload a photo
-                  </Text>
-                </View>
+            {/* Full name */}
+            <Text style={styles.fieldLabel}>Full name</Text>
+            <TextInput
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Kwame Mensah"
+              placeholderTextColor={C.muted}
+              autoCapitalize="words"
+              style={styles.input}
+            />
 
-                {/* Bio */}
-                <GlassInput
-                  label="Bio (Optional)"
-                  value={bio}
-                  onChangeText={setBio}
-                  placeholder="Tell us about yourself and your reading interests..."
-                  multiline
-                  numberOfLines={4}
-                  maxLength={200}
-                  showCharCount
-                />
+            {/* Location */}
+            <Text style={styles.fieldLabel}>Location</Text>
+            <TouchableOpacity
+              style={styles.locationRow}
+              onPress={enableLocation}
+              activeOpacity={0.8}
+              disabled={isLocating}
+            >
+              <MapPin size={17} color={C.active} strokeWidth={2} />
+              <Text style={[styles.locationText, { color: locationLabel ? C.text : C.muted }]} numberOfLines={1}>
+                {isLocating ? 'Detecting…' : locationLabel || 'Use my current location'}
+              </Text>
+              {isLocating ? (
+                <ActivityIndicator size="small" color={C.active} />
+              ) : locationLabel ? (
+                <Check size={16} color={BookLoopColors.success} strokeWidth={2.4} />
+              ) : (
+                <Text style={styles.locationAuto}>Auto</Text>
+              )}
+            </TouchableOpacity>
 
-                {/* Location Permission */}
-                <View style={styles.locationSection}>
-                  <View style={styles.locationHeader}>
-                    <Ionicons
-                      name="location"
-                      size={24}
-                      color={BookLoopColors.burntOrange}
-                    />
-                    <View style={styles.locationText}>
-                      <Text style={[styles.locationTitle, { color: colors.text }]}>
-                        Enable Location
-                      </Text>
-                      <Text
-                        style={[
-                          styles.locationDescription,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Find books near you and connect with local readers
-                      </Text>
-                    </View>
-                  </View>
+            <View style={{ flex: 1, minHeight: 20 }} />
 
-                  {locationEnabled ? (
-                    <View style={styles.locationEnabled}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={24}
-                        color={colors.success}
-                      />
-                      <Text
-                        style={[styles.locationEnabledText, { color: colors.success }]}
-                      >
-                        Enabled
-                      </Text>
-                    </View>
-                  ) : (
-                    <GlassButton
-                      title="Enable"
-                      onPress={enableLocation}
-                      variant="secondary"
-                      size="sm"
-                      loading={isLocationLoading}
-                      disabled={isLocationLoading}
-                    />
-                  )}
-                </View>
-
-                {/* Complete Button */}
-                <GlassButton
-                  title="Complete Setup"
-                  onPress={handleComplete}
-                  variant="primary"
-                  size="lg"
-                  loading={isUploading}
-                  disabled={isUploading}
-                  style={styles.completeButton}
-                />
-              </View>
-            </GlassCard>
+            <TouchableOpacity
+              style={[styles.primary, { opacity: fullName.trim() && !saving ? 1 : 0.5 }]}
+              onPress={handleComplete}
+              disabled={!fullName.trim() || saving}
+              activeOpacity={0.85}
+            >
+              {saving ? (
+                <ActivityIndicator color={BookLoopColors.cream} />
+              ) : (
+                <Text style={styles.primaryText}>Start exploring</Text>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -340,117 +228,77 @@ export default function ProfileSetupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
-  },
-  header: {
-    marginBottom: Spacing.xl,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  title: {
-    fontSize: Typography.fontSize['3xl'],
-    fontWeight: Typography.fontWeight.bold,
-    fontFamily: Typography.fontFamily.heading,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  subtitle: {
-    fontSize: Typography.fontSize.base,
-    fontFamily: Typography.fontFamily.body,
-  },
-  skipButton: {
-    alignSelf: 'flex-end',
-  },
-  form: {
-    gap: Spacing.lg,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  label: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.md,
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
+  container: { flex: 1 },
+  body: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(139,94,60,0.15)' },
+  progressFill: { width: '100%', height: '100%', borderRadius: 2, backgroundColor: C.active },
+  step: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, marginTop: 6, fontWeight: '500' },
+  title: { fontFamily: 'Poppins-Bold', fontSize: 22, color: C.text, marginTop: 14 },
+  subtitle: { fontFamily: 'Inter-Regular', fontSize: 13, color: BookLoopColors.authorText, marginTop: 4, lineHeight: 19 },
+  avatarWrap: { alignSelf: 'center', marginTop: 18, width: 92, height: 92 },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 2,
+    borderColor: '#C9A97E',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(244,225,193,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  avatarBadge: {
+  avatarImg: { width: '100%', height: '100%' },
+  avatarInitials: { fontFamily: 'Poppins-Bold', fontSize: 28, color: C.active },
+  cameraBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.active,
+    borderWidth: 2.5,
+    borderColor: BookLoopColors.cream,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  hint: {
-    fontSize: Typography.fontSize.sm,
-    marginTop: Spacing.sm,
+  fieldLabel: { fontFamily: 'Inter-SemiBold', fontSize: 12, color: C.label, marginTop: 20, marginBottom: 6, fontWeight: '600' },
+  input: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.latte,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 15,
+    color: C.text,
   },
-  locationSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-  },
-  locationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  locationText: {
-    marginLeft: Spacing.md,
-    flex: 1,
-  },
-  locationTitle: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.xs,
-  },
-  locationDescription: {
-    fontSize: Typography.fontSize.sm,
-    lineHeight: 18,
-  },
-  locationEnabled: {
+  locationRow: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.latte,
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: 8,
+    paddingHorizontal: 14,
   },
-  locationEnabledText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semibold,
+  locationText: { flex: 1, fontFamily: 'Inter-Medium', fontSize: 15 },
+  locationAuto: { fontFamily: 'Inter-SemiBold', fontSize: 11, color: C.active, fontWeight: '600' },
+  primary: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: C.active,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: C.active,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  completeButton: {
-    marginTop: Spacing.md,
-  },
+  primaryText: { fontFamily: 'Inter-SemiBold', fontSize: 15, color: BookLoopColors.cream, fontWeight: '600' },
 });

@@ -148,9 +148,10 @@ export default function VerifyOtpScreen() {
         'Verification Successful'
       );
 
-      // Navigate to profile setup if registration, otherwise to main app
+      // Registration continues to Ghana Card verification (Step 3), then
+      // profile setup. Login goes straight to the app.
       if (isRegistration === 'true') {
-        router.replace('/(auth)/profile-setup');
+        router.replace('/(auth)/ghana-card');
       } else {
         router.replace('/(tabs)');
       }

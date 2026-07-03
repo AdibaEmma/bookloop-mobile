@@ -74,7 +74,25 @@ export const usersService = {
    * Update current user profile
    */
   async updateProfile(data: UpdateProfileDto): Promise<User> {
-    const response: AxiosResponse<User> = await apiClient.patch('/users/me', data);
+    // Backend expects snake_case; the client has no request transform.
+    const payload: Record<string, unknown> = {
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      bio: data.bio,
+    };
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+    const response: AxiosResponse<User> = await apiClient.patch('/users/me', payload);
+    return response.data;
+  },
+
+  /**
+   * Submit Ghana Card number for verification (pending admin approval)
+   */
+  async submitGhanaCard(ghanaCardNumber: string): Promise<User> {
+    const response: AxiosResponse<User> = await apiClient.post('/users/me/ghana-card', {
+      ghana_card_number: ghanaCardNumber,
+    });
     return response.data;
   },
 

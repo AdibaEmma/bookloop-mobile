@@ -13,6 +13,7 @@ export default function AuthLayout() {
       <Stack.Screen name="phone-input" />
       <Stack.Screen name="login" />
       <Stack.Screen name="verify-otp" />
+      <Stack.Screen name="ghana-card" />
       <Stack.Screen name="profile-setup" />
     </Stack>
   );
