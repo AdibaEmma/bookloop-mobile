@@ -20,6 +20,7 @@ export { StatsStrip } from './StatsStrip';
 export type { StatItem } from './StatsStrip';
 export { FilterChips } from './FilterChips';
 export type { FilterChip } from './FilterChips';
+export { EmptyState } from './EmptyState';
 export { Avatar } from './Avatar';
 export { SplashScreen } from './SplashScreen';
 export { Alert } from './Alert';
