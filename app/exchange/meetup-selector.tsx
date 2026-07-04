@@ -188,14 +188,15 @@ export default function MeetupSelectorScreen() {
         return {
           id: spot.id,
           name: spot.name,
-          type: spot.type || 'other',
+          type: spot.category || 'other',
           description: spot.description,
           address: spot.address,
           latitude,
           longitude,
           distance,
-          operatingHours: spot.operatingHours,
-          isVerified: spot.isVerified,
+          operatingHours: spot.operating_hours,
+          // Curated meetup spots are inherently safe/verified public places.
+          isVerified: true,
         };
       });
 
@@ -401,8 +402,8 @@ export default function MeetupSelectorScreen() {
                 description={spot.address}
                 pinColor={
                   selectedSpot?.id === spot.id
-                    ? BookLoopColors.mutedGold
-                    : BookLoopColors.burntOrange
+                    ? BookLoopColors.coffeeBrown
+                    : BookLoopColors.mutedGold
                 }
                 onPress={() => handleSelectSpot(spot)}
               />
@@ -420,7 +421,7 @@ export default function MeetupSelectorScreen() {
               <Text style={[styles.legendText, { color: colors.textSecondary }]}>Owner</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: BookLoopColors.burntOrange }]} />
+              <View style={[styles.legendDot, { backgroundColor: BookLoopColors.mutedGold, borderWidth: 1, borderColor: BookLoopColors.coffeeBrown }]} />
               <Text style={[styles.legendText, { color: colors.textSecondary }]}>Safe Spot</Text>
             </View>
           </View>
@@ -459,7 +460,7 @@ export default function MeetupSelectorScreen() {
                   {
                     backgroundColor:
                       selectedSpot?.id === spot.id
-                        ? BookLoopColors.burntOrange
+                        ? BookLoopColors.coffeeBrown
                         : colors.surface,
                   },
                 ]}
@@ -662,8 +663,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sheetTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
+    fontSize: 17,
+    fontFamily: 'Poppins-SemiBold',
+    fontWeight: '600',
   },
   sheetSubtitle: {
     fontSize: Typography.fontSize.sm,
