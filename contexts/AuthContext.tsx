@@ -121,12 +121,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Verify OTP code
    * Completes registration or login
    */
-  const verifyOtp = async (phone: string, code: string) => {
+  const verifyOtp = async (identifier: string, code: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      await authService.verifyOtp({ phone, code });
+      const payload = identifier.includes('@')
+        ? { email: identifier, code }
+        : { phone: identifier, code };
+      await authService.verifyOtp(payload);
 
       // Get the user data from storage (auth service already stored it)
       const userData = await TokenManager.getUserData();
@@ -145,12 +148,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * If password provided: direct login
    * If no password: sends OTP to email
    */
-  const login = async (phone: string, password?: string) => {
+  const login = async (identifier: string, password?: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      const response = await authService.login({ phone, password });
+      const creds = identifier.includes('@')
+        ? { email: identifier, password }
+        : { phone: identifier, password };
+      const response = await authService.login(creds);
 
       // If password was provided and login successful, user data is already set
       if ('tokens' in response) {

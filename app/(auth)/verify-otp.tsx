@@ -43,8 +43,10 @@ const RESEND_TIMEOUT = 60; // seconds
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone: string; firstName?: string; isRegistration?: string }>();
-  const { phone, firstName, isRegistration } = params;
+  const params = useLocalSearchParams<{ phone?: string; email?: string; firstName?: string; isRegistration?: string }>();
+  const { phone, email, firstName, isRegistration } = params;
+  // The OTP was sent to whichever identifier was provided (phone for SMS, email otherwise).
+  const identifier = phone ?? email ?? '';
   const { verifyOtp, isLoading } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -136,9 +138,9 @@ export default function VerifyOtpScreen() {
     }
 
     try {
-      console.log('[VerifyOTP] Verifying with phone:', phone, 'code:', code);
+      console.log('[VerifyOTP] Verifying with:', identifier, 'code:', code);
 
-      await verifyOtp(phone, code);
+      await verifyOtp(identifier, code);
 
       // Show success message
       showSuccessToastMessage(
@@ -176,10 +178,10 @@ export default function VerifyOtpScreen() {
 
     try {
       setIsResending(true);
-      await authService.resendOtp(phone);
+      await authService.resendOtp(identifier);
       setResendTimer(RESEND_TIMEOUT);
       showSuccessToastMessage(
-        'A new code has been sent by SMS to your phone',
+        email ? 'A new code has been sent to your email' : 'A new code has been sent by SMS to your phone',
         'OTP Sent'
       );
     } catch (error: any) {
@@ -238,10 +240,10 @@ export default function VerifyOtpScreen() {
               Enter the code
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Enter the 6-character code sent by SMS to
+              {email ? 'Enter the 6-character code sent to' : 'Enter the 6-character code sent by SMS to'}
             </Text>
             <Text style={[styles.phone, { color: colors.text }]}>
-              {maskPhone(phone)}
+              {email ? email : maskPhone(phone ?? '')}
             </Text>
           </View>
 

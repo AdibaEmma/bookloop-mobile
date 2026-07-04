@@ -25,13 +25,15 @@ interface RegisterDto {
 }
 
 interface VerifyOtpDto {
-  phone: string; // OTP is sent by SMS, keyed on phone
+  phone?: string; // when the OTP was sent by SMS
+  email?: string; // when the OTP was sent by email
   code: string; // Backend expects 'code' not 'otp'
 }
 
 interface LoginDto {
-  phone: string;
-  password?: string; // Optional - if not provided, an SMS OTP is sent
+  phone?: string; // log in with phone
+  email?: string; // ...or email
+  password?: string; // Optional - if not provided, an OTP is sent to the matching channel
 }
 
 // The client response interceptor converts snake_case -> camelCase, so the
@@ -102,6 +104,7 @@ export const authService = {
   async verifyOtp(data: VerifyOtpDto): Promise<AuthResponse> {
     const payload = {
       phone: data.phone,
+      email: data.email,
       code: data.code, // Backend expects 'code' field
     };
     const response: AxiosResponse<AuthResponse> = await apiClient.post('/auth/verify-otp', payload);
@@ -252,8 +255,9 @@ export const authService = {
   /**
    * Resend OTP
    */
-  async resendOtp(phone: string): Promise<{ message: string; reference: string; expires_at: string }> {
-    const response: AxiosResponse = await apiClient.post('/auth/resend-otp', { phone });
+  async resendOtp(identifier: string): Promise<{ message: string; reference: string; expires_at: string }> {
+    const body = identifier.includes('@') ? { email: identifier } : { phone: identifier };
+    const response: AxiosResponse = await apiClient.post('/auth/resend-otp', body);
     return response.data;
   },
 

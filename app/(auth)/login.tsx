@@ -164,9 +164,9 @@ export default function LoginScreen() {
     // Only validate if field has been touched (field now holds a phone number)
     if (touched.email) {
       if (!value.trim()) {
-        setErrors(prev => ({ ...prev, email: 'Phone number is required' }));
-      } else if (!validatePhone(value)) {
-        setErrors(prev => ({ ...prev, email: 'Invalid Ghana phone number' }));
+        setErrors(prev => ({ ...prev, email: 'Phone number or email is required' }));
+      } else if ((!validatePhone(value) && !validateEmail(value))) {
+        setErrors(prev => ({ ...prev, email: 'Enter a valid phone number or email' }));
       } else {
         setErrors(prev => ({ ...prev, email: undefined }));
       }
@@ -199,9 +199,9 @@ export default function LoginScreen() {
 
     // Validate on blur (phone identifier)
     if (!email.trim()) {
-      setErrors(prev => ({ ...prev, email: 'Phone number is required' }));
-    } else if (!validatePhone(email)) {
-      setErrors(prev => ({ ...prev, email: 'Invalid Ghana phone number' }));
+      setErrors(prev => ({ ...prev, email: 'Phone number or email is required' }));
+    } else if ((!validatePhone(email) && !validateEmail(email))) {
+      setErrors(prev => ({ ...prev, email: 'Enter a valid phone number or email' }));
     } else {
       setErrors(prev => ({ ...prev, email: undefined }));
     }
@@ -232,9 +232,9 @@ export default function LoginScreen() {
     const newErrors: typeof errors = {};
 
     if (!email.trim()) {
-      newErrors.email = 'Phone number is required';
-    } else if (!validatePhone(email)) {
-      newErrors.email = 'Invalid Ghana phone number';
+      newErrors.email = 'Phone number or email is required';
+    } else if ((!validatePhone(email) && !validateEmail(email))) {
+      newErrors.email = 'Enter a valid phone number or email';
     }
 
     if (usePasswordLogin) {
@@ -258,32 +258,37 @@ export default function LoginScreen() {
     }
 
     try {
-      // Normalize Ghana phone to +233XXXXXXXXX for the backend.
-      const cleaned = email.trim().replace(/\s+/g, '');
-      const phone = cleaned.startsWith('+')
-        ? cleaned
-        : cleaned.startsWith('233')
-          ? `+${cleaned}`
-          : cleaned.startsWith('0')
-            ? `+233${cleaned.slice(1)}`
-            : cleaned;
+      const raw = email.trim();
+      const isEmail = raw.includes('@');
+      // For phone, normalize to +233XXXXXXXXX; email passes through as-is.
+      const identifier = isEmail
+        ? raw
+        : (() => {
+            const cleaned = raw.replace(/\s+/g, '');
+            if (cleaned.startsWith('+')) return cleaned;
+            if (cleaned.startsWith('233')) return `+${cleaned}`;
+            if (cleaned.startsWith('0')) return `+233${cleaned.slice(1)}`;
+            return cleaned;
+          })();
 
       const response = await login(
-        phone,
+        identifier,
         usePasswordLogin && password.trim() ? password.trim() : undefined,
       );
 
       // If OTP was sent (not password login), navigate to OTP verification
       if (response.message) {
         showSuccessToastMessage(
-          'Verification code sent by SMS to your phone.',
+          isEmail
+            ? 'Verification code sent to your email.'
+            : 'Verification code sent by SMS to your phone.',
           'Login'
         );
 
         router.push({
           pathname: '/(auth)/verify-otp',
           params: {
-            phone,
+            ...(isEmail ? { email: identifier } : { phone: identifier }),
             isRegistration: 'false',
           },
         });
@@ -351,15 +356,15 @@ export default function LoginScreen() {
             <GlassCard variant="lg" padding="lg">
               <View style={styles.form}>
                 <GlassInput
-                  label="Phone Number"
+                  label="Phone or Email"
                   value={email}
                   onChangeText={handleEmailChange}
                   onBlur={handleEmailBlur}
-                  placeholder="0241234567"
-                  keyboardType="phone-pad"
+                  placeholder="0241234567 or you@email.com"
+                  keyboardType="email-address"
                   autoCapitalize="none"
                   error={errors.email}
-                  leftIcon="call"
+                  leftIcon="person-outline"
                 />
 
                 {/* Password Toggle */}
@@ -447,7 +452,7 @@ export default function LoginScreen() {
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
                   {usePasswordLogin
                     ? "Login with your password for quick access, or use OTP for enhanced security."
-                    : "We'll send a 6-digit code to your email for secure authentication."}
+                    : "We'll send a 6-digit code to your phone or email for secure authentication."}
                 </Text>
               </View>
             </GlassCard>
