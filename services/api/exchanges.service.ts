@@ -17,6 +17,14 @@ import apiClient from './client';
 import { AxiosResponse } from 'axios';
 import { Listing } from './listings.service';
 
+interface ExchangeUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  profile_picture?: string;
+  rating?: number;
+}
+
 interface Exchange {
   id: string;
   listing_id: string;
@@ -24,34 +32,27 @@ interface Exchange {
   offered_listing_id?: string;
   offered_listing?: Listing;
   requester_id: string;
-  requester?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    karma: number;
-  };
+  requester?: ExchangeUser;
   owner_id: string;
-  owner?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    karma: number;
-  };
+  owner?: ExchangeUser;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
   requester_message?: string;
   owner_response?: string;
+  // Meetup details
+  meetup_spot_id?: string;
+  meetup_spot_name?: string;
   meetup_location?: {
     type: 'Point';
-    coordinates: [number, number];
-  };
+    coordinates: [number, number]; // [longitude, latitude]
+  } | string; // Can be WKT string or GeoJSON object
   meetup_address?: string;
   meetup_time?: string;
+  // Confirmation flags
   requester_confirmed_meetup: boolean;
   owner_confirmed_meetup: boolean;
   requester_confirmed_completion: boolean;
   owner_confirmed_completion: boolean;
+  completed_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -67,10 +68,20 @@ interface Rating {
   created_at: string;
 }
 
+interface ProposedMeetup {
+  meetup_spot_id?: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  location_name?: string;
+}
+
 interface CreateExchangeDto {
   listing_id: string;
   offered_listing_id?: string;
   message?: string;
+  proposed_meetup?: ProposedMeetup;
+  proposed_meetup_time?: string; // ISO date string
 }
 
 interface RespondExchangeDto {
@@ -79,6 +90,8 @@ interface RespondExchangeDto {
 }
 
 interface SetMeetupDto {
+  meetup_spot_id?: string;
+  location_name?: string;
   latitude: number;
   longitude: number;
   address: string;
@@ -164,15 +177,31 @@ export const exchangesService = {
    * Set meetup details
    */
   async setMeetup(id: string, data: SetMeetupDto): Promise<Exchange> {
-    const response: AxiosResponse<Exchange> = await apiClient.patch(`/exchanges/${id}/meetup`, data);
+    const response: AxiosResponse<Exchange> = await apiClient.post(`/exchanges/${id}/meetup`, data);
     return response.data;
   },
 
   /**
-   * Mark exchange as completed
+   * Confirm meetup details (both parties must confirm)
+   */
+  async confirmMeetup(id: string): Promise<Exchange> {
+    const response: AxiosResponse<Exchange> = await apiClient.post(`/exchanges/${id}/confirm-meetup`);
+    return response.data;
+  },
+
+  /**
+   * Confirm completion (both parties must confirm to complete)
+   */
+  async confirmCompletion(id: string): Promise<Exchange> {
+    const response: AxiosResponse<Exchange> = await apiClient.post(`/exchanges/${id}/confirm-completion`);
+    return response.data;
+  },
+
+  /**
+   * Mark exchange as completed (legacy - use confirmCompletion instead)
    */
   async completeExchange(id: string): Promise<Exchange> {
-    const response: AxiosResponse<Exchange> = await apiClient.post(`/exchanges/${id}/complete`);
+    const response: AxiosResponse<Exchange> = await apiClient.post(`/exchanges/${id}/confirm-completion`);
     return response.data;
   },
 
@@ -260,6 +289,7 @@ export const exchangesService = {
 
 export type {
   Exchange,
+  ExchangeUser,
   Rating,
   CreateExchangeDto,
   RespondExchangeDto,

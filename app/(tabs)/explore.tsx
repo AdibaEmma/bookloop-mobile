@@ -1,34 +1,33 @@
 /**
  * Explore Screen
  *
- * Unified search and discovery experience.
+ * Unified search and discovery experience with compact grid layout.
  *
  * Features:
  * - Text search with autocomplete
- * - Advanced filters (category, condition, type, radius)
- * - Sort options
- * - Category browsing
- * - Recent/popular listings
+ * - Horizontal scrolling category chips
+ * - Advanced filters (condition, type, radius)
+ * - 2-column grid layout for listings
  * - Location-based search
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   TextInput,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { GlassCard, GlassButton, GlassModal, BookCard } from '@/components/ui';
+import { GlassCard, GlassButton, GlassModal, CompactBookCard } from '@/components/ui';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
@@ -37,7 +36,13 @@ import {
   Typography,
   Spacing,
   BookLoopColors,
+  BorderRadius,
+  Shadows,
 } from '@/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_GAP = Spacing.sm;
+const GRID_PADDING = Spacing.lg;
 
 interface Category {
   name: string;
@@ -50,6 +55,8 @@ export default function ExploreScreen() {
   const params = useLocalSearchParams();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
+  const categoryScrollRef = useRef<ScrollView>(null);
 
   // Search state
   const [query, setQuery] = useState((params.query as string) || '');
@@ -60,10 +67,10 @@ export default function ExploreScreen() {
 
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [radius, setRadius] = useState('5'); // km
+  const [radius, setRadius] = useState('10');
   const [sortBy, setSortBy] = useState<'distance' | 'recent' | 'popular'>('distance');
 
   const categories: Category[] = [
@@ -80,59 +87,44 @@ export default function ExploreScreen() {
   ];
 
   const conditions = [
-    { value: 'new', label: '✨ New', emoji: '✨' },
-    { value: 'like_new', label: '🌟 Like New', emoji: '🌟' },
-    { value: 'good', label: '👍 Good', emoji: '👍' },
-    { value: 'fair', label: '👌 Fair', emoji: '👌' },
-    { value: 'poor', label: '📖 Poor', emoji: '📖' },
+    { value: 'new', label: 'New' },
+    { value: 'like_new', label: 'Like New' },
+    { value: 'good', label: 'Good' },
+    { value: 'fair', label: 'Fair' },
+    { value: 'poor', label: 'Poor' },
   ];
 
   const listingTypes = [
-    { value: 'exchange', label: '🔄 Exchange' },
-    { value: 'donate', label: '🎁 Donate' },
-    { value: 'borrow', label: '📚 Borrow' },
+    { value: 'exchange', label: 'Exchange', icon: 'swap-horizontal' },
+    { value: 'donate', label: 'Donate', icon: 'gift' },
+    { value: 'borrow', label: 'Borrow', icon: 'time' },
   ];
 
-  /**
-   * Load recent listings on mount
-   */
   useEffect(() => {
     loadRecentListings();
   }, []);
 
-  /**
-   * Trigger search if query param is provided
-   */
   useEffect(() => {
     if (params.query) {
       handleSearch();
     }
   }, [params.query]);
 
-  /**
-   * Automatic search when query changes (with debounce)
-   */
   useEffect(() => {
     if (query.trim().length >= 2) {
       const timeoutId = setTimeout(() => {
         handleSearch();
-      }, 500); // 500ms debounce
-
+      }, 500);
       return () => clearTimeout(timeoutId);
     } else if (query.trim().length === 0) {
-      // Clear search results when query is empty
       setSearchResults([]);
     }
   }, [query]);
 
-  /**
-   * Load recent listings
-   */
   const loadRecentListings = async () => {
     try {
       setIsLoadingRecent(true);
 
-      // Try to get location
       let location: { latitude: number; longitude: number } | null = null;
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -147,7 +139,6 @@ export default function ExploreScreen() {
         console.log('Location not available');
       }
 
-      // Fetch recent listings
       const searchParams: any = {
         limit: 20,
       };
@@ -155,7 +146,7 @@ export default function ExploreScreen() {
       if (location) {
         searchParams.latitude = location.latitude;
         searchParams.longitude = location.longitude;
-        searchParams.radiusMeters = 50000; // 50km
+        searchParams.radiusMeters = 50000;
       }
 
       const response = await listingsService.searchListings(searchParams);
@@ -169,12 +160,8 @@ export default function ExploreScreen() {
     }
   };
 
-  /**
-   * Perform search
-   */
   const handleSearch = async () => {
-    if (!query.trim() && selectedCategories.length === 0) {
-      // If no query and no filters, show recent listings
+    if (!query.trim() && !selectedCategory) {
       setSearchResults([]);
       return;
     }
@@ -182,7 +169,6 @@ export default function ExploreScreen() {
     try {
       setIsSearching(true);
 
-      // Get location for location-based search
       let location: { latitude: number; longitude: number } | null = null;
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -197,10 +183,9 @@ export default function ExploreScreen() {
         console.log('Location not available for search');
       }
 
-      // Build search params
       const searchParams: any = {
         query: query.trim() || undefined,
-        genre: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
+        genre: selectedCategory || undefined,
         condition: selectedCondition || undefined,
         listingType: selectedType || undefined,
         limit: 50,
@@ -209,7 +194,7 @@ export default function ExploreScreen() {
       if (location) {
         searchParams.latitude = location.latitude;
         searchParams.longitude = location.longitude;
-        searchParams.radiusMeters = parseInt(radius) * 1000; // Convert to meters
+        searchParams.radiusMeters = parseInt(radius) * 1000;
       }
 
       const response = await listingsService.searchListings(searchParams);
@@ -223,48 +208,30 @@ export default function ExploreScreen() {
     }
   };
 
-  /**
-   * Toggle category selection
-   */
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [category], // Only allow one category for now
-    );
+  const handleCategoryPress = (category: string) => {
+    if (selectedCategory === category) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(category);
+    }
+    // Trigger search after state update
+    setTimeout(() => handleSearch(), 100);
   };
 
-  /**
-   * Clear all filters
-   */
   const clearFilters = () => {
-    setSelectedCategories([]);
+    setSelectedCategory(null);
     setSelectedCondition(null);
     setSelectedType(null);
-    setRadius('5');
+    setRadius('10');
     setQuery('');
     setSearchResults([]);
   };
 
-  /**
-   * Apply filters and close modal
-   */
   const applyFilters = () => {
     setShowFilters(false);
     handleSearch();
   };
 
-  /**
-   * Navigate to category search
-   */
-  const handleCategoryPress = (category: string) => {
-    setSelectedCategories([category]);
-    handleSearch();
-  };
-
-  /**
-   * Navigate to listing detail
-   */
   const handleListingPress = (listing: Listing) => {
     router.push({
       pathname: '/listing/[id]',
@@ -272,31 +239,13 @@ export default function ExploreScreen() {
     });
   };
 
-  /**
-   * Check if any filters are active
-   */
-  const hasActiveFilters = selectedCategories.length > 0 || selectedCondition || selectedType;
-
-  /**
-   * Render listing item
-   */
-  const renderListing = ({ item }: { item: Listing }) => (
-    <View style={styles.listingCardWrapper}>
-      <BookCard
-        title={item.book.title}
-        author={item.book.author}
-        coverImage={item.book.coverImage}
-        condition={item.condition}
-        listingType={item.listingType}
-        distance={item.distance}
-        onPress={() => handleListingPress(item)}
-      />
-    </View>
-  );
-
-  // Determine what to display
+  const hasActiveFilters = selectedCategory || selectedCondition || selectedType;
   const displayListings = searchResults.length > 0 ? searchResults : recentListings;
   const isShowingSearchResults = searchResults.length > 0 || query.trim().length > 0;
+
+  // Split listings into two columns for grid layout
+  const leftColumnListings = displayListings.filter((_, i) => i % 2 === 0);
+  const rightColumnListings = displayListings.filter((_, i) => i % 2 === 1);
 
   return (
     <View style={styles.container}>
@@ -310,199 +259,234 @@ export default function ExploreScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Explore Books
+          <Text style={[styles.title, { color: colors.text }]}>Explore</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Discover books near you
           </Text>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <View style={[styles.searchInputContainer, { backgroundColor: colors.surface }]}>
-              <Ionicons name="search" size={20} color={colors.textSecondary} />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search by title, author, ISBN..."
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.searchInput, { color: colors.text }]}
-                onSubmitEditing={handleSearch}
-                returnKeyType="search"
-              />
-              {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery('')}>
-                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setShowFilters(true)}
-              style={[
-                styles.filterButton,
-                {
-                  backgroundColor: hasActiveFilters
-                    ? BookLoopColors.burntOrange
-                    : colors.surface,
-                },
-              ]}
-            >
-              <Ionicons
-                name="options"
-                size={20}
-                color={hasActiveFilters ? '#FFFFFF' : colors.text}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Active Filters */}
-          {hasActiveFilters && (
-            <View style={styles.activeFilters}>
-              {selectedCategories.map((cat) => (
-                <View key={cat} style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
-                  <Text style={styles.activeFilterText}>{cat}</Text>
-                  <TouchableOpacity onPress={() => toggleCategory(cat)}>
-                    <Ionicons name="close" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {selectedCondition && (
-                <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
-                  <Text style={styles.activeFilterText}>{selectedCondition}</Text>
-                  <TouchableOpacity onPress={() => setSelectedCondition(null)}>
-                    <Ionicons name="close" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              {selectedType && (
-                <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
-                  <Text style={styles.activeFilterText}>{selectedType}</Text>
-                  <TouchableOpacity onPress={() => setSelectedType(null)}>
-                    <Ionicons name="close" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
-                <Text style={[styles.clearFiltersText, { color: BookLoopColors.burntOrange }]}>
-                  Clear All
-                </Text>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.card }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search by title, author, ISBN..."
+              placeholderTextColor={colors.textSecondary}
+              style={[styles.searchInput, { color: colors.text }]}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Results / Recent Listings */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                {isShowingSearchResults ? 'Search Results' : 'Recent Listings'}
-              </Text>
-              {!isShowingSearchResults && (
-                <TouchableOpacity onPress={loadRecentListings}>
-                  <Ionicons
-                    name="refresh"
-                    size={20}
-                    color={BookLoopColors.burntOrange}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {isSearching || isLoadingRecent ? (
-              <GlassCard variant="lg" padding="xl">
-                <View style={styles.loadingContent}>
-                  <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
-                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                    {isSearching ? 'Searching...' : 'Loading listings...'}
-                  </Text>
-                </View>
-              </GlassCard>
-            ) : displayListings.length > 0 ? (
-              <FlatList
-                data={displayListings}
-                renderItem={renderListing}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listingsContainer}
-                scrollEnabled={false}
-              />
-            ) : (
-              <GlassCard variant="lg" padding="xl">
-                <View style={styles.emptyContent}>
-                  <Ionicons
-                    name={isShowingSearchResults ? 'search-outline' : 'book-outline'}
-                    size={48}
-                    color={colors.textSecondary}
-                    style={styles.emptyIcon}
-                  />
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                    {isShowingSearchResults ? 'No Results Found' : 'No Listings Available'}
-                  </Text>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    {isShowingSearchResults
-                      ? 'Try adjusting your search or filters'
-                      : 'Check back soon for new listings'}
-                  </Text>
-                </View>
-              </GlassCard>
             )}
           </View>
-        </ScrollView>
 
-        {/* Filter Modal */}
-        <GlassModal
-          visible={showFilters}
-          onClose={() => setShowFilters(false)}
-          title="Filters"
-        >
-          <View style={styles.filterModalContent}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={styles.filterScrollView}
-              contentContainerStyle={styles.filterScrollContent}
-            >
-            {/* Categories */}
-            <View style={styles.filterSection}>
-              <Text style={[styles.filterLabel, { color: colors.text }]}>
-                📚 Categories
+          <TouchableOpacity
+            onPress={() => setShowFilters(true)}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: hasActiveFilters
+                  ? BookLoopColors.burntOrange
+                  : colors.card,
+              },
+            ]}
+          >
+            <Ionicons
+              name="options"
+              size={20}
+              color={hasActiveFilters ? '#FFFFFF' : colors.text}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Category Chips - Horizontal Scroll */}
+        <View style={styles.categoriesContainer}>
+          <ScrollView
+            ref={categoryScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.name}
+                onPress={() => handleCategoryPress(category.name)}
+                style={[
+                  styles.categoryChip,
+                  {
+                    backgroundColor:
+                      selectedCategory === category.name
+                        ? category.color
+                        : colors.card,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={category.icon}
+                  size={16}
+                  color={selectedCategory === category.name ? '#FFFFFF' : category.color}
+                />
+                <Text
+                  style={[
+                    styles.categoryText,
+                    {
+                      color:
+                        selectedCategory === category.name
+                          ? '#FFFFFF'
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  {category.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Active Filters */}
+        {hasActiveFilters && (
+          <View style={styles.activeFilters}>
+            {selectedCondition && (
+              <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
+                <Text style={styles.activeFilterText}>{selectedCondition}</Text>
+                <TouchableOpacity onPress={() => setSelectedCondition(null)}>
+                  <Ionicons name="close" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {selectedType && (
+              <View style={[styles.activeFilterChip, { backgroundColor: BookLoopColors.burntOrange }]}>
+                <Text style={styles.activeFilterText}>{selectedType}</Text>
+                <TouchableOpacity onPress={() => setSelectedType(null)}>
+                  <Ionicons name="close" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
+              <Text style={[styles.clearFiltersText, { color: BookLoopColors.burntOrange }]}>
+                Clear All
               </Text>
-              <View style={styles.chipContainer}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.name}
-                    onPress={() => toggleCategory(category.name)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: selectedCategories.includes(category.name)
-                          ? BookLoopColors.burntOrange
-                          : colors.surface,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        {
-                          color: selectedCategories.includes(category.name)
-                            ? '#FFFFFF'
-                            : colors.text,
-                        },
-                      ]}
-                    >
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Results Section */}
+        <View style={styles.resultsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {isShowingSearchResults ? 'Search Results' : 'Near You'}
+            </Text>
+            {!isShowingSearchResults && (
+              <TouchableOpacity onPress={loadRecentListings} style={styles.refreshButton}>
+                <Ionicons name="refresh" size={18} color={BookLoopColors.burntOrange} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {isSearching || isLoadingRecent ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                {isSearching ? 'Searching...' : 'Finding books near you...'}
+              </Text>
+            </View>
+          ) : displayListings.length > 0 ? (
+            <View style={styles.gridContainer}>
+              {/* Left Column */}
+              <View style={styles.gridColumn}>
+                {leftColumnListings.map((listing) => (
+                  <CompactBookCard
+                    key={listing.id}
+                    title={listing.book.title}
+                    author={listing.book.author}
+                    coverImage={listing.book.coverImage}
+                    condition={listing.condition}
+                    listingType={listing.listingType}
+                    distance={listing.distance}
+                    onPress={() => handleListingPress(listing)}
+                  />
+                ))}
+              </View>
+              {/* Right Column */}
+              <View style={styles.gridColumn}>
+                {rightColumnListings.map((listing) => (
+                  <CompactBookCard
+                    key={listing.id}
+                    title={listing.book.title}
+                    author={listing.book.author}
+                    coverImage={listing.book.coverImage}
+                    condition={listing.condition}
+                    listingType={listing.listingType}
+                    distance={listing.distance}
+                    onPress={() => handleListingPress(listing)}
+                  />
                 ))}
               </View>
             </View>
+          ) : (
+            <View style={[styles.emptyContainer, { backgroundColor: colors.card }]}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: `${BookLoopColors.burntOrange}15` }]}>
+                <Ionicons
+                  name={isShowingSearchResults ? 'search-outline' : 'book-outline'}
+                  size={40}
+                  color={BookLoopColors.burntOrange}
+                />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {isShowingSearchResults ? 'No Results Found' : 'No Books Nearby'}
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {isShowingSearchResults
+                  ? 'Try adjusting your search or filters'
+                  : 'Be the first to list a book in your area!'}
+              </Text>
+              {!isShowingSearchResults && (
+                <TouchableOpacity
+                  style={styles.emptyActionButton}
+                  onPress={() => router.push('/listing/create')}
+                >
+                  <LinearGradient
+                    colors={[BookLoopColors.burntOrange, BookLoopColors.coffeeBrown]}
+                    style={styles.emptyActionGradient}
+                  >
+                    <Ionicons name="add" size={18} color="#FFFFFF" />
+                    <Text style={styles.emptyActionText}>List a Book</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
 
+        <View style={{ height: insets.bottom + Spacing.xl }} />
+      </ScrollView>
+
+      {/* Filter Modal */}
+      <GlassModal
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filters"
+      >
+        <View style={styles.filterModalContent}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={styles.filterScrollView}
+            contentContainerStyle={styles.filterScrollContent}
+          >
             {/* Condition */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colors.text }]}>
@@ -514,13 +498,11 @@ export default function ExploreScreen() {
                     key={condition.value}
                     onPress={() =>
                       setSelectedCondition(
-                        selectedCondition === condition.value
-                          ? null
-                          : condition.value,
+                        selectedCondition === condition.value ? null : condition.value
                       )
                     }
                     style={[
-                      styles.chip,
+                      styles.filterChip,
                       {
                         backgroundColor:
                           selectedCondition === condition.value
@@ -531,7 +513,7 @@ export default function ExploreScreen() {
                   >
                     <Text
                       style={[
-                        styles.chipText,
+                        styles.filterChipText,
                         {
                           color:
                             selectedCondition === condition.value
@@ -557,12 +539,10 @@ export default function ExploreScreen() {
                   <TouchableOpacity
                     key={type.value}
                     onPress={() =>
-                      setSelectedType(
-                        selectedType === type.value ? null : type.value,
-                      )
+                      setSelectedType(selectedType === type.value ? null : type.value)
                     }
                     style={[
-                      styles.chip,
+                      styles.filterChip,
                       {
                         backgroundColor:
                           selectedType === type.value
@@ -571,14 +551,17 @@ export default function ExploreScreen() {
                       },
                     ]}
                   >
+                    <Ionicons
+                      name={type.icon as any}
+                      size={16}
+                      color={selectedType === type.value ? '#FFFFFF' : colors.text}
+                    />
                     <Text
                       style={[
-                        styles.chipText,
+                        styles.filterChipText,
                         {
                           color:
-                            selectedType === type.value
-                              ? '#FFFFFF'
-                              : colors.text,
+                            selectedType === type.value ? '#FFFFFF' : colors.text,
                         },
                       ]}
                     >
@@ -592,42 +575,54 @@ export default function ExploreScreen() {
             {/* Search Radius */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colors.text }]}>
-                Search Radius (km)
+                Search Radius: {radius} km
               </Text>
-              <View style={[styles.radiusInput, { backgroundColor: colors.surface }]}>
-                <TextInput
-                  value={radius}
-                  onChangeText={setRadius}
-                  keyboardType="numeric"
-                  placeholder="5"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.radiusInputText, { color: colors.text }]}
-                />
+              <View style={styles.radiusOptions}>
+                {['5', '10', '25', '50'].map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    onPress={() => setRadius(r)}
+                    style={[
+                      styles.radiusOption,
+                      {
+                        backgroundColor:
+                          radius === r ? BookLoopColors.burntOrange : colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.radiusOptionText,
+                        { color: radius === r ? '#FFFFFF' : colors.text },
+                      ]}
+                    >
+                      {r}km
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
+          </ScrollView>
 
-            </ScrollView>
-
-            {/* Actions - Fixed at bottom */}
-            <View style={styles.filterActions}>
-              <GlassButton
-                title="Clear All"
-                onPress={clearFilters}
-                variant="ghost"
-                size="md"
-                style={{ flex: 1 }}
-              />
-              <GlassButton
-                title="Apply"
-                onPress={applyFilters}
-                variant="primary"
-                size="md"
-                style={{ flex: 1 }}
-              />
-            </View>
+          {/* Actions */}
+          <View style={styles.filterActions}>
+            <GlassButton
+              title="Clear All"
+              onPress={clearFilters}
+              variant="ghost"
+              size="md"
+              style={{ flex: 1 }}
+            />
+            <GlassButton
+              title="Apply"
+              onPress={applyFilters}
+              variant="primary"
+              size="md"
+              style={{ flex: 1 }}
+            />
           </View>
-        </GlassModal>
-      </SafeAreaView>
+        </View>
+      </GlassModal>
     </View>
   );
 }
@@ -636,25 +631,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: Spacing.lg,
+  },
   header: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: GRID_PADDING,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   title: {
     fontSize: Typography.fontSize['2xl'],
     fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.heading,
   },
+  subtitle: {
+    fontSize: Typography.fontSize.sm,
+    marginTop: 2,
+  },
   searchContainer: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: GRID_PADDING,
     gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
@@ -664,8 +663,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     gap: Spacing.sm,
+    ...Shadows.sm,
   },
   searchInput: {
     flex: 1,
@@ -675,23 +675,45 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Shadows.sm,
+  },
+  categoriesContainer: {
+    marginBottom: Spacing.md,
+  },
+  categoriesContent: {
+    paddingHorizontal: GRID_PADDING,
+    gap: Spacing.sm,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    ...Shadows.sm,
+  },
+  categoryText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
   },
   activeFilters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: GRID_PADDING,
     marginBottom: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
+    alignItems: 'center',
   },
   activeFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    borderRadius: 16,
+    borderRadius: BorderRadius.full,
     gap: Spacing.xs,
   },
   activeFilterText: {
@@ -703,15 +725,13 @@ const styles = StyleSheet.create({
   clearFiltersButton: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    justifyContent: 'center',
   },
   clearFiltersText: {
     fontSize: Typography.fontSize.xs,
     fontWeight: Typography.fontWeight.semibold,
   },
-  section: {
-    marginBottom: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
+  resultsSection: {
+    paddingHorizontal: GRID_PADDING,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -724,36 +744,73 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.semibold,
     fontFamily: Typography.fontFamily.heading,
   },
-  listingsContainer: {
-    gap: Spacing.md,
+  refreshButton: {
+    padding: Spacing.xs,
   },
-  listingCardWrapper: {
-    marginBottom: Spacing.sm,
-  },
-  loadingContent: {
+  loadingContainer: {
     alignItems: 'center',
+    paddingVertical: Spacing['2xl'],
     gap: Spacing.md,
   },
   loadingText: {
     fontSize: Typography.fontSize.base,
-    textAlign: 'center',
   },
-  emptyContent: {
+  gridContainer: {
+    flexDirection: 'row',
+    gap: CARD_GAP,
+  },
+  gridColumn: {
+    flex: 1,
+  },
+  emptyContainer: {
     alignItems: 'center',
+    paddingVertical: Spacing['2xl'],
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    ...Shadows.sm,
   },
-  emptyIcon: {
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
-    opacity: 0.5,
   },
   emptyTitle: {
     fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
+    marginBottom: Spacing.xs,
   },
   emptyText: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.sm,
     textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  emptyActionButton: {
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  emptyActionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  emptyActionText: {
+    color: '#FFFFFF',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  filterModalContent: {
+    flex: 1,
+  },
+  filterScrollView: {
+    flex: 1,
+  },
+  filterScrollContent: {
+    paddingBottom: Spacing.md,
   },
   filterSection: {
     marginBottom: Spacing.lg,
@@ -768,34 +825,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  chip: {
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: 20,
+    borderRadius: BorderRadius.full,
     gap: Spacing.xs,
   },
-  chipText: {
+  filterChipText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.medium,
   },
-  radiusInput: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: 12,
+  radiusOptions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
   },
-  radiusInputText: {
-    fontSize: Typography.fontSize.base,
-  },
-  filterModalContent: {
+  radiusOption: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
   },
-  filterScrollView: {
-    flex: 1,
-  },
-  filterScrollContent: {
-    paddingBottom: Spacing.md,
+  radiusOptionText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
   },
   filterActions: {
     flexDirection: 'row',

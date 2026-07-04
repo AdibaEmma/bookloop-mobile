@@ -39,6 +39,14 @@ import {
 
 type TabType = 'incoming' | 'outgoing';
 
+interface ExchangeUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  profile_picture?: string;
+  rating?: number;
+}
+
 interface Exchange {
   id: string;
   listing_id: string;
@@ -47,34 +55,30 @@ interface Exchange {
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
   requester_message?: string;
   owner_response?: string;
+  meetup_spot_id?: string;
+  meetup_spot_name?: string;
   meetup_location?: {
     type: 'Point';
     coordinates: [number, number];
-  };
+  } | string;
   meetup_address?: string;
   meetup_time?: string;
+  requester_confirmed_meetup: boolean;
+  owner_confirmed_meetup: boolean;
+  requester_confirmed_completion: boolean;
+  owner_confirmed_completion: boolean;
   listing?: {
     id: string;
     book?: {
+      id: string;
       title: string;
       author: string;
       cover_image?: string;
+      coverImage?: string; // Support both naming conventions
     };
   };
-  requester?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    karma: number;
-  };
-  owner?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    karma: number;
-  };
+  requester?: ExchangeUser;
+  owner?: ExchangeUser;
   created_at: string;
   updated_at: string;
 }
@@ -265,6 +269,34 @@ export default function MyExchangesScreen() {
   };
 
   /**
+   * Format meetup time
+   */
+  const formatMeetupTime = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  /**
+   * Navigate to exchange detail
+   */
+  const handleExchangePress = (exchange: Exchange) => {
+    router.push({
+      pathname: '/exchange/[id]',
+      params: { id: exchange.id },
+    });
+  };
+
+  /**
    * Render exchange card
    */
   const renderExchange = ({ item: exchange }: { item: Exchange }) => {
@@ -273,7 +305,8 @@ export default function MyExchangesScreen() {
     const book = exchange.listing?.book;
 
     return (
-      <GlassCard variant="lg" padding="lg" style={styles.exchangeCard}>
+      <TouchableOpacity onPress={() => handleExchangePress(exchange)} activeOpacity={0.8}>
+        <GlassCard variant="lg" padding="lg" style={styles.exchangeCard}>
         {/* Status Badge */}
         <View
           style={[
@@ -290,16 +323,17 @@ export default function MyExchangesScreen() {
             source={{
               uri:
                 book?.cover_image ||
+                book?.coverImage ||
                 'https://via.placeholder.com/60x90',
             }}
             style={styles.bookCover}
           />
 
           <View style={styles.bookInfo}>
-            <Text style={[styles.bookTitle, { color: colors.text }]}>
+            <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
               {book?.title || 'Unknown Book'}
             </Text>
-            <Text style={[styles.bookAuthor, { color: colors.textSecondary }]}>
+            <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
               by {book?.author || 'Unknown Author'}
             </Text>
           </View>
@@ -309,24 +343,26 @@ export default function MyExchangesScreen() {
         {otherUser && (
           <View style={styles.userSection}>
             <Avatar
-              imageUrl={otherUser.avatar_url}
-              name={`${otherUser.first_name} ${otherUser.last_name}`}
-              size={40}
+              imageUrl={otherUser.profile_picture}
+              name={`${otherUser.first_name || ''} ${otherUser.last_name || ''}`}
+              size="md"
             />
 
             <View style={styles.userInfo}>
               <Text style={[styles.userName, { color: colors.text }]}>
-                {isIncoming ? 'Request from' : 'Request to'} {otherUser.first_name}{' '}
-                {otherUser.last_name}
+                {isIncoming ? 'Request from' : 'Request to'}{' '}
+                <Text style={styles.userNameBold}>
+                  {otherUser.first_name || 'User'} {otherUser.last_name || ''}
+                </Text>
               </Text>
               <View style={styles.karmaContainer}>
                 <Ionicons
-                  name="trophy"
+                  name="star"
                   size={14}
-                  color={BookLoopColors.burntOrange}
+                  color={BookLoopColors.mutedGold}
                 />
                 <Text style={[styles.karmaText, { color: colors.textSecondary }]}>
-                  {otherUser.karma} Karma
+                  {otherUser.rating ? Number(otherUser.rating).toFixed(1) : '5.0'} Rating
                 </Text>
               </View>
             </View>
@@ -345,19 +381,34 @@ export default function MyExchangesScreen() {
           </View>
         )}
 
-        {/* Meetup Location */}
-        {exchange.meetup_address && (
-          <View style={styles.locationSection}>
-            <Ionicons
-              name="location"
-              size={16}
-              color={BookLoopColors.burntOrange}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.locationName, { color: colors.text }]}>
-                {exchange.meetup_address}
+        {/* Meetup Details */}
+        {(exchange.meetup_spot_name || exchange.meetup_address || exchange.meetup_time) && (
+          <View style={styles.meetupSection}>
+            {/* Location */}
+            <View style={styles.locationSection}>
+              <Ionicons
+                name="location"
+                size={16}
+                color={BookLoopColors.burntOrange}
+              />
+              <Text style={[styles.locationName, { color: colors.text }]} numberOfLines={1}>
+                {exchange.meetup_spot_name || exchange.meetup_address || 'Location TBD'}
               </Text>
             </View>
+
+            {/* Time */}
+            {exchange.meetup_time && (
+              <View style={styles.locationSection}>
+                <Ionicons
+                  name="calendar"
+                  size={16}
+                  color={BookLoopColors.burntOrange}
+                />
+                <Text style={[styles.locationName, { color: colors.text }]}>
+                  {formatMeetupTime(exchange.meetup_time)}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -415,6 +466,7 @@ export default function MyExchangesScreen() {
           />
         )}
       </GlassCard>
+      </TouchableOpacity>
     );
   };
 
@@ -653,8 +705,10 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
     marginBottom: 4,
+  },
+  userNameBold: {
+    fontWeight: Typography.fontWeight.semibold,
   },
   karmaContainer: {
     flexDirection: 'row',
@@ -675,10 +729,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     lineHeight: 20,
   },
+  meetupSection: {
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
   locationSection: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.xs,
-    marginBottom: Spacing.md,
   },
   locationName: {
     fontSize: Typography.fontSize.sm,
