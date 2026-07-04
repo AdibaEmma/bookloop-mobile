@@ -135,12 +135,12 @@ export default function CreateListingScreen() {
     },
   ];
 
-  const conditions: Array<{ value: Condition; label: string }> = [
-    { value: 'new', label: 'Brand New' },
-    { value: 'like_new', label: 'Like New' },
-    { value: 'good', label: 'Good' },
-    { value: 'fair', label: 'Fair' },
-    { value: 'poor', label: 'Poor' },
+  const conditions: Array<{ value: Condition; label: string; desc: string }> = [
+    { value: 'new', label: 'Brand new', desc: 'unopened, still sealed' },
+    { value: 'like_new', label: 'Like new', desc: 'no marks' },
+    { value: 'good', label: 'Good', desc: 'minor wear, fully readable' },
+    { value: 'fair', label: 'Fair', desc: 'noticeable wear' },
+    { value: 'poor', label: 'Poor', desc: 'heavy wear, still intact' },
   ];
 
   /**
@@ -736,7 +736,7 @@ export default function CreateListingScreen() {
                 onPress={scanBarcode}
                 style={[
                   styles.scanButton,
-                  { backgroundColor: BookLoopColors.burntOrange },
+                  { backgroundColor: BookLoopColors.coffeeBrown },
                 ]}
               >
                 <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
@@ -861,7 +861,7 @@ export default function CreateListingScreen() {
                     {
                       backgroundColor:
                         listingType === type.value
-                          ? BookLoopColors.burntOrange
+                          ? BookLoopColors.coffeeBrown
                           : colors.surface,
                     },
                   ]}
@@ -907,33 +907,35 @@ export default function CreateListingScreen() {
             </Text>
 
             <View style={styles.conditionContainer}>
-              {conditions.map((cond) => (
-                <TouchableOpacity
-                  key={cond.value}
-                  onPress={() => setCondition(cond.value)}
-                  style={[
-                    styles.conditionChip,
-                    {
-                      backgroundColor:
-                        condition === cond.value
-                          ? BookLoopColors.burntOrange
-                          : colors.surface,
-                    },
-                  ]}
-                >
-                  <Text
+              {conditions.map((cond) => {
+                const selected = condition === cond.value;
+                return (
+                  <TouchableOpacity
+                    key={cond.value}
+                    onPress={() => setCondition(cond.value)}
+                    activeOpacity={0.8}
                     style={[
-                      styles.conditionText,
-                      {
-                        color:
-                          condition === cond.value ? '#FFFFFF' : colors.text,
-                      },
+                      styles.conditionRow,
+                      selected
+                        ? { borderColor: BookLoopColors.coffeeBrown, borderWidth: 2, backgroundColor: 'rgba(139,94,60,0.05)' }
+                        : { borderColor: BookLoopColors.softLatte, borderWidth: 1, backgroundColor: '#fff' },
                     ]}
                   >
-                    {cond.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        { borderColor: selected ? BookLoopColors.coffeeBrown : '#D4C9B6' },
+                      ]}
+                    >
+                      {selected && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={[styles.conditionText, { color: colors.text }]}>
+                      {cond.label}
+                      <Text style={styles.conditionDesc}> · {cond.desc}</Text>
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </GlassCard>
 
@@ -1355,8 +1357,9 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    fontWeight: '600',
     marginBottom: Spacing.sm,
   },
   subtitle: {
@@ -1434,18 +1437,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   conditionContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: 8,
   },
-  conditionChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: 20,
+  conditionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 12,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: BookLoopColors.coffeeBrown,
   },
   conditionText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  conditionDesc: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    fontWeight: '400',
+    color: BookLoopColors.authorText,
   },
   photosContainer: {
     flexDirection: 'row',
