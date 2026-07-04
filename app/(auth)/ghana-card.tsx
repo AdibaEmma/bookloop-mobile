@@ -31,6 +31,22 @@ import { usersService } from '@/services/api';
 import { showError } from '@/utils/errorHandler';
 import { BookLoopColors } from '@/constants/theme';
 
+/**
+ * On-device OCR (MLKit) is a native module, so it only exists in a dev/EAS
+ * build — not Expo Go. Load it lazily and degrade to manual entry if absent.
+ */
+async function recognizeCardNumber(uri: string): Promise<string | null> {
+  try {
+    const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
+    const result = await TextRecognition.recognize(uri);
+    const compact = String(result?.text ?? '').replace(/\s+/g, '').toUpperCase();
+    const m = compact.match(/GHA-?(\d{9})-?(\d)/);
+    return m ? `GHA-${m[1]}-${m[2]}` : null;
+  } catch {
+    return null; // native module unavailable (Expo Go) or no readable text
+  }
+}
+
 const C = {
   grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
   text: BookLoopColors.deepEspresso,
@@ -73,10 +89,18 @@ export default function GhanaCardScreen() {
       const asset = result.assets[0];
       setCapturedUri(asset.uri);
       setScanning(true);
+
+      // Try to read the card number off the photo (dev/EAS build only).
+      const detected = await recognizeCardNumber(asset.uri);
+      if (detected) {
+        setCard(detected);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
       const name = asset.uri.split('/').pop() || 'ghana-card.jpg';
       const type = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
       await usersService.uploadGhanaCardImage({ uri: asset.uri, type, name });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (!detected) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setCapturedUri(null);
       showError(error, 'Could not upload the photo');
