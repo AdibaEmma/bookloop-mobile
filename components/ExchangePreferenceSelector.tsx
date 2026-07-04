@@ -20,7 +20,7 @@ import {
 } from '@/constants/theme';
 import { Book } from '@/services/api/books.service';
 import { BookSearchCreate } from './BookSearchCreate';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SelectedBook extends Book {
   priority: number;

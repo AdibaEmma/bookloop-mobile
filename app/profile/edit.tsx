@@ -230,7 +230,7 @@ export default function EditProfileScreen() {
                   <Avatar
                     imageUrl={avatarUrl}
                     name={`${firstName} ${lastName}`}
-                    size={100}
+                    size="xl"
                   />
                 )}
 

@@ -92,7 +92,7 @@ export const Alert: React.FC<AlertProps> = ({
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(position === 'top' ? -200 : 200);
   const opacity = useSharedValue(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const config = ALERT_CONFIG[type];
   const isDark = colorScheme === 'dark';

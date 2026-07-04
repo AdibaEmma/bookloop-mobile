@@ -50,7 +50,8 @@ function getProjectId(): string | undefined {
   }
 
   // Try from manifest (for Expo Go)
-  const manifestProjectId = Constants.manifest?.extra?.eas?.projectId;
+  const manifestProjectId = (Constants.manifest as any)?.extra?.eas?.projectId
+    ?? Constants.expoConfig?.extra?.eas?.projectId;
   if (manifestProjectId) {
     return manifestProjectId;
   }

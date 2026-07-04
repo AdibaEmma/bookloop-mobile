@@ -117,7 +117,7 @@ export default function SubscriptionScreen() {
           [
             {
               text: 'Verify Payment',
-              onPress: () => handleVerifyPayment(paymentData.reference, plan.tier),
+              onPress: () => handleVerifyPayment(paymentData.reference, plan.tier as 'basic' | 'premium'),
             },
             { text: 'Cancel', style: 'cancel' },
           ]

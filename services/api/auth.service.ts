@@ -34,21 +34,23 @@ interface LoginDto {
   password?: string; // Optional - if not provided, an SMS OTP is sent
 }
 
+// The client response interceptor converts snake_case -> camelCase, so the
+// runtime shape here is camelCase.
 interface AuthResponse {
-  user_id: string;
+  userId: string;
   phone: string;
   email: string;
-  full_name: string;
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
-  profile_picture?: string;
+  fullName: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  profilePicture?: string;
   role: string;
   tokens: {
-    access_token: string;
-    refresh_token: string;
-    token_type: string;
-    expires_in: number;
+    accessToken: string;
+    refreshToken: string;
+    tokenType: string;
+    expiresIn: number;
   };
 }
 
@@ -106,8 +108,8 @@ export const authService = {
 
     console.log('[AuthService] OTP verification response:', {
       hasTokens: !!response.data.tokens,
-      hasAccessToken: !!response.data.tokens?.access_token,
-      hasRefreshToken: !!response.data.tokens?.refresh_token,
+      hasAccessToken: !!response.data.tokens?.accessToken,
+      hasRefreshToken: !!response.data.tokens?.refreshToken,
     });
 
     // Store tokens (backend returns tokens nested in 'tokens' object)

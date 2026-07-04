@@ -345,7 +345,7 @@ export default function NotificationDetailScreen() {
             title={config.actionLabel}
             onPress={handleActionPress}
             style={styles.actionButton}
-            icon={<Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
+            icon="arrow-forward"
           />
         )}
       </ScrollView>

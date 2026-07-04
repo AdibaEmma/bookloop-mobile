@@ -92,7 +92,7 @@ export default function UserProfileScreen() {
       setIsLoading(true);
 
       // Load user profile
-      const profileData = await usersService.getUserById(id);
+      const profileData: any = await usersService.getUserById(id);
 
       // Ensure stats has default values
       const profileWithDefaults = {
@@ -219,7 +219,7 @@ export default function UserProfileScreen() {
               <Avatar
                 imageUrl={profile.avatarUrl}
                 name={`${profile.firstName} ${profile.lastName}`}
-                size={80}
+                size="xl"
               />
 
               <View style={styles.profileInfo}>
@@ -353,7 +353,7 @@ export default function UserProfileScreen() {
                   <TouchableOpacity
                     onPress={() =>
                       router.push(
-                        isOwnProfile ? '/listings/my-listings' : `/listings/user/${id}`
+                        (isOwnProfile ? '/listings/my-listings' : `/listings/user/${id}`) as any
                       )
                     }
                   >
@@ -402,7 +402,7 @@ export default function UserProfileScreen() {
                     <Avatar
                       imageUrl={rating.reviewer.avatarUrl}
                       name={`${rating.reviewer.firstName} ${rating.reviewer.lastName}`}
-                      size={32}
+                      size="sm"
                     />
 
                     <View style={styles.reviewInfo}>
