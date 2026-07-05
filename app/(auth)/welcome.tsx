@@ -1,14 +1,16 @@
 /**
- * Welcome Screen — design refresh 4a
+ * Welcome Screen — the story of BookLoop
  *
- * First screen for unauthenticated users. Logo tile + wordmark, a literary
- * hero card, three value-prop rows, and the primary / ghost CTAs.
+ * First screen for unauthenticated users. The hero is "the loop": a slow orbit
+ * of book-spines circling a central book — the app's core idea (a book passing
+ * from one reader to the next nearby) made visible. Below it, a literary hook
+ * and the three concrete beats of the loop: List → Match → Swap.
  *
- * Navigation and routes are unchanged (Get Started → phone-input, secondary →
- * login); only the presentation was reworked to the design language.
+ * Navigation is unchanged: Get Started → phone-input, secondary → login.
+ * Motion respects the OS "reduce motion" setting.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,100 +21,180 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, ArrowLeftRight, Gift, MapPin } from 'lucide-react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  Easing,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
+import {
+  BookOpen,
+  BookPlus,
+  MapPin,
+  ArrowLeftRight,
+  ArrowRight,
+} from 'lucide-react-native';
 import { BookLoopColors } from '@/constants/theme';
 
-const FEATURES = [
-  { Icon: ArrowLeftRight, title: 'Exchange Books', desc: 'Trade with readers nearby' },
-  { Icon: Gift, title: 'Donate & Share', desc: 'Give books a new home' },
-  { Icon: MapPin, title: 'Find Locally', desc: 'Books in your neighbourhood' },
+// The concrete loop, in the order a reader lives it. A real sequence — so the
+// connected steps carry meaning, not decoration.
+const STEPS = [
+  { Icon: BookPlus, label: 'List' },
+  { Icon: MapPin, label: 'Match' },
+  { Icon: ArrowLeftRight, label: 'Swap' },
 ];
+
+// Book-spines that ride the orbit. Warm tones that read on cream.
+const SPINE_COLORS = ['#E0B15A', '#D97941', '#8B5E3C', '#C9A97E', '#B0813F'];
+const SPINE_HEIGHTS = [30, 26, 34, 27, 32];
+const ORBIT_R = 86;
+
+const spines = SPINE_COLORS.map((c, i) => {
+  const angle = (-90 + i * (360 / SPINE_COLORS.length)) * (Math.PI / 180);
+  return {
+    c,
+    h: SPINE_HEIGHTS[i],
+    x: ORBIT_R * Math.cos(angle),
+    y: ORBIT_R * Math.sin(angle),
+    rot: i * (360 / SPINE_COLORS.length),
+  };
+});
+
+/** The signature: books orbiting a central book — BookLoop, literally. */
+function LoopHero({ reduceMotion }: { reduceMotion: boolean }) {
+  const spin = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    spin.value = withRepeat(
+      withTiming(360, { duration: 28000, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, [reduceMotion, spin]);
+
+  const orbitStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
+  }));
+
+  return (
+    <View style={styles.loop}>
+      {/* soft warm bloom */}
+      <View style={styles.bloom} />
+      {/* faint orbit ring */}
+      <View style={styles.ring} />
+      {/* orbiting spines */}
+      <Animated.View style={[styles.orbitLayer, orbitStyle]}>
+        {spines.map((s, i) => (
+          <View
+            key={i}
+            style={[
+              styles.spine,
+              {
+                height: s.h,
+                backgroundColor: s.c,
+                transform: [
+                  { translateX: s.x },
+                  { translateY: s.y },
+                  { rotate: `${s.rot}deg` },
+                ],
+              },
+            ]}
+          />
+        ))}
+      </Animated.View>
+      {/* the book at the centre of it all */}
+      <View style={styles.centerTile}>
+        <BookOpen size={30} color={BookLoopColors.cream} strokeWidth={2.2} />
+      </View>
+    </View>
+  );
+}
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const isDark = (useColorScheme() ?? 'light') === 'dark';
+  const reduceMotion = useReducedMotion();
 
-  const c = isDark
-    ? {
-        grad: [BookLoopColors.darkBg, BookLoopColors.darkBgDeep] as const,
-        text: BookLoopColors.darkText,
-        muted: BookLoopColors.darkTextMuted,
-        sub: '#B49B7E',
-        heroBg: BookLoopColors.darkSurface,
-        heroBorder: BookLoopColors.darkBorder,
-        featureTile: 'rgba(217,121,65,0.16)',
-        featureIcon: BookLoopColors.burntOrange,
-        ghost: BookLoopColors.burntOrange,
-      }
-    : {
-        grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
-        text: BookLoopColors.deepEspresso,
-        muted: BookLoopColors.mutedText,
-        sub: BookLoopColors.authorText,
-        heroBg: 'rgba(255,255,255,0.6)',
-        heroBorder: 'rgba(139,94,60,0.14)',
-        featureTile: 'rgba(217,121,65,0.14)',
-        featureIcon: BookLoopColors.burntOrange,
-        ghost: BookLoopColors.coffeeBrown,
-      };
+  // Skip entrance staggers under reduce-motion; render in place.
+  const rise = (delay: number) =>
+    reduceMotion
+      ? undefined
+      : FadeInDown.duration(520).delay(delay).easing(Easing.out(Easing.cubic));
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={c.grad} style={StyleSheet.absoluteFillObject} />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Brand */}
-          <View style={styles.brand}>
-            <View style={styles.logoTile}>
-              <BookOpen size={34} color={BookLoopColors.cream} strokeWidth={2} />
+      <LinearGradient
+        colors={['#FBEFD9', '#FFF8F0', '#FAF3E0']}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Signature */}
+          <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(700)}>
+            <LoopHero reduceMotion={!!reduceMotion} />
+          </Animated.View>
+
+          {/* Pitch */}
+          <Animated.View entering={rise(140)} style={styles.pitch}>
+            <Text style={styles.wordmark}>BookLoop</Text>
+            <Text style={styles.eyebrow}>GHANA&apos;S BOOK EXCHANGE COMMUNITY</Text>
+            <Text style={styles.headline}>Every book deserves a</Text>
+            <View style={styles.emphWrap}>
+              <Text style={styles.headlineEmph}>second chapter</Text>
+              <View style={styles.emphUnderline} />
             </View>
-            <Text style={[styles.wordmark, { color: c.text }]}>BookLoop</Text>
-            <Text style={[styles.tagline, { color: c.muted }]}>Ghana's Book Exchange Community</Text>
-          </View>
-
-          {/* Hero */}
-          <View style={[styles.hero, { backgroundColor: c.heroBg, borderColor: c.heroBorder }]}>
-            <Text style={[styles.heroTitle, { color: c.text }]}>
-              Your books deserve a second chapter
+            <Text style={styles.subhead}>
+              List the ones you&apos;ve read, discover ones you haven&apos;t — and
+              swap with readers near you.
             </Text>
-            <Text style={[styles.heroSub, { color: c.sub }]}>
-              Trade, donate, and discover books in your neighbourhood
-            </Text>
-          </View>
+          </Animated.View>
 
-          {/* Features */}
-          <View style={styles.features}>
-            {FEATURES.map(({ Icon, title, desc }) => (
-              <View key={title} style={styles.featureRow}>
-                <View style={[styles.featureTile, { backgroundColor: c.featureTile }]}>
-                  <Icon size={22} color={c.featureIcon} strokeWidth={2} />
+          {/* The loop, made concrete */}
+          <Animated.View entering={rise(300)} style={styles.steps}>
+            {STEPS.map((s, i) => (
+              <React.Fragment key={s.label}>
+                {i > 0 && <View style={styles.stepDash} />}
+                <View style={styles.step}>
+                  <View style={styles.stepIcon}>
+                    <s.Icon size={19} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
+                  </View>
+                  <Text style={styles.stepLabel}>{s.label}</Text>
                 </View>
-                <View style={styles.featureText}>
-                  <Text style={[styles.featureTitle, { color: c.text }]}>{title}</Text>
-                  <Text style={[styles.featureDesc, { color: c.sub }]}>{desc}</Text>
-                </View>
-              </View>
+              </React.Fragment>
             ))}
-          </View>
+          </Animated.View>
 
-          {/* CTAs */}
-          <View style={styles.actions}>
+          <View style={styles.spacer} />
+
+          {/* Act */}
+          <Animated.View entering={rise(440)} style={styles.actions}>
             <TouchableOpacity
               style={styles.primaryBtn}
-              activeOpacity={0.85}
+              activeOpacity={0.9}
               onPress={() => router.push('/(auth)/phone-input')}
             >
               <Text style={styles.primaryText}>Get Started</Text>
+              <ArrowRight size={20} color={BookLoopColors.cream} strokeWidth={2.4} />
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.ghostBtn}
               activeOpacity={0.7}
               onPress={() => router.push('/(auth)/login')}
             >
-              <Text style={[styles.ghostText, { color: c.ghost }]}>I already have an account</Text>
+              <Text style={styles.ghostText}>I already have an account</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -121,123 +203,185 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1 },
+  safe: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 28,
+    paddingHorizontal: 26,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
-  brand: {
+
+  /* Loop hero */
+  loop: {
+    width: 220,
+    height: 210,
+    alignSelf: 'center',
     alignItems: 'center',
-    marginTop: 14,
-  },
-  logoTile: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: BookLoopColors.coffeeBrown,
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: BookLoopColors.coffeeBrown,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  wordmark: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    marginTop: 14,
-  },
-  tagline: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 3,
-  },
-  hero: {
-    marginTop: 22,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingVertical: 22,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  heroTitle: {
-    fontFamily: 'LibreBaskerville-Regular',
-    fontSize: 19,
-    fontWeight: '600',
-    lineHeight: 26,
-    textAlign: 'center',
-  },
-  heroSub: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
     marginTop: 8,
   },
-  features: {
-    marginTop: 18,
-    gap: 12,
+  bloom: {
+    position: 'absolute',
+    width: 168,
+    height: 168,
+    borderRadius: 84,
+    backgroundColor: 'rgba(245,185,66,0.16)',
   },
-  featureRow: {
-    flexDirection: 'row',
+  ring: {
+    position: 'absolute',
+    width: ORBIT_R * 2,
+    height: ORBIT_R * 2,
+    borderRadius: ORBIT_R,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,94,60,0.22)',
+  },
+  orbitLayer: {
+    position: 'absolute',
+    width: 220,
+    height: 210,
     alignItems: 'center',
-    gap: 13,
-  },
-  featureTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  featureText: { flex: 1 },
-  featureTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 14,
-    fontWeight: '600',
+  spine: {
+    position: 'absolute',
+    width: 14,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
   },
-  featureDesc: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    marginTop: 1,
-  },
-  actions: {
-    marginTop: 'auto',
-    paddingTop: 22,
-    gap: 10,
-  },
-  primaryBtn: {
-    height: 48,
-    borderRadius: 12,
+  centerTile: {
+    width: 64,
+    height: 64,
+    borderRadius: 19,
     backgroundColor: BookLoopColors.coffeeBrown,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: BookLoopColors.coffeeBrown,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
+    shadowOpacity: 0.34,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+
+  /* Pitch */
+  pitch: { alignItems: 'center', marginTop: 14 },
+  wordmark: {
+    fontFamily: 'Poppins-Bold',
+    fontSize: 22,
+    color: BookLoopColors.coffeeBrown,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  eyebrow: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 10.5,
+    letterSpacing: 2,
+    color: BookLoopColors.softLatte,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  headline: {
+    fontFamily: 'Poppins-Bold',
+    fontSize: 27,
+    lineHeight: 33,
+    color: BookLoopColors.deepEspresso,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  emphWrap: { alignItems: 'center', marginTop: 1 },
+  headlineEmph: {
+    fontFamily: 'LibreBaskerville-Italic',
+    fontSize: 29,
+    lineHeight: 38,
+    color: BookLoopColors.coffeeBrown,
+    textAlign: 'center',
+  },
+  emphUnderline: {
+    height: 4,
+    width: '76%',
+    borderRadius: 3,
+    backgroundColor: BookLoopColors.mutedGold,
+    marginTop: -3,
+  },
+  subhead: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: '#8A7A66',
+    textAlign: 'center',
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
+
+  /* Steps */
+  steps: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 28,
+    paddingHorizontal: 6,
+  },
+  step: { alignItems: 'center', width: 74 },
+  stepIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FBF1DE',
+    borderWidth: 1,
+    borderColor: 'rgba(139,94,60,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 7,
+  },
+  stepLabel: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12.5,
+    color: BookLoopColors.deepEspresso,
+    fontWeight: '600',
+  },
+  stepDash: {
+    flex: 1,
+    height: 0,
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(139,94,60,0.28)',
+    marginBottom: 26,
+    marginHorizontal: -4,
+  },
+
+  spacer: { flex: 1, minHeight: 24 },
+
+  /* Actions */
+  actions: { gap: 6 },
+  primaryBtn: {
+    height: 56,
+    borderRadius: 15,
+    backgroundColor: BookLoopColors.coffeeBrown,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    shadowColor: BookLoopColors.coffeeBrown,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
     elevation: 6,
   },
   primaryText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
     color: BookLoopColors.cream,
+    fontWeight: '600',
   },
   ghostBtn: {
     height: 48,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ghostText: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-SemiBold',
     fontSize: 14,
+    color: BookLoopColors.coffeeBrown,
     fontWeight: '600',
   },
 });
