@@ -127,7 +127,7 @@ export default function ProfileTab() {
   return (
     <View style={styles.container}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg }]} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 28 }}>
         {/* Cover banner */}
         <LinearGradient
           colors={[BookLoopColors.parchmentBeige, '#B98A6B']}
@@ -228,9 +228,10 @@ export default function ProfileTab() {
             })}
           </View>
 
-          {/* Content */}
+          {/* Content — fills the space between tabs and logout */}
+          <View style={styles.tabContent}>
           {tab === 'listings' ? (
-            loading ? (
+            loading && listings.length === 0 ? (
               <View style={styles.loading}>
                 <ActivityIndicator color={C.active} />
               </View>
@@ -276,6 +277,7 @@ export default function ProfileTab() {
               <Text style={styles.tabEmptyBody}>Reviews from your swap partners will appear here.</Text>
             </View>
           )}
+          </View>
 
           {/* Logout */}
           <TouchableOpacity style={styles.logout} onPress={handleLogout}>
@@ -304,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  hpad: { paddingHorizontal: 18 },
+  hpad: { flex: 1, paddingHorizontal: 18 },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -395,8 +397,9 @@ const styles = StyleSheet.create({
   gridBody: { padding: 9 },
   gridTitle: { fontFamily: 'Inter-SemiBold', fontSize: 11.5, color: C.text, fontWeight: '600' },
   gridMeta: { fontFamily: 'Inter-Regular', fontSize: 9.5, color: C.muted, marginTop: 1 },
-  loading: { paddingVertical: 40, alignItems: 'center' },
-  tabEmpty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
+  tabContent: { flex: 1, minHeight: 200 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
+  tabEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40, gap: 8 },
   tabEmptyTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: C.text, fontWeight: '600' },
   tabEmptyBody: { fontFamily: 'Inter-Regular', fontSize: 12.5, color: C.muted, textAlign: 'center', paddingHorizontal: 30 },
   emptyCta: {
@@ -413,12 +416,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 26,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(244,67,54,0.4)',
+    gap: 7,
+    marginTop: 20,
+    paddingTop: 18,
+    height: 56,
+    borderTopWidth: 1,
+    borderTopColor: C.cardBorder,
   },
   logoutText: { fontFamily: 'Inter-SemiBold', fontSize: 14, color: BookLoopColors.error, fontWeight: '600' },
 });
