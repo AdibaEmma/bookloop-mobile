@@ -317,16 +317,27 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest);
       } catch (refreshError) {
-        console.error('[API] Token refresh failed:', refreshError);
         processQueue(refreshError, null);
 
-        // Clear tokens and redirect to login
-        await TokenManager.clearTokens();
-        await TokenManager.clearUserData();
+        // Only end the session when the refresh is genuinely REJECTED (the
+        // refresh token is bad/expired → 401/403). A network blip, timeout, or
+        // server restart must NOT log the user out — their token is still valid,
+        // so keep it and let the next request retry.
+        const refreshStatus = axios.isAxiosError(refreshError)
+          ? refreshError.response?.status
+          : undefined;
 
-        // You can emit an event here to navigate to login
-        // EventEmitter.emit('LOGOUT');
+        if (refreshStatus === 401 || refreshStatus === 403) {
+          console.warn('[API] Refresh token rejected — ending session');
+          await TokenManager.clearTokens();
+          await TokenManager.clearUserData();
+          return Promise.reject(new Error('Session expired. Please login again.'));
+        }
 
+        console.warn(
+          '[API] Token refresh failed transiently (session kept):',
+          axios.isAxiosError(refreshError) ? refreshError.message : refreshError,
+        );
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -57,27 +57,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUser = await TokenManager.getUserData();
 
       if (accessToken && storedUser) {
-        // Try to fetch current user to validate token
+        // Validate the token. The API client already handles 401 → refresh
+        // transparently, so we just need to react to the outcome here.
         try {
           const currentUser = await authService.getCurrentUser();
           setUser(currentUser);
-        } catch (err) {
-          // Token might be expired, try to refresh
-          try {
-            await authService.refreshToken();
-            const currentUser = await authService.getCurrentUser();
-            setUser(currentUser);
-          } catch (refreshErr) {
-            // Refresh failed, clear session
+        } catch (err: any) {
+          const status = err?.response?.status;
+          if (status === 401 || status === 403) {
+            // Genuine auth failure (refresh token rejected) → sign out.
             await TokenManager.clearTokens();
             await TokenManager.clearUserData();
             setUser(null);
+          } else {
+            // Transient (network/server restart) — DON'T log out. Trust the
+            // stored session and let later requests recover.
+            console.warn('[AuthContext] Could not reach API on launch; keeping stored session');
+            setUser(storedUser);
           }
         }
       }
     } catch (err) {
       console.error('[AuthContext] Failed to restore session:', err);
-      setUser(null);
+      // Don't nuke a stored session on an unexpected local error.
     } finally {
       setIsLoading(false);
     }
