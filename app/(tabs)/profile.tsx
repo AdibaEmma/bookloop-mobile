@@ -37,6 +37,9 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { StatsStrip } from '@/components/ui';
+import type { StatItem } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, exchangesService } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
@@ -55,13 +58,6 @@ const TIER = {
   basic: { label: 'Basic', Icon: Star, desc: 'Extended listing limits' },
   premium: { label: 'Premium', Icon: Crown, desc: 'All features unlocked' },
 } as const;
-
-const SPINES = ['#C9A97E', '#B98A6B', '#9C7A56', '#BFA47C'];
-function spineFor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
-  return SPINES[h % SPINES.length];
-}
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -118,10 +114,10 @@ export default function ProfileTab() {
   const initials =
     ((user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')).toUpperCase() || 'BL';
 
-  const stats = [
-    { value: listings.length, label: 'Listed' },
-    { value: swaps, label: 'Swaps' },
-    { value: user.karma ?? 0, label: 'Karma' },
+  const stats: StatItem[] = [
+    { value: listings.length, label: 'Listed', icon: 'listed', onPress: () => setTab('listings') },
+    { value: swaps, label: 'Swaps', icon: 'swaps', onPress: () => router.push('/(tabs)/exchanges') },
+    { value: user.karma ?? 0, label: 'Karma', icon: 'karma' },
   ];
 
   return (
@@ -130,9 +126,10 @@ export default function ProfileTab() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 28 }}>
         {/* Cover banner */}
         <LinearGradient
-          colors={[BookLoopColors.parchmentBeige, '#B98A6B']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
+          colors={['#E6C08C', '#EFD9B4', '#FBEFD9']}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
           style={[styles.cover, { paddingTop: insets.top + 6 }]}
         >
           <TouchableOpacity
@@ -178,17 +175,9 @@ export default function ProfileTab() {
 
           {!!user.bio && <Text style={styles.bio}>{user.bio}</Text>}
 
-          {/* Stats strip */}
-          <View style={styles.stats}>
-            {stats.map((s, i) => (
-              <React.Fragment key={s.label}>
-                {i > 0 && <View style={styles.statDivider} />}
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>{s.value}</Text>
-                  <Text style={styles.statLabel}>{s.label}</Text>
-                </View>
-              </React.Fragment>
-            ))}
+          {/* Stats strip — warm tinted chips, shared with Home */}
+          <View style={styles.statsWrap}>
+            <StatsStrip stats={stats} />
           </View>
 
           {/* Subscription upsell (folded-in tier UI) */}
@@ -246,18 +235,22 @@ export default function ProfileTab() {
                       activeOpacity={0.85}
                       onPress={() => router.push({ pathname: '/listing/[id]', params: { id: l.id } })}
                     >
-                      {l.book?.coverImage ? (
-                        <Image source={{ uri: l.book.coverImage }} style={styles.gridCover} />
-                      ) : (
-                        <View style={[styles.gridCover, { backgroundColor: spineFor(l.book?.title || l.id) }]} />
-                      )}
+                      <View style={styles.gridCover}>
+                        <BookCover
+                          title={l.book?.title || 'Untitled'}
+                          author={l.book?.author}
+                          coverImage={l.book?.coverImage}
+                          size="lg"
+                          fill
+                        />
+                      </View>
                       <View style={styles.gridBody}>
                         <Text style={styles.gridTitle} numberOfLines={1}>
                           {l.book?.title || 'Untitled'}
                         </Text>
-                        <Text style={styles.gridMeta} numberOfLines={1}>
-                          {cond.label}
-                        </Text>
+                        <View style={[styles.condPill, { backgroundColor: cond.light.bg }]}>
+                          <Text style={[styles.condText, { color: cond.light.fg }]}>{cond.label}</Text>
+                        </View>
                       </View>
                     </TouchableOpacity>
                   );
@@ -342,19 +335,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   bio: { fontFamily: 'Inter-Regular', fontSize: 12.5, color: C.bodyText, lineHeight: 19, marginTop: 12 },
-  stats: {
-    flexDirection: 'row',
-    marginTop: 16,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  statCell: { flex: 1, alignItems: 'center', paddingVertical: 13 },
-  statDivider: { width: 1, backgroundColor: C.cardBorder, marginVertical: 10 },
-  statValue: { fontFamily: 'Poppins-Bold', fontSize: 18, color: C.text, fontWeight: '800' },
-  statLabel: { fontFamily: 'Inter-Regular', fontSize: 10.5, color: C.muted, marginTop: 1 },
+  statsWrap: { marginTop: 16 },
   upsell: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -393,10 +374,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#fff',
   },
-  gridCover: { height: 96, width: '100%' },
-  gridBody: { padding: 9 },
-  gridTitle: { fontFamily: 'Inter-SemiBold', fontSize: 11.5, color: C.text, fontWeight: '600' },
-  gridMeta: { fontFamily: 'Inter-Regular', fontSize: 9.5, color: C.muted, marginTop: 1 },
+  gridCover: { width: '100%', aspectRatio: 0.72, overflow: 'hidden' },
+  gridBody: { padding: 10 },
+  gridTitle: { fontFamily: 'Inter-SemiBold', fontSize: 12, color: C.text, fontWeight: '600' },
+  condPill: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  condText: { fontFamily: 'Inter-SemiBold', fontSize: 9, fontWeight: '600' },
   tabContent: { flex: 1, minHeight: 200 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
   tabEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40, gap: 8 },

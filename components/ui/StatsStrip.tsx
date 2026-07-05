@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Award, MapPin, Repeat } from 'lucide-react-native';
+import { Award, MapPin, Repeat, BookOpen } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookLoopColors } from '@/constants/theme';
@@ -18,11 +18,11 @@ import { BookLoopColors } from '@/constants/theme';
 export interface StatItem {
   value: number | string;
   label: string;
-  icon: 'karma' | 'nearby' | 'swaps';
+  icon: 'karma' | 'nearby' | 'swaps' | 'listed';
   onPress?: () => void;
 }
 
-const ICONS = { karma: Award, nearby: MapPin, swaps: Repeat } as const;
+const ICONS = { karma: Award, nearby: MapPin, swaps: Repeat, listed: BookOpen } as const;
 
 // Per-stat warm tints so the strip reads as designed even when the numbers are
 // all zero. Translucent, so they sit correctly on both light and dark surfaces.
@@ -30,6 +30,7 @@ const TINTS = {
   karma: { bg: 'rgba(245,185,66,0.20)', fg: '#B98319' },
   nearby: { bg: 'rgba(139,94,60,0.13)', fg: BookLoopColors.coffeeBrown },
   swaps: { bg: 'rgba(217,121,65,0.16)', fg: BookLoopColors.burntOrange },
+  listed: { bg: 'rgba(139,94,60,0.13)', fg: BookLoopColors.coffeeBrown },
 } as const;
 
 export function StatsStrip({ stats }: { stats: StatItem[] }) {
