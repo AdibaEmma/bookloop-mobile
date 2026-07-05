@@ -27,6 +27,7 @@ import { Bell, Search, BookOpen } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { BookCard, StatsStrip, FilterChips } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import type { StatItem, FilterChip } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -41,6 +42,9 @@ const FILTERS: FilterChip[] = [
   { key: 'fiction', label: 'Fiction' },
   { key: 'verified', label: 'Verified' },
 ];
+
+const fmtDist = (m?: number) =>
+  m === undefined ? '' : m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -171,6 +175,9 @@ export default function HomeScreen() {
     return list;
   }, [nearbyListings, popularListings, activeFilter]);
 
+  // The shelf: a highlight reel across the top; the feed below browses everything.
+  const fresh = useMemo(() => feed.slice(0, 8), [feed]);
+
   const stats: StatItem[] = [
     { value: user?.karma ?? 0, label: 'Karma', icon: 'karma', onPress: () => router.push('/(tabs)/profile') },
     { value: nearbyListings.length, label: 'Nearby', icon: 'nearby', onPress: () => router.push('/(tabs)/explore') },
@@ -271,28 +278,76 @@ export default function HomeScreen() {
             {isLoading ? (
               <Text style={[styles.loading, { color: c.muted }]}>Loading your feed…</Text>
             ) : feed.length > 0 ? (
-              feed.map((l) => (
-                <BookCard
-                  key={l.id}
-                  title={l.book.title}
-                  author={l.book.author}
-                  coverImage={l.book.coverImage}
-                  condition={l.condition}
-                  listingType={l.listingType}
-                  distance={l.distance}
-                  exchangePreferences={l.exchangePreferences}
-                  owner={
-                    l.user
-                      ? {
-                          name: l.user.firstName,
-                          initials: ((l.user.firstName?.charAt(0) || '') + (l.user.lastName?.charAt(0) || '')).toUpperCase(),
-                          avatarUrl: l.user.avatarUrl,
-                        }
-                      : undefined
-                  }
-                  onPress={() => openListing(l)}
-                />
-              ))
+              <>
+                {/* Fresh near you — the shelf */}
+                {fresh.length >= 3 && (
+                  <View style={styles.shelf}>
+                    <View style={styles.sectionHead}>
+                      <Text style={[styles.sectionTitle, { color: c.text }]}>Fresh near you</Text>
+                      <Text style={[styles.sectionHint, { color: c.muted }]}>swipe →</Text>
+                    </View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.shelfRow}
+                    >
+                      {fresh.map((l) => (
+                        <TouchableOpacity
+                          key={`fresh-${l.id}`}
+                          style={styles.shelfItem}
+                          activeOpacity={0.85}
+                          onPress={() => openListing(l)}
+                        >
+                          <BookCover
+                            title={l.book.title}
+                            author={l.book.author}
+                            coverImage={l.book.coverImage}
+                            size="lg"
+                          />
+                          <Text style={[styles.shelfTitle, { color: c.text }]} numberOfLines={1}>
+                            {l.book.title}
+                          </Text>
+                          <Text style={[styles.shelfMeta, { color: c.muted }]} numberOfLines={1}>
+                            {l.distance !== undefined ? `${fmtDist(l.distance)} · ` : ''}
+                            {l.user?.firstName ?? 'Reader'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Browse all */}
+                <View style={styles.sectionHead}>
+                  <Text style={[styles.sectionTitle, { color: c.text }]}>Browse all</Text>
+                  <Text style={[styles.sectionHint, { color: c.muted }]}>
+                    {feed.length} book{feed.length === 1 ? '' : 's'}
+                  </Text>
+                </View>
+
+                {feed.map((l) => (
+                  <BookCard
+                    key={l.id}
+                    title={l.book.title}
+                    author={l.book.author}
+                    coverImage={l.book.coverImage}
+                    condition={l.condition}
+                    listingType={l.listingType}
+                    distance={l.distance}
+                    exchangePreferences={l.exchangePreferences}
+                    owner={
+                      l.user
+                        ? {
+                            name: l.user.firstName,
+                            initials: ((l.user.firstName?.charAt(0) || '') + (l.user.lastName?.charAt(0) || '')).toUpperCase(),
+                            avatarUrl: l.user.avatarUrl,
+                          }
+                        : undefined
+                    }
+                    onPress={() => openListing(l)}
+                  />
+                ))}
+              </>
             ) : (
               <View style={styles.empty}>
                 <BookOpen size={44} color={c.muted} strokeWidth={1.5} />
@@ -400,6 +455,46 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 24,
     gap: 12,
+  },
+  shelf: {
+    marginBottom: 2,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  sectionHint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  shelfRow: {
+    gap: 14,
+    paddingRight: 8,
+    paddingBottom: 2,
+  },
+  shelfItem: {
+    width: 132,
+  },
+  shelfTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 9,
+  },
+  shelfMeta: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    marginTop: 2,
   },
   loading: {
     textAlign: 'center',

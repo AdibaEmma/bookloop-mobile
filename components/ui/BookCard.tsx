@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Heart, ArrowLeftRight, Zap, ShieldCheck } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BookCover } from './BookCover';
 import {
   BookLoopColors,
   ConditionBadge,
@@ -61,27 +62,6 @@ interface BookCardProps {
   style?: StyleProp<ViewStyle>;
 }
 
-// Deterministic warm spine tint from the title, so placeholder covers vary.
-const SPINE_LIGHT = [
-  ['#C9A97E', '#BE9A6B'],
-  ['#B98A6B', '#AC7C5E'],
-  ['#BFA47C', '#B2946A'],
-  ['#C2A17A', '#B58F66'],
-];
-const SPINE_DARK = [
-  ['#4A3B2C', '#3E3124'],
-  ['#453626', '#3A2D20'],
-  ['#4E3E2E', '#42342572'],
-  ['#463724', '#3B2E1F'],
-];
-
-function spineFor(title: string, isDark: boolean): [string, string] {
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % 997;
-  const set = isDark ? SPINE_DARK : SPINE_LIGHT;
-  return set[h % set.length] as [string, string];
-}
-
 const listingTypeLabel: Record<string, string> = {
   exchange: 'Exchange',
   donate: 'Donate',
@@ -114,7 +94,6 @@ export function BookCard({
 
   const cond = ConditionBadge[condition] ?? ConditionBadge.good;
   const condColors = isDark ? cond.dark : cond.light;
-  const [spineA, spineB] = spineFor(title, isDark);
 
   const c = isDark
     ? {
@@ -173,15 +152,7 @@ export function BookCard({
       )}
 
       {/* Cover */}
-      {coverImage ? (
-        <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
-      ) : (
-        <View style={[styles.cover, styles.coverSpine, { backgroundColor: spineA, borderColor: spineB }]}>
-          <Text style={[styles.spineText, { color: c.spineText }]} numberOfLines={3}>
-            {title}
-          </Text>
-        </View>
-      )}
+      <BookCover title={title} author={author} coverImage={coverImage} size="sm" />
 
       {/* Info */}
       <View style={styles.info}>
@@ -302,23 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     color: '#5A3E1E',
-  },
-  cover: {
-    width: 64,
-    height: 92,
-    borderRadius: 8,
-  },
-  coverSpine: {
-    borderLeftWidth: 6,
-    justifyContent: 'flex-end',
-    padding: 7,
-    overflow: 'hidden',
-  },
-  spineText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 9,
-    fontWeight: '600',
-    lineHeight: 11,
   },
   info: {
     flex: 1,
