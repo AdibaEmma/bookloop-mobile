@@ -10,11 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.aweperi.bookloop",
       "infoPlist": {
         "NSCameraUsageDescription": "BookLoop needs access to your camera to scan ISBN barcodes on books."
       }
     },
     "android": {
+      "package": "com.aweperi.bookloop",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
