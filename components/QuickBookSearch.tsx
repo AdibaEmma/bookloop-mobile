@@ -163,12 +163,33 @@ export function QuickBookSearch({
     async (googleBook: GoogleBookResult) => {
       if (isAtLimit) return;
 
-      setCreatingId(googleBook.googleBooksId);
+      setCreatingId(googleBook.googleBooksId || googleBook.isbn || googleBook.title);
       try {
-        const book = await booksService.createFromGoogleBooks(
-          googleBook.googleBooksId,
-          { title: googleBook.title, author: googleBook.author }
-        );
+        // Results can come from Google Books OR the Open Library fallback, so
+        // route creation by the identifier we actually have. Google volume ids
+        // are opaque tokens; Open Library keys contain "/"; some rows have none.
+        const gid = googleBook.googleBooksId?.trim();
+        const isGoogleVolumeId = !!gid && !gid.includes('/');
+
+        let book: Book;
+        if (isGoogleVolumeId) {
+          book = await booksService.createFromGoogleBooks(gid, {
+            title: googleBook.title,
+            author: googleBook.author,
+          });
+        } else if (googleBook.isbn) {
+          book = await booksService.createBookFromISBN({ isbn: googleBook.isbn });
+        } else {
+          book = await booksService.createBook({
+            title: googleBook.title,
+            author: googleBook.author,
+            isbn: googleBook.isbn,
+            coverImage: googleBook.coverImage,
+            publisher: googleBook.publisher,
+            publishedDate: googleBook.publishedYear ? String(googleBook.publishedYear) : undefined,
+            description: googleBook.description,
+          });
+        }
 
         const newBook: SelectedBook = {
           ...book,
@@ -179,7 +200,11 @@ export function QuickBookSearch({
 
         // Remove from search results
         setGoogleResults((prev) =>
-          prev.filter((r) => r.googleBooksId !== googleBook.googleBooksId)
+          prev.filter(
+            (r) =>
+              (r.googleBooksId || r.isbn || r.title) !==
+              (googleBook.googleBooksId || googleBook.isbn || googleBook.title)
+          )
         );
       } catch (err) {
         console.error('Failed to add book:', err);
@@ -482,7 +507,7 @@ export function QuickBookSearch({
               <GoogleBookSuggestionItem
                 book={item}
                 onPress={() => handleSelectBook(item)}
-                isLoading={creatingId === item.googleBooksId}
+                isLoading={creatingId === (item.googleBooksId || item.isbn || item.title)}
                 isSelected={false}
                 disabled={isAtLimit}
               />
