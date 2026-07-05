@@ -155,7 +155,8 @@ export const booksService = {
    * Create book from ISBN (fetches metadata from Google Books)
    */
   async createBookFromISBN(data: CreateBookFromISBNDto): Promise<Book> {
-    const response: AxiosResponse<Book> = await apiClient.post('/books/from-isbn', data);
+    // Backend route is POST /books/isbn (@Post('isbn')).
+    const response: AxiosResponse<Book> = await apiClient.post('/books/isbn', data);
     return response.data;
   },
 
