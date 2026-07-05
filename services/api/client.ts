@@ -44,31 +44,66 @@ const transformKeys = (obj: any): any => {
   return transformed;
 };
 
+const API_PORT = 8000;
+const API_PATH = '/api/v1';
+const PROD_API_URL = 'https://api.bookloop.gh/api/v1';
+
+/** True for a private-LAN http URL (the kind of value that goes stale). */
+const isPrivateLanUrl = (url: string): boolean =>
+  /^https?:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(url);
+
 /**
- * Get API Base URL from environment
- * Falls back to platform-specific defaults if not set
+ * The IPv4 of the machine that served the JS bundle (the Expo dev server). On a
+ * physical device this is the dev machine's *current* LAN IP, so reusing it for
+ * the API means a changing DHCP address never breaks anything. Returns null on
+ * simulators/emulators (localhost) and tunnels (non-IP host).
+ */
+const getDevHost = (): string | null => {
+  const candidates = [
+    Constants.expoConfig?.hostUri,
+    (Constants as any).expoGoConfig?.debuggerHost,
+    (Constants as any).manifest?.debuggerHost,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c) {
+      // e.g. "192.168.1.44:8081" or "exp://192.168.1.44:8081"
+      const host = c.replace(/^\w+:\/\//, '').split('/')[0].split(':')[0];
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) && host !== '127.0.0.1') {
+        return host;
+      }
+    }
+  }
+  return null;
+};
+
+/**
+ * Resolve the API base URL.
+ *
+ * Priority — an explicit *remote* override (staging/tunnel) always wins; in dev
+ * we then auto-track the dev machine's live IP; a stale private-LAN value is
+ * ignored so nobody has to edit .env when DHCP hands out a new address.
  */
 const getApiBaseUrl = (): string => {
-  // Try to get from environment first
-  const envUrl = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
+  const explicit = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
+  const remoteOverride = explicit && !isPrivateLanUrl(explicit) ? explicit : null;
 
-  if (envUrl) {
-    return envUrl;
-  }
-
-  // Fallback to platform-specific defaults
   if (__DEV__) {
-    // For physical devices, you need to use your computer's local IP address
-    // Example: Get your IP with: ifconfig (Mac/Linux) or ipconfig (Windows)
+    if (remoteOverride) return remoteOverride;
+
+    const devHost = getDevHost();
+    if (devHost) return `http://${devHost}:${API_PORT}${API_PATH}`;
+
+    // Simulator / emulator / tunnel: honour any explicit value, else platform default.
+    if (explicit) return explicit;
     return Platform.select({
-      ios: 'http://localhost:8000/api/v1',
-      android: 'http://10.0.2.2:8000/api/v1', // Android emulator
-      default: 'http://localhost:8000/api/v1',
+      ios: `http://localhost:${API_PORT}${API_PATH}`,
+      android: `http://10.0.2.2:${API_PORT}${API_PATH}`, // Android emulator
+      default: `http://localhost:${API_PORT}${API_PATH}`,
     }) as string;
   }
 
-  // Production fallback
-  return 'https://api.bookloop.gh/api/v1';
+  // Production: never trust a private-LAN value left in .env.
+  return remoteOverride || PROD_API_URL;
 };
 
 const API_BASE_URL = getApiBaseUrl();
