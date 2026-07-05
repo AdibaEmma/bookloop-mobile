@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,12 +14,12 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
  * Warm glass bar with a gold FAB in the centre. Icon set matches the design
  * (Home / Explore / [+] / Swaps / Profile) via lucide-react-native.
  *
- * NOTE: the centre FAB currently routes to the `exchanges` screen (unchanged
- * from before) so navigation isn't broken. In the design the FAB is a "create
- * listing" action and the 4th slot is "Swaps". Flipping that is a small
- * structural change flagged for product sign-off before rewiring.
+ * The centre FAB is a "list a book" action — pressing it opens the create-
+ * listing flow rather than switching tabs. The `exchanges` screen it sits on
+ * stays reachable via the "Swaps" stat on Home and Profile.
  */
 export default function TabLayout() {
+  const router = useRouter();
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
 
@@ -82,6 +82,15 @@ export default function TabLayout() {
             </View>
           ),
           tabBarButton: (props) => <HapticTab {...props} style={styles.fabButton} />,
+          tabBarAccessibilityLabel: 'List a book',
+        }}
+        listeners={{
+          // The FAB is a "list a book" action, not a tab — open create-listing
+          // instead of switching to the Exchanges screen.
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push('/listing/create');
+          },
         }}
       />
       <Tabs.Screen
