@@ -11,7 +11,7 @@
  * User model doesn't carry them yet (location is coordinates only).
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,8 +34,10 @@ import {
   Star,
   Crown,
   LogOut,
+  Award,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatsStrip } from '@/components/ui';
 import type { StatItem } from '@/components/ui';
@@ -68,6 +70,7 @@ export default function ProfileTab() {
   const [swaps, setSwaps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'listings' | 'reviews'>('listings');
+  const [city, setCity] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -88,6 +91,25 @@ export default function ProfileTab() {
   }, []);
 
   useFocusEffect(useCallback(() => { if (user) load(); }, [user, load]));
+
+  // Turn the stored coordinates into a friendly place name for the header.
+  useEffect(() => {
+    const coords = user?.location?.coordinates;
+    if (!coords) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [lng, lat] = coords;
+        const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        if (!cancelled) setCity(place?.city || place?.region || place?.subregion || null);
+      } catch {
+        // Reverse geocoding is best-effort; the header just omits the place.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.location]);
 
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -112,7 +134,7 @@ export default function ProfileTab() {
   const tier = (user.subscriptionTier || 'free') as keyof typeof TIER;
   const tierInfo = TIER[tier];
 
-  // A warm "reading identity" line, e.g. "Reader since Jul 2026".
+  // A warm "reading identity" line, e.g. "Reader since Jul 2026 · Accra".
   const memberSince = (() => {
     try {
       const d = new Date(user.createdAt);
@@ -122,6 +144,10 @@ export default function ProfileTab() {
       return null;
     }
   })();
+  const identityBits = [memberSince ? `Reader since ${memberSince}` : null, city]
+    .filter(Boolean)
+    .join(' · ');
+  const karma = user.karma ?? 0;
   const initials =
     ((user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')).toUpperCase() || 'BL';
 
@@ -164,13 +190,19 @@ export default function ProfileTab() {
         <View style={styles.hpad}>
           {/* Avatar + name row */}
           <View style={styles.identityRow}>
-            {user.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarText}>{initials}</Text>
+            <View style={styles.avatarWrap}>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+              <View style={styles.karmaBadge}>
+                <Award size={10} color={BookLoopColors.deepEspresso} strokeWidth={2.4} />
+                <Text style={styles.karmaBadgeText}>{karma}</Text>
               </View>
-            )}
+            </View>
             <View style={styles.nameCol}>
               <Text style={styles.name} numberOfLines={1}>
                 {user.firstName} {user.lastName}
@@ -184,9 +216,7 @@ export default function ProfileTab() {
                   <tierInfo.Icon size={12} color={C.active} strokeWidth={2} />
                   <Text style={styles.tierText}>{tierInfo.label} plan</Text>
                 </TouchableOpacity>
-                {!!memberSince && (
-                  <Text style={styles.since}>Reader since {memberSince}</Text>
-                )}
+                {!!identityBits && <Text style={styles.since}>{identityBits}</Text>}
               </View>
             </View>
           </View>
@@ -344,6 +374,27 @@ const styles = StyleSheet.create({
   },
   avatarFallback: { backgroundColor: BookLoopColors.coffeeBrown, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontFamily: 'Poppins-Bold', fontSize: 26, color: BookLoopColors.cream },
+  avatarWrap: { position: 'relative' },
+  karmaBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: BookLoopColors.mutedGold,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 2,
+    borderColor: BookLoopColors.cream,
+  },
+  karmaBadgeText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: BookLoopColors.deepEspresso,
+  },
   nameCol: { flex: 1 },
   name: { fontFamily: 'Poppins-Bold', fontSize: 20, color: C.text },
   metaRow: {
