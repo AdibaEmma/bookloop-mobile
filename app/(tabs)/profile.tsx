@@ -152,9 +152,18 @@ export default function ProfileTab() {
               </View>
             )}
             <View style={styles.nameCol}>
-              <Text style={styles.name}>
-                {user.firstName} {user.lastName}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {user.firstName} {user.lastName}
+                </Text>
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={() => router.push('/profile/edit')}
+                  accessibilityLabel="Edit profile"
+                >
+                  <Pencil size={16} color={C.active} strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={styles.tierPill}
                 activeOpacity={0.8}
@@ -164,13 +173,6 @@ export default function ProfileTab() {
                 <Text style={styles.tierText}>{tierInfo.label} plan</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={() => router.push('/profile/edit')}
-              accessibilityLabel="Edit profile"
-            >
-              <Pencil size={16} color={C.active} strokeWidth={2} />
-            </TouchableOpacity>
           </View>
 
           {!!user.bio && <Text style={styles.bio}>{user.bio}</Text>}
@@ -302,20 +304,26 @@ const styles = StyleSheet.create({
   hpad: { flex: 1, paddingHorizontal: 18 },
   identityRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 14,
     marginTop: -38,
   },
   avatar: { width: 78, height: 78, borderRadius: 39, borderWidth: 3, borderColor: BookLoopColors.cream },
   avatarFallback: { backgroundColor: BookLoopColors.coffeeBrown, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontFamily: 'Poppins-Bold', fontSize: 26, color: BookLoopColors.cream },
-  nameCol: { flex: 1, paddingBottom: 4 },
-  name: { fontFamily: 'Poppins-Bold', fontSize: 19, color: C.text },
+  nameCol: { flex: 1 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  name: { flex: 1, fontFamily: 'Poppins-Bold', fontSize: 19, color: C.text },
   tierPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: 4,
+    marginTop: 7,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(139,94,60,0.08)',
     paddingHorizontal: 10,
@@ -332,7 +340,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
   },
   bio: { fontFamily: 'Inter-Regular', fontSize: 12.5, color: C.bodyText, lineHeight: 19, marginTop: 12 },
   statsWrap: { marginTop: 16 },
