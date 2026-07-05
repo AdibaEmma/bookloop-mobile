@@ -134,7 +134,9 @@ export default function WelcomeScreen() {
   }, [reduceMotion, flow]);
 
   const sparkStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(flow.value, [0, 0.12, 0.82, 1], [0, 1, 1, 0]),
+    // Visible for almost the whole List → Swap run; only the brief reset
+    // (Swap → List) is hidden by the fade at the very ends.
+    opacity: interpolate(flow.value, [0, 0.03, 0.94, 1], [0, 1, 1, 0]),
     transform: [{ translateX: 43 + flow.value * Math.max(0, railW.value - 86) }],
   }));
 
