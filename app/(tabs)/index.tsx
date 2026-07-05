@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, Search, BookOpen } from 'lucide-react-native';
+import { Bell, Search, BookOpen, BookPlus, ArrowRight } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { BookCard, StatsStrip, FilterChips } from '@/components/ui';
@@ -61,6 +61,13 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState('all');
 
   const fadeAnim = useState(new Animated.Value(0))[0];
+  const scrollY = useState(new Animated.Value(0))[0];
+  // The greeting recedes as the feed scrolls up, settling the header.
+  const greetingOpacity = scrollY.interpolate({
+    inputRange: [0, 56],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   const c = isDark
     ? {
@@ -189,6 +196,11 @@ export default function HomeScreen() {
     },
   ];
 
+  // Brand-new reader: no karma, no swaps → an all-zero strip is dead weight, so
+  // we show a first-action nudge instead until they have something to count.
+  const isNewUser =
+    (user?.karma ?? 0) === 0 && (((user as any)?.exchangesCompleted ?? 0) === 0);
+
   const firstName = user?.firstName || 'Reader';
   const initials =
     ((user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '')).toUpperCase() || 'BL';
@@ -215,7 +227,9 @@ export default function HomeScreen() {
               </View>
             )}
             <View>
-              <Text style={[styles.greeting, { color: c.muted }]}>Akwaaba, {firstName}</Text>
+              <Animated.Text style={[styles.greeting, { color: c.muted, opacity: greetingOpacity }]}>
+                Akwaaba, {firstName}
+              </Animated.Text>
               <Text style={[styles.headline, { color: c.text }]}>Find your next read</Text>
             </View>
           </TouchableOpacity>
@@ -238,35 +252,16 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          {/* Stats strip */}
-          <View style={styles.hpad}>
-            <StatsStrip stats={stats} />
-          </View>
-
-          {/* Search pill */}
-          <View style={styles.hpad}>
-            <TouchableOpacity
-              style={[styles.search, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
-              activeOpacity={0.7}
-              onPress={() => router.push('/search')}
-              accessibilityRole="search"
-              accessibilityLabel="Search books nearby"
-            >
-              <Search size={18} color={c.searchIcon} strokeWidth={2} />
-              <Text style={[styles.searchText, { color: c.searchText }]}>Search books nearby…</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter chips */}
-          <View style={styles.chipsWrap}>
-            <FilterChips chips={FILTERS} activeKey={activeFilter} onChange={setActiveFilter} />
-          </View>
-
-          {/* Feed */}
-          <ScrollView
+          <Animated.ScrollView
             style={styles.feed}
             contentContainerStyle={styles.feedInner}
+            stickyHeaderIndices={[2]}
             showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -275,6 +270,52 @@ export default function HomeScreen() {
               />
             }
           >
+            {/* 0 · stats — or a first-book nudge for brand-new readers */}
+            <View style={styles.topPad}>
+              {isNewUser ? (
+                <TouchableOpacity
+                  style={[styles.nudge, { borderColor: c.searchBorder }]}
+                  activeOpacity={0.9}
+                  onPress={() => router.push('/listing/create')}
+                >
+                  <View style={styles.nudgeIcon}>
+                    <BookPlus size={22} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.nudgeTitle, { color: c.text }]}>List your first book</Text>
+                    <Text style={[styles.nudgeBody, { color: c.muted }]}>
+                      Start your loop — earn Karma and meet readers nearby.
+                    </Text>
+                  </View>
+                  <ArrowRight size={18} color={BookLoopColors.coffeeBrown} strokeWidth={2.2} />
+                </TouchableOpacity>
+              ) : (
+                <StatsStrip stats={stats} />
+              )}
+            </View>
+
+            {/* 1 · search */}
+            <View style={styles.topPad}>
+              <TouchableOpacity
+                style={[styles.search, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
+                activeOpacity={0.7}
+                onPress={() => router.push('/search')}
+                accessibilityRole="search"
+                accessibilityLabel="Search books nearby"
+              >
+                <Search size={18} color={c.searchIcon} strokeWidth={2} />
+                <Text style={[styles.searchText, { color: c.searchText }]}>Search books nearby…</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 2 · filters — sticky, so they stay reachable while the greeting
+                and stats scroll away for more room */}
+            <View style={[styles.chipsSticky, { backgroundColor: c.grad[0] }]}>
+              <FilterChips chips={FILTERS} activeKey={activeFilter} onChange={setActiveFilter} />
+            </View>
+
+            {/* 3 · feed body */}
+            <View style={styles.feedBody}>
             {isLoading ? (
               <Text style={[styles.loading, { color: c.muted }]}>Loading your feed…</Text>
             ) : feed.length > 0 ? (
@@ -359,7 +400,8 @@ export default function HomeScreen() {
                 </Text>
               </View>
             )}
-          </ScrollView>
+            </View>
+          </Animated.ScrollView>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -456,10 +498,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedInner: {
-    paddingHorizontal: 14,
     paddingTop: 4,
     paddingBottom: 24,
+  },
+  topPad: {
+    paddingHorizontal: 18,
+    marginBottom: 12,
+  },
+  chipsSticky: {
+    paddingTop: 2,
+    paddingBottom: 12,
+  },
+  feedBody: {
+    paddingHorizontal: 14,
+    paddingTop: 2,
     gap: 12,
+  },
+  nudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#8B5E3C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  nudgeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(139,94,60,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nudgeTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
+  nudgeBody: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
   },
   shelf: {
     marginBottom: 2,
