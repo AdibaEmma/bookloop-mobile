@@ -111,6 +111,17 @@ export default function ProfileTab() {
 
   const tier = (user.subscriptionTier || 'free') as keyof typeof TIER;
   const tierInfo = TIER[tier];
+
+  // A warm "reading identity" line, e.g. "Reader since Jul 2026".
+  const memberSince = (() => {
+    try {
+      const d = new Date(user.createdAt);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    } catch {
+      return null;
+    }
+  })();
   const initials =
     ((user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')).toUpperCase() || 'BL';
 
@@ -132,13 +143,22 @@ export default function ProfileTab() {
           end={{ x: 0.85, y: 1 }}
           style={[styles.cover, { paddingTop: insets.top + 6 }]}
         >
-          <TouchableOpacity
-            style={styles.gear}
-            onPress={() => router.push('/settings')}
-            accessibilityLabel="Settings"
-          >
-            <Settings size={18} color={C.text} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={styles.bannerActions}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => router.push('/profile/edit')}
+              accessibilityLabel="Edit profile"
+            >
+              <Pencil size={17} color={C.active} strokeWidth={2} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => router.push('/settings')}
+              accessibilityLabel="Settings"
+            >
+              <Settings size={17} color={C.text} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
 
         <View style={styles.hpad}>
@@ -152,26 +172,22 @@ export default function ProfileTab() {
               </View>
             )}
             <View style={styles.nameCol}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {user.firstName} {user.lastName}
-                </Text>
+              <Text style={styles.name} numberOfLines={1}>
+                {user.firstName} {user.lastName}
+              </Text>
+              <View style={styles.metaRow}>
                 <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => router.push('/profile/edit')}
-                  accessibilityLabel="Edit profile"
+                  style={styles.tierPill}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/subscription')}
                 >
-                  <Pencil size={16} color={C.active} strokeWidth={2} />
+                  <tierInfo.Icon size={12} color={C.active} strokeWidth={2} />
+                  <Text style={styles.tierText}>{tierInfo.label} plan</Text>
                 </TouchableOpacity>
+                {!!memberSince && (
+                  <Text style={styles.since}>Reader since {memberSince}</Text>
+                )}
               </View>
-              <TouchableOpacity
-                style={styles.tierPill}
-                activeOpacity={0.8}
-                onPress={() => router.push('/subscription')}
-              >
-                <tierInfo.Icon size={12} color={C.active} strokeWidth={2} />
-                <Text style={styles.tierText}>{tierInfo.label} plan</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -292,12 +308,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 44,
   },
-  gear: {
+  bannerActions: {
     alignSelf: 'flex-end',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,248,240,0.85)',
+    backgroundColor: 'rgba(255,248,240,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,94,60,0.10)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -308,22 +330,34 @@ const styles = StyleSheet.create({
     gap: 14,
     marginTop: -38,
   },
-  avatar: { width: 78, height: 78, borderRadius: 39, borderWidth: 3, borderColor: BookLoopColors.cream },
+  avatar: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 3,
+    borderColor: BookLoopColors.cream,
+    shadowColor: '#3A2A1A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 9,
+    elevation: 5,
+  },
   avatarFallback: { backgroundColor: BookLoopColors.coffeeBrown, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontFamily: 'Poppins-Bold', fontSize: 26, color: BookLoopColors.cream },
   nameCol: { flex: 1 },
-  nameRow: {
+  name: { fontFamily: 'Poppins-Bold', fontSize: 20, color: C.text },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 9,
+    marginTop: 7,
   },
-  name: { flex: 1, fontFamily: 'Poppins-Bold', fontSize: 19, color: C.text },
+  since: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, fontWeight: '500' },
   tierPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: 7,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(139,94,60,0.08)',
     paddingHorizontal: 10,
