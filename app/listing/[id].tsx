@@ -44,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, Listing } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
@@ -172,7 +173,7 @@ export default function ListingDetailScreen() {
             </ScrollView>
           ) : (
             <View style={[styles.galleryImg, styles.spineFallback]}>
-              <Text style={styles.spineText} numberOfLines={3}>{listing.book.title}</Text>
+              <BookCover title={listing.book.title} author={listing.book.author} size="lg" />
             </View>
           )}
 
@@ -376,11 +377,10 @@ const styles = StyleSheet.create({
   gallery: { height: GALLERY_H, position: 'relative', backgroundColor: C.spine },
   galleryImg: { width, height: GALLERY_H },
   spineFallback: {
-    backgroundColor: C.spine,
-    justifyContent: 'flex-end',
-    padding: 20,
+    backgroundColor: BookLoopColors.parchmentBeige,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  spineText: { fontFamily: 'Poppins-Bold', fontSize: 20, color: '#3d2c1e' },
   galleryOverlay: { position: 'absolute', top: 0, left: 0, right: 0 },
   galleryTop: {
     flexDirection: 'row',

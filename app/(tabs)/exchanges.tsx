@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Check, MessageSquare, QrCode } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { EmptyState } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookLoopColors } from '@/constants/theme';
@@ -41,13 +42,6 @@ const C = {
   idleBorder: '#E4DAC8',
   cardBorder: '#EFE2CE',
 };
-
-const SPINES = ['#C9A97E', '#B98A6B', '#BFA47C', '#9C7A56'];
-function spineFor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
-  return SPINES[h % SPINES.length];
-}
 
 function bucketOf(status: string): Bucket {
   if (status === 'completed') return 'completed';
@@ -101,7 +95,6 @@ export default function ExchangesScreen() {
     const title = ex.listing?.book?.title || 'Book';
     const partner = partnerOf(ex);
     const step = stepOf(ex);
-    const spine = spineFor(title);
     const meetupText =
       ex.meetup_spot_name && ex.meetup_time
         ? `${ex.meetup_spot_name} · ${new Date(ex.meetup_time).toLocaleString(undefined, {
@@ -114,7 +107,15 @@ export default function ExchangesScreen() {
     return (
       <View key={ex.id} style={styles.card}>
         <View style={styles.cardTop}>
-          <View style={[styles.cover, { backgroundColor: spine }]} />
+          <View style={styles.cover}>
+            <BookCover
+              title={title}
+              author={ex.listing?.book?.author}
+              coverImage={ex.listing?.book?.coverImage}
+              size="sm"
+              fill
+            />
+          </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
             <Text style={styles.cardWith}>with {partner}</Text>
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardTop: { flexDirection: 'row', gap: 12, padding: 13 },
-  cover: { width: 48, height: 68, borderRadius: 7 },
+  cover: { width: 48, height: 68, borderRadius: 7, overflow: 'hidden' },
   cardTitle: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.text, fontWeight: '700' },
   cardWith: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, marginTop: 2 },
   meetRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },

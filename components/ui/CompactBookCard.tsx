@@ -2,13 +2,13 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BookCover } from './BookCover';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   Colors,
@@ -97,17 +97,7 @@ export function CompactBookCard({
     >
       {/* Cover Image Container */}
       <View style={styles.coverContainer}>
-        {coverImage ? (
-          <Image
-            source={{ uri: coverImage }}
-            style={styles.cover}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.coverPlaceholder, { backgroundColor: colors.surface }]}>
-            <Ionicons name="book" size={40} color={colors.textSecondary} />
-          </View>
-        )}
+        <BookCover title={title} author={author} coverImage={coverImage} size="lg" fill />
 
         {/* Gradient Overlay */}
         <LinearGradient
@@ -181,16 +171,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...Shadows.md,
-  },
-  cover: {
-    width: '100%',
-    height: '100%',
-  },
-  coverPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   gradient: {
     position: 'absolute',

@@ -54,23 +54,30 @@ export function BookCover({
   author,
   coverImage,
   size = 'sm',
+  fill = false,
   style,
 }: {
   title: string;
   author?: string;
   coverImage?: string;
   size?: Size;
+  /** Fill the parent instead of using the fixed size box (parent controls the
+   *  box + clipping + shadow). Typography still follows `size`. */
+  fill?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const s = SIZES[size];
-  const dims = { width: s.w, height: s.h, borderRadius: s.radius };
+  const dims = fill
+    ? ({ width: '100%', height: '100%' } as const)
+    : { width: s.w, height: s.h, borderRadius: s.radius };
+  const radius = fill ? 0 : s.radius;
 
   if (coverImage) {
     return (
-      <View style={[dims, styles.shadow, style]}>
+      <View style={[dims, !fill && styles.shadow, style]}>
         <Image
           source={{ uri: coverImage }}
-          style={{ width: '100%', height: '100%', borderRadius: s.radius }}
+          style={{ width: '100%', height: '100%', borderRadius: radius }}
           resizeMode="cover"
         />
       </View>
@@ -80,14 +87,14 @@ export function BookCover({
   const [face, shade] = jacketFor(title);
 
   return (
-    <View style={[dims, styles.shadow, style]}>
+    <View style={[dims, !fill && styles.shadow, style]}>
       <LinearGradient
         colors={[face, shade]}
         start={{ x: 0.12, y: 0 }}
         end={{ x: 0.9, y: 1 }}
         style={[
           styles.fill,
-          { borderRadius: s.radius, paddingVertical: s.pad, paddingRight: s.pad, paddingLeft: s.spine + s.pad },
+          { borderRadius: radius, paddingVertical: s.pad, paddingRight: s.pad, paddingLeft: s.spine + s.pad },
         ]}
       >
         {/* spine fold */}
