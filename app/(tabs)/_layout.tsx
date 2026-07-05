@@ -14,9 +14,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
  * Warm glass bar with a gold FAB in the centre. Icon set matches the design
  * (Home / Explore / [+] / Swaps / Profile) via lucide-react-native.
  *
- * The centre FAB is a "list a book" action — pressing it opens the create-
- * listing flow rather than switching tabs. The `exchanges` screen it sits on
- * stays reachable via the "Swaps" stat on Home and Profile.
+ * Bar: Home / Explore / [+ list a book] / Swaps / Profile.
+ *
+ * The centre FAB opens the create-listing flow (it hosts the `listings` route
+ * but redirects on press, so it never shows My Listings — that lives on the
+ * Profile). `exchanges` is the "Swaps" tab.
  */
 export default function TabLayout() {
   const router = useRouter();
@@ -66,7 +68,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="exchanges"
+        name="listings"
         options={{
           title: '',
           tabBarIcon: () => (
@@ -86,7 +88,7 @@ export default function TabLayout() {
         }}
         listeners={{
           // The FAB is a "list a book" action, not a tab — open create-listing
-          // instead of switching to the Exchanges screen.
+          // instead of switching to the (bar-hidden) My Listings screen.
           tabPress: (e) => {
             e.preventDefault();
             router.push('/listing/create');
@@ -94,10 +96,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="listings"
+        name="exchanges"
         options={{
-          title: 'My Listings',
-          tabBarIcon: ({ color }) => <Repeat size={23} color={color} strokeWidth={1.8} />,
+          title: 'Swaps',
+          tabBarIcon: ({ color, focused }) => (
+            <Repeat
+              size={23}
+              color={color}
+              strokeWidth={1.8}
+              fill={focused ? BookLoopColors.mutedGold : 'transparent'}
+            />
+          ),
         }}
       />
       <Tabs.Screen
