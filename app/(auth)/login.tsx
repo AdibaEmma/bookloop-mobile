@@ -43,6 +43,7 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
+  const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,6 +56,16 @@ export default function LoginScreen() {
     email?: boolean;
     password?: boolean;
   }>({});
+
+  // Switch identifier method — clears the field + any error so the two modes
+  // never bleed into each other.
+  const switchMode = (next: 'phone' | 'email') => {
+    if (next === mode) return;
+    setMode(next);
+    setEmail('');
+    setErrors((prev) => ({ ...prev, email: undefined }));
+    setTouched((prev) => ({ ...prev, email: false }));
+  };
 
   // Biometric state
   const [biometricCapability, setBiometricCapability] = useState<BiometricCapability | null>(null);
@@ -164,9 +175,9 @@ export default function LoginScreen() {
     // Only validate if field has been touched (field now holds a phone number)
     if (touched.email) {
       if (!value.trim()) {
-        setErrors(prev => ({ ...prev, email: 'Phone number or email is required' }));
-      } else if ((!validatePhone(value) && !validateEmail(value))) {
-        setErrors(prev => ({ ...prev, email: 'Enter a valid phone number or email' }));
+        setErrors(prev => ({ ...prev, email: (mode === 'phone' ? 'Phone number is required' : 'Email is required') }));
+      } else if (((mode === 'phone' ? !validatePhone(value) : !validateEmail(value)))) {
+        setErrors(prev => ({ ...prev, email: (mode === 'phone' ? 'Enter a valid Ghana phone number' : 'Enter a valid email address') }));
       } else {
         setErrors(prev => ({ ...prev, email: undefined }));
       }
@@ -199,9 +210,9 @@ export default function LoginScreen() {
 
     // Validate on blur (phone identifier)
     if (!email.trim()) {
-      setErrors(prev => ({ ...prev, email: 'Phone number or email is required' }));
-    } else if ((!validatePhone(email) && !validateEmail(email))) {
-      setErrors(prev => ({ ...prev, email: 'Enter a valid phone number or email' }));
+      setErrors(prev => ({ ...prev, email: (mode === 'phone' ? 'Phone number is required' : 'Email is required') }));
+    } else if (((mode === 'phone' ? !validatePhone(email) : !validateEmail(email)))) {
+      setErrors(prev => ({ ...prev, email: (mode === 'phone' ? 'Enter a valid Ghana phone number' : 'Enter a valid email address') }));
     } else {
       setErrors(prev => ({ ...prev, email: undefined }));
     }
@@ -232,9 +243,9 @@ export default function LoginScreen() {
     const newErrors: typeof errors = {};
 
     if (!email.trim()) {
-      newErrors.email = 'Phone number or email is required';
-    } else if ((!validatePhone(email) && !validateEmail(email))) {
-      newErrors.email = 'Enter a valid phone number or email';
+      newErrors.email = (mode === 'phone' ? 'Phone number is required' : 'Email is required');
+    } else if (((mode === 'phone' ? !validatePhone(email) : !validateEmail(email)))) {
+      newErrors.email = (mode === 'phone' ? 'Enter a valid Ghana phone number' : 'Enter a valid email address');
     }
 
     if (usePasswordLogin) {
@@ -259,7 +270,7 @@ export default function LoginScreen() {
 
     try {
       const raw = email.trim();
-      const isEmail = raw.includes('@');
+      const isEmail = mode === 'email';
       // For phone, normalize to +233XXXXXXXXX; email passes through as-is.
       const identifier = isEmail
         ? raw
@@ -355,16 +366,42 @@ export default function LoginScreen() {
             {/* Form */}
             <GlassCard variant="lg" padding="lg">
               <View style={styles.form}>
+                {/* Phone / Email segmented toggle */}
+                <View style={styles.segment}>
+                  {(['phone', 'email'] as const).map((m) => {
+                    const on = mode === m;
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        style={[styles.segItem, on && styles.segItemActive]}
+                        onPress={() => switchMode(m)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Ionicons
+                          name={m === 'phone' ? 'call' : 'mail'}
+                          size={16}
+                          color={on ? '#FFFFFF' : BookLoopColors.softLatte}
+                        />
+                        <Text style={[styles.segText, { color: on ? '#FFFFFF' : colors.textSecondary }]}>
+                          {m === 'phone' ? 'Phone' : 'Email'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
                 <GlassInput
-                  label="Phone or Email"
+                  label={mode === 'phone' ? 'Phone Number' : 'Email Address'}
                   value={email}
                   onChangeText={handleEmailChange}
                   onBlur={handleEmailBlur}
-                  placeholder="0241234567 or you@email.com"
-                  keyboardType="email-address"
+                  placeholder={mode === 'phone' ? '024 123 4567' : 'you@email.com'}
+                  keyboardType={mode === 'phone' ? 'phone-pad' : 'email-address'}
                   autoCapitalize="none"
                   error={errors.email}
-                  leftIcon="person-outline"
+                  leftIcon={mode === 'phone' ? 'call' : 'mail'}
                 />
 
                 {/* Password Toggle */}
@@ -451,8 +488,10 @@ export default function LoginScreen() {
                 />
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
                   {usePasswordLogin
-                    ? "Login with your password for quick access, or use OTP for enhanced security."
-                    : "We'll send a 6-digit code to your phone or email for secure authentication."}
+                    ? 'Login with your password for quick access, or use OTP for enhanced security.'
+                    : mode === 'phone'
+                      ? "We'll text a 6-digit code to your phone for secure sign-in."
+                      : "We'll email you a 6-digit code for secure sign-in."}
                 </Text>
               </View>
             </GlassCard>
@@ -515,6 +554,35 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.lg,
+  },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: BookLoopColors.parchmentBeige,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  segItem: {
+    flex: 1,
+    height: 40,
+    borderRadius: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  segItemActive: {
+    backgroundColor: BookLoopColors.coffeeBrown,
+    shadowColor: BookLoopColors.coffeeBrown,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  segText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    fontWeight: '600',
   },
   passwordToggle: {
     flexDirection: 'row',
