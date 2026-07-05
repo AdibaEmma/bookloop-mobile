@@ -51,12 +51,11 @@ export default function VerifyOtpScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [code, setCode] = useState('');
   const [resendTimer, setResendTimer] = useState(RESEND_TIMEOUT);
   const [isResending, setIsResending] = useState(false);
 
-  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const inputRef = useRef<TextInput>(null);
 
   // Prevent going back after reaching OTP screen
   usePreventBack();
@@ -75,63 +74,25 @@ export default function VerifyOtpScreen() {
    * Auto-submit when OTP is complete
    */
   useEffect(() => {
-    if (otp.every((digit) => digit !== '')) {
+    if (code.length === OTP_LENGTH) {
       handleVerify();
     }
-  }, [otp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   /**
-   * Handle OTP input change
+   * One input holds the whole code — keep only allowed characters, uppercase,
+   * capped at length. This makes paste and SMS AutoFill drop the full code in
+   * at once instead of one box at a time.
    */
-  const handleChange = (text: string, index: number) => {
-    // Allow alphanumeric characters (A-Z, 0-9)
-    const char = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-
-    if (char.length > 1) {
-      // Handle paste
-      const chars = char.slice(0, OTP_LENGTH).split('');
-      const newOtp = [...otp];
-      chars.forEach((c, i) => {
-        if (index + i < OTP_LENGTH) {
-          newOtp[index + i] = c;
-        }
-      });
-      setOtp(newOtp);
-
-      // Focus last filled input or next empty
-      const nextIndex = Math.min(index + chars.length, OTP_LENGTH - 1);
-      inputRefs.current[nextIndex]?.focus();
-      setActiveIndex(nextIndex);
-    } else {
-      // Single character input
-      const newOtp = [...otp];
-      newOtp[index] = char;
-      setOtp(newOtp);
-
-      // Auto-focus next input
-      if (char && index < OTP_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-        setActiveIndex(index + 1);
-      }
-    }
-  };
-
-  /**
-   * Handle backspace
-   */
-  const handleKeyPress = (key: string, index: number) => {
-    if (key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-      setActiveIndex(index - 1);
-    }
+  const handleCodeChange = (text: string) => {
+    setCode(text.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, OTP_LENGTH));
   };
 
   /**
    * Handle OTP verification
    */
   const handleVerify = async () => {
-    const code = otp.join('');
-
     if (code.length !== OTP_LENGTH) {
       showErrorToastMessage('Please enter all 6 characters', 'Invalid OTP');
       return;
@@ -161,10 +122,9 @@ export default function VerifyOtpScreen() {
       console.error('[VerifyOTP] Verification error:', error);
       showErrorToastMessage(error, 'Verification Failed');
 
-      // Clear OTP and focus first input
-      setOtp(Array(OTP_LENGTH).fill(''));
-      inputRefs.current[0]?.focus();
-      setActiveIndex(0);
+      // Clear OTP and refocus
+      setCode('');
+      inputRef.current?.focus();
     }
   };
 
@@ -266,39 +226,47 @@ export default function VerifyOtpScreen() {
 
           {/* OTP Input */}
           <GlassCard variant="lg" padding="xl">
-            <View style={styles.otpContainer}>
-              {otp.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => {
-                    inputRefs.current[index] = ref;
-                  }}
-                  style={[
-                    styles.otpInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor:
-                        activeIndex === index
-                          ? BookLoopColors.burntOrange
-                          : digit
-                          ? BookLoopColors.success
-                          : colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  value={digit}
-                  onChangeText={(text) => handleChange(text, index)}
-                  onKeyPress={({ nativeEvent: { key } }) =>
-                    handleKeyPress(key, index)
-                  }
-                  onFocus={() => setActiveIndex(index)}
-                  keyboardType="default"
-                  autoCapitalize="characters"
-                  maxLength={1}
-                  selectTextOnFocus
-                  autoFocus={index === 0}
-                />
-              ))}
+            <View style={styles.otpWrap}>
+              <View style={styles.otpContainer}>
+                {Array.from({ length: OTP_LENGTH }).map((_, index) => {
+                  const char = code[index] ?? '';
+                  const isActive = index === code.length;
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.otpInput,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: isActive
+                            ? BookLoopColors.burntOrange
+                            : char
+                            ? BookLoopColors.success
+                            : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.otpChar, { color: colors.text }]}>{char}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* One real input under the boxes — receives paste + SMS AutoFill */}
+              <TextInput
+                ref={inputRef}
+                style={styles.hiddenInput}
+                value={code}
+                onChangeText={handleCodeChange}
+                keyboardType="default"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                autoCapitalize="characters"
+                maxLength={OTP_LENGTH}
+                caretHidden
+                autoFocus
+                accessibilityLabel="Verification code"
+              />
             </View>
 
             {/* Verify Button */}
@@ -308,7 +276,7 @@ export default function VerifyOtpScreen() {
               variant="primary"
               size="lg"
               loading={isLoading}
-              disabled={isLoading || otp.some((digit) => !digit)}
+              disabled={isLoading || code.length !== OTP_LENGTH}
               style={styles.verifyButton}
             />
 
@@ -407,10 +375,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     textAlign: 'center',
   },
+  otpWrap: {
+    position: 'relative',
+    marginBottom: Spacing.xl,
+  },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.xs,
   },
   otpInput: {
@@ -418,9 +389,23 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpChar: {
     fontSize: Typography.fontSize['2xl'],
     fontWeight: Typography.fontWeight.bold,
     textAlign: 'center',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    // keep it interactive/focusable across the whole box row
+    color: 'transparent',
   },
   verifyButton: {
     marginBottom: Spacing.md,
