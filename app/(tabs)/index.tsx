@@ -215,7 +215,7 @@ export default function HomeScreen() {
               </View>
             )}
             <View>
-              <Text style={[styles.greeting, { color: c.muted }]}>Akwaaba, {firstName} 👋</Text>
+              <Text style={[styles.greeting, { color: c.muted }]}>Akwaaba, {firstName}</Text>
               <Text style={[styles.headline, { color: c.text }]}>Find your next read</Text>
             </View>
           </TouchableOpacity>
@@ -434,10 +434,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    height: 46,
-    borderRadius: 23,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
     paddingHorizontal: 16,
+    shadowColor: '#8B5E3C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 7,
+    elevation: 1,
   },
   searchText: {
     fontFamily: 'Inter-Regular',

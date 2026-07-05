@@ -24,6 +24,14 @@ export interface StatItem {
 
 const ICONS = { karma: Award, nearby: MapPin, swaps: Repeat } as const;
 
+// Per-stat warm tints so the strip reads as designed even when the numbers are
+// all zero. Translucent, so they sit correctly on both light and dark surfaces.
+const TINTS = {
+  karma: { bg: 'rgba(245,185,66,0.20)', fg: '#B98319' },
+  nearby: { bg: 'rgba(139,94,60,0.13)', fg: BookLoopColors.coffeeBrown },
+  swaps: { bg: 'rgba(217,121,65,0.16)', fg: BookLoopColors.burntOrange },
+} as const;
+
 export function StatsStrip({ stats }: { stats: StatItem[] }) {
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
@@ -35,15 +43,13 @@ export function StatsStrip({ stats }: { stats: StatItem[] }) {
         divider: BookLoopColors.darkBorder,
         value: BookLoopColors.darkText,
         label: BookLoopColors.darkTextMuted,
-        icon: BookLoopColors.burntOrange,
       }
     : {
-        bg: 'rgba(255,255,255,0.65)',
+        bg: 'rgba(255,255,255,0.72)',
         border: 'rgba(139,94,60,0.14)',
-        divider: 'rgba(139,94,60,0.12)',
+        divider: 'rgba(139,94,60,0.10)',
         value: BookLoopColors.deepEspresso,
         label: BookLoopColors.mutedText,
-        icon: BookLoopColors.coffeeBrown,
       };
 
   return (
@@ -56,6 +62,7 @@ export function StatsStrip({ stats }: { stats: StatItem[] }) {
     >
       {stats.map((s, i) => {
         const Icon = ICONS[s.icon];
+        const tint = TINTS[s.icon];
         return (
           <React.Fragment key={s.label}>
             {i > 0 && <View style={[styles.divider, { backgroundColor: c.divider }]} />}
@@ -70,11 +77,11 @@ export function StatsStrip({ stats }: { stats: StatItem[] }) {
               accessibilityRole="button"
               accessibilityLabel={`${s.value} ${s.label}`}
             >
-              <Text style={[styles.value, { color: c.value }]}>{s.value}</Text>
-              <View style={styles.labelRow}>
-                <Icon size={12} color={c.icon} strokeWidth={2} />
-                <Text style={[styles.label, { color: c.label }]}>{s.label}</Text>
+              <View style={[styles.chip, { backgroundColor: tint.bg }]}>
+                <Icon size={17} color={tint.fg} strokeWidth={2} />
               </View>
+              <Text style={[styles.value, { color: c.value }]}>{s.value}</Text>
+              <Text style={[styles.label, { color: c.label }]}>{s.label}</Text>
             </TouchableOpacity>
           </React.Fragment>
         );
@@ -101,28 +108,30 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 11,
+    paddingVertical: 13,
     paddingHorizontal: 4,
-    minHeight: 44,
   },
   divider: {
     width: 1,
-    marginVertical: 9,
+    marginVertical: 16,
+  },
+  chip: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   value: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   label: {
     fontFamily: 'Inter-Regular',
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '600',
+    marginTop: 1,
   },
 });
