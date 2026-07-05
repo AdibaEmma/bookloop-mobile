@@ -246,23 +246,35 @@ export default function ProfileTab() {
 
           {/* Tabs */}
           <View style={styles.tabs}>
-            {(['listings', 'reviews'] as const).map((t) => {
-              const on = tab === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setTab(t);
-                  }}
-                  style={[styles.tab, on && styles.tabActive]}
-                >
-                  <Text style={[styles.tabText, { color: on ? C.active : C.idleTab }]}>
-                    {t === 'listings' ? 'My listings' : 'Reviews'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.tabsLeft}>
+              {(['listings', 'reviews'] as const).map((t) => {
+                const on = tab === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTab(t);
+                    }}
+                    style={[styles.tab, on && styles.tabActive]}
+                  >
+                    <Text style={[styles.tabText, { color: on ? C.active : C.idleTab }]}>
+                      {t === 'listings' ? 'My listings' : 'Reviews'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {tab === 'listings' && listings.length > 0 && (
+              <TouchableOpacity
+                style={styles.manageBtn}
+                onPress={() => router.push('/(tabs)/listings')}
+                accessibilityLabel="Manage listings"
+              >
+                <Text style={styles.manageText}>Manage</Text>
+                <ChevronRight size={13} color={C.active} strokeWidth={2.2} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Content — fills the space between tabs and logout */}
@@ -443,11 +455,15 @@ const styles = StyleSheet.create({
   upsellDesc: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, marginTop: 1 },
   tabs: {
     flexDirection: 'row',
-    gap: 20,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 18,
     borderBottomWidth: 1,
     borderBottomColor: C.cardBorder,
   },
+  tabsLeft: { flexDirection: 'row', gap: 20 },
+  manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingBottom: 9 },
+  manageText: { fontFamily: 'Inter-SemiBold', fontSize: 12, fontWeight: '600', color: C.active },
   tab: { paddingBottom: 9 },
   tabActive: { borderBottomWidth: 2, borderBottomColor: C.active },
   tabText: { fontFamily: 'Inter-SemiBold', fontSize: 13, fontWeight: '600' },
