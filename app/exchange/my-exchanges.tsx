@@ -28,6 +28,7 @@ import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassCard, GlassButton, Avatar } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -319,15 +320,15 @@ export default function MyExchangesScreen() {
 
         {/* Book Info */}
         <View style={styles.bookSection}>
-          <Image
-            source={{
-              uri:
-                book?.cover_image ||
-                book?.coverImage ||
-                'https://via.placeholder.com/60x90',
-            }}
-            style={styles.bookCover}
-          />
+          <View style={styles.bookCover}>
+            <BookCover
+              title={book?.title ?? 'Book'}
+              author={book?.author}
+              coverImage={book?.cover_image || book?.coverImage}
+              size="sm"
+              fill
+            />
+          </View>
 
           <View style={styles.bookInfo}>
             <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
@@ -678,6 +679,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   bookCover: {
+    overflow: 'hidden',
     width: 60,
     height: 90,
     borderRadius: 6,

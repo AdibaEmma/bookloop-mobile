@@ -31,6 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GlassCard, GlassButton, Avatar } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import { exchangesService, Exchange } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -475,12 +476,15 @@ export default function ExchangeDetailScreen() {
           <GlassCard variant="lg" padding="lg">
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Book</Text>
             <View style={styles.bookInfo}>
-              <Image
-                source={{
-                  uri: exchange.listing?.book?.coverImage || 'https://via.placeholder.com/80x120',
-                }}
-                style={styles.bookCover}
-              />
+              <View style={styles.bookCover}>
+                <BookCover
+                  title={exchange.listing?.book?.title ?? 'Book'}
+                  author={exchange.listing?.book?.author}
+                  coverImage={exchange.listing?.book?.coverImage}
+                  size="md"
+                  fill
+                />
+              </View>
               <View style={styles.bookDetails}>
                 <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
                   {exchange.listing?.book?.title || 'Unknown Book'}
@@ -969,6 +973,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   bookCover: {
+    overflow: 'hidden',
     width: 80,
     height: 120,
     borderRadius: BorderRadius.md,

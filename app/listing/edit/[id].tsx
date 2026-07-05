@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { GlassCard, GlassButton } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -334,11 +335,15 @@ export default function EditListingScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Book Information</Text>
             </View>
             <View style={styles.bookInfo}>
-              <Image
-                source={{ uri: listing.book.coverImage || 'https://via.placeholder.com/80x120' }}
-                style={styles.bookCover}
-                resizeMode="cover"
-              />
+              <View style={styles.bookCover}>
+                <BookCover
+                  title={listing.book.title}
+                  author={listing.book.author}
+                  coverImage={listing.book.coverImage}
+                  size="md"
+                  fill
+                />
+              </View>
               <View style={styles.bookDetails}>
                 <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
                   {listing.book.title}
@@ -842,6 +847,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   bookCover: {
+    overflow: 'hidden',
     width: 80,
     height: 120,
     borderRadius: 8,

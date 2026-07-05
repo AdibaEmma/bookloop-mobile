@@ -32,6 +32,7 @@ import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { GlassCard, GlassButton, GlassInput, Avatar } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   listingsService,
@@ -472,12 +473,15 @@ export default function ExchangeRequestScreen() {
           {/* Book Info */}
           <GlassCard variant="lg" padding="lg">
             <View style={styles.bookInfo}>
-              <Image
-                source={{
-                  uri: listing.book?.coverImage || 'https://via.placeholder.com/80x120',
-                }}
-                style={styles.bookCover}
-              />
+              <View style={styles.bookCover}>
+                <BookCover
+                  title={listing.book?.title ?? 'Book'}
+                  author={listing.book?.author}
+                  coverImage={listing.book?.coverImage}
+                  size="md"
+                  fill
+                />
+              </View>
 
               <View style={styles.bookDetails}>
                 <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
@@ -852,6 +856,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 105,
     borderRadius: BorderRadius.md,
+    overflow: 'hidden',
   },
   bookDetails: {
     flex: 1,
