@@ -482,6 +482,19 @@ export default function PhoneInputScreen() {
                 </Text>
               </View>
             </GlassCard>
+
+            {/* Already registered → login */}
+            <View style={styles.loginRow}>
+              <Text style={[styles.loginPrompt, { color: colors.textSecondary }]}>
+                Already have an account?
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.replace('/(auth)/login')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.loginLink}>Log in</Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -569,5 +582,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.fontSize.sm,
     lineHeight: 20,
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  loginPrompt: {
+    fontSize: Typography.fontSize.sm,
+    fontFamily: Typography.fontFamily.body,
+  },
+  loginLink: {
+    fontSize: Typography.fontSize.sm,
+    fontFamily: Typography.fontFamily.body,
+    fontWeight: '700',
+    color: BookLoopColors.coffeeBrown,
   },
 });
