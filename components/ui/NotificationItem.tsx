@@ -1,27 +1,30 @@
 /**
- * NotificationItem Component
+ * NotificationItem
  *
- * Displays a single notification with icon, title, message, and timestamp.
- * Supports swipe-to-delete and tap-to-mark-as-read.
+ * One notification row. The icon + tint encode the notification *type* so the
+ * list is scannable at a glance (a request, a cancellation and a rating never
+ * look the same). Unread rows carry a warm tint, a left accent and a dot; read
+ * rows sit quiet. Solid card on the warm page so the text stays readable.
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
-import { Ionicons } from '@expo/vector-icons';
-import { GlassCard } from './GlassCard';
 import {
-  BookLoopColors,
-  BorderRadius,
-  Typography,
-  Spacing,
-  Colors,
-} from '@/constants/theme';
+  ArrowLeftRight,
+  CheckCircle2,
+  XCircle,
+  Star,
+  Ban,
+  Clock,
+  MessageCircle,
+  BadgeCheck,
+  AlertTriangle,
+  Megaphone,
+  Bell,
+  X,
+} from 'lucide-react-native';
+import { BookLoopColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Notification } from '@/services/api/notifications.service';
 
@@ -31,166 +34,173 @@ interface NotificationItemProps {
   onDelete?: (notificationId: string) => void;
 }
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
-// Map notification types to icons
-const getNotificationIcon = (type: string): { name: IoniconsName; color: string } => {
-  switch (type) {
-    case 'EXCHANGE_REQUEST':
-      return { name: 'swap-horizontal', color: BookLoopColors.info };
-    case 'EXCHANGE_ACCEPTED':
-      return { name: 'checkmark-circle', color: BookLoopColors.success };
-    case 'EXCHANGE_DECLINED':
-      return { name: 'close-circle', color: BookLoopColors.error };
-    case 'EXCHANGE_COMPLETED':
-      return { name: 'star', color: BookLoopColors.mutedGold };
-    case 'EXCHANGE_CANCELLED':
-      return { name: 'close-circle-outline', color: BookLoopColors.warning };
-    case 'EXCHANGE_REMINDER':
-      return { name: 'time', color: BookLoopColors.burntOrange };
-    case 'RATING_RECEIVED':
-      return { name: 'star', color: BookLoopColors.mutedGold };
-    case 'MESSAGE_RECEIVED':
-      return { name: 'mail', color: BookLoopColors.info };
-    case 'LISTING_APPROVED':
-      return { name: 'checkmark-done-circle', color: BookLoopColors.success };
-    case 'LISTING_REJECTED':
-      return { name: 'warning', color: BookLoopColors.error };
-    case 'SYSTEM_ANNOUNCEMENT':
-    default:
-      return { name: 'notifications', color: BookLoopColors.coffeeBrown };
-  }
+// Keyed on the backend's lowercase NotificationType values. Warm-leaning colors
+// with a couple of semantic exceptions (green accepted, red declined).
+const META: Record<string, { Icon: IconType; color: string }> = {
+  exchange_request: { Icon: ArrowLeftRight, color: '#8B5E3C' },
+  exchange_accepted: { Icon: CheckCircle2, color: '#3F9A6A' },
+  exchange_declined: { Icon: XCircle, color: '#C7492F' },
+  exchange_completed: { Icon: Star, color: '#C0891F' },
+  exchange_cancelled: { Icon: Ban, color: '#B4762E' },
+  exchange_reminder: { Icon: Clock, color: '#D97941' },
+  rating_received: { Icon: Star, color: '#C0891F' },
+  message_received: { Icon: MessageCircle, color: '#4F6B8C' },
+  listing_approved: { Icon: BadgeCheck, color: '#3F9A6A' },
+  listing_rejected: { Icon: AlertTriangle, color: '#C7492F' },
+  system_announcement: { Icon: Megaphone, color: '#8B5E3C' },
 };
+const FALLBACK = { Icon: Bell, color: BookLoopColors.coffeeBrown };
 
-export function NotificationItem({
-  notification,
-  onPress,
-  onDelete,
-}: NotificationItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const icon = getNotificationIcon(notification.type);
+function metaFor(type?: string) {
+  return (type && META[type.toLowerCase()]) || FALLBACK;
+}
 
-  const handlePress = () => {
-    onPress?.(notification);
-  };
+export function NotificationItem({ notification, onPress, onDelete }: NotificationItemProps) {
+  const isDark = (useColorScheme() ?? 'light') === 'dark';
+  const { Icon, color } = metaFor(notification.type);
+  const unread = !notification.is_read;
 
-  // Safely format the time, handling invalid dates
-  const getFormattedTime = () => {
+  const c = isDark
+    ? {
+        card: BookLoopColors.darkSurface,
+        unreadCard: BookLoopColors.darkSurfaceRaised,
+        border: BookLoopColors.darkBorder,
+        title: BookLoopColors.darkText,
+        message: '#B7A891',
+        time: '#8C7B64',
+        del: '#8C7B64',
+      }
+    : {
+        card: '#FFFFFF',
+        unreadCard: '#FFFBF4',
+        border: '#EFE2CE',
+        title: BookLoopColors.deepEspresso,
+        message: '#7C6B54',
+        time: '#B0A088',
+        del: '#B8A78E',
+      };
+
+  const formattedTime = (() => {
     try {
       const date = new Date(notification.created_at);
-      if (isNaN(date.getTime())) {
-        return 'Just now';
-      }
+      if (isNaN(date.getTime())) return 'Just now';
       return formatDistanceToNow(date, { addSuffix: true });
     } catch {
       return 'Just now';
     }
-  };
-
-  const formattedTime = getFormattedTime();
+  })();
 
   return (
-    <Pressable onPress={handlePress}>
-      <GlassCard style={[styles.container, !notification.is_read && styles.unread]}>
-        <View style={[styles.iconContainer, { backgroundColor: `${icon.color}20` }]}>
-          <Ionicons name={icon.name} size={24} color={icon.color} />
+    <Pressable onPress={() => onPress?.(notification)} style={styles.wrap}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: unread ? c.unreadCard : c.card, borderColor: c.border },
+          unread && { borderLeftWidth: 3.5, borderLeftColor: color },
+        ]}
+      >
+        <View style={[styles.iconTile, { backgroundColor: `${color}22` }]}>
+          <Icon size={20} color={color} strokeWidth={2} />
         </View>
 
         <View style={styles.content}>
           <View style={styles.header}>
             <Text
-              style={[
-                styles.title,
-                { color: colors.text },
-                !notification.is_read && styles.unreadText,
-              ]}
+              style={[styles.title, { color: c.title }, unread && styles.titleUnread]}
               numberOfLines={1}
             >
               {notification.title}
             </Text>
-            {!notification.is_read && <View style={styles.unreadDot} />}
+            {unread && <View style={[styles.dot, { backgroundColor: color }]} />}
           </View>
 
-          <Text
-            style={[styles.message, { color: colors.textSecondary }]}
-            numberOfLines={2}
-          >
+          <Text style={[styles.message, { color: c.message }]} numberOfLines={2}>
             {notification.message}
           </Text>
 
-          <Text style={[styles.time, { color: colors.textSecondary }]}>
-            {formattedTime}
-          </Text>
+          <Text style={[styles.time, { color: c.time }]}>{formattedTime}</Text>
         </View>
 
         {onDelete && (
           <Pressable
-            style={styles.deleteButton}
+            style={styles.delete}
             onPress={() => onDelete(notification.id)}
-            hitSlop={8}
+            hitSlop={10}
+            accessibilityLabel="Dismiss notification"
           >
-            <Ionicons name="close" size={16} color={colors.textSecondary} />
+            <X size={16} color={c.del} strokeWidth={2} />
           </Pressable>
         )}
-      </GlassCard>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrap: {
+    marginHorizontal: 16,
+    marginVertical: 5,
+  },
+  card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginVertical: Spacing.xs,
+    gap: 12,
+    padding: 14,
+    borderRadius: 15,
+    borderWidth: 1,
+    shadowColor: '#8B5E3C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  unread: {
-    borderLeftWidth: 3,
-    borderLeftColor: BookLoopColors.burntOrange,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.lg,
-    justifyContent: 'center',
+  iconTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: Spacing.md,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
-    marginRight: Spacing.sm,
+    minWidth: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    gap: 8,
   },
   title: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
     flex: 1,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14.5,
+    fontWeight: '600',
   },
-  unreadText: {
-    fontWeight: Typography.fontWeight.bold,
+  titleUnread: {
+    fontFamily: 'Inter-Bold',
+    fontWeight: '700',
   },
-  unreadDot: {
+  dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BookLoopColors.burntOrange,
-    marginLeft: Spacing.sm,
   },
   message: {
-    fontSize: Typography.fontSize.sm,
-    lineHeight: Typography.fontSize.sm * Typography.lineHeight.normal,
-    marginBottom: Spacing.xs,
+    fontFamily: 'Inter-Regular',
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginTop: 3,
   },
   time: {
-    fontSize: Typography.fontSize.xs,
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 6,
   },
-  deleteButton: {
-    padding: Spacing.xs,
+  delete: {
+    padding: 2,
+    marginLeft: 2,
   },
 });

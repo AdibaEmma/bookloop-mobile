@@ -116,9 +116,9 @@ export default function NotificationsScreen() {
       {unreadCount > 0 && (
         <Pressable style={styles.actionButton} onPress={handleMarkAllAsRead}>
           <Ionicons
-            name="checkmark-circle-outline"
+            name="checkmark-done-outline"
             size={18}
-            color={BookLoopColors.success}
+            color={BookLoopColors.coffeeBrown}
           />
           <Text style={[styles.actionText, { color: colors.text }]}>
             Mark all as read
