@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -66,19 +66,26 @@ export function BookCover({
   fill?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  // If the remote cover fails to load (broken/blocked URL, missing Open Library
+  // cover, network hiccup), fall back to the drawn jacket instead of a blank box.
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => setImgFailed(false), [coverImage]);
+
   const s = SIZES[size];
   const dims = fill
     ? ({ width: '100%', height: '100%' } as const)
     : { width: s.w, height: s.h, borderRadius: s.radius };
   const radius = fill ? 0 : s.radius;
 
-  if (coverImage) {
+  if (coverImage && !imgFailed) {
     return (
       <View style={[dims, !fill && styles.shadow, style]}>
         <Image
-          source={{ uri: coverImage }}
+          // iOS blocks insecure http image loads — upgrade to https.
+          source={{ uri: coverImage.replace(/^http:\/\//, 'https://') }}
           style={{ width: '100%', height: '100%', borderRadius: radius }}
           resizeMode="cover"
+          onError={() => setImgFailed(true)}
         />
       </View>
     );
