@@ -29,7 +29,8 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton, BookCard, GlassModal } from '@/components/ui';
+import { GlassCard, GlassButton, BookCard, GlassModal, EmptyState } from '@/components/ui';
+import { BookPlus } from 'lucide-react-native';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -326,32 +327,13 @@ export default function MyListingsScreen() {
    * Render empty state
    */
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <GlassCard variant="lg" padding="xl">
-        <View style={styles.emptyContent}>
-          <Ionicons
-            name="book-outline"
-            size={64}
-            color={colors.textSecondary}
-            style={styles.emptyIcon}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No Listings Yet
-          </Text>
-          <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-            Start sharing your books with the community
-          </Text>
-          <GlassButton
-            title="Create Your First Listing"
-            onPress={handleCreateListing}
-            variant="primary"
-            size="md"
-            icon="add-circle"
-            style={styles.emptyButton}
-          />
-        </View>
-      </GlassCard>
-    </View>
+    <EmptyState
+      title="No listings yet"
+      body="Share a book you've finished — list it and let it find its next reader nearby."
+      actionLabel="List your first book"
+      actionIcon={BookPlus}
+      onAction={handleCreateListing}
+    />
   );
 
 

@@ -27,7 +27,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { GlassCard, GlassButton, GlassModal, CompactBookCard } from '@/components/ui';
+import { GlassCard, GlassButton, GlassModal, CompactBookCard, EmptyState } from '@/components/ui';
+import { BookPlus } from 'lucide-react-native';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
@@ -438,37 +439,17 @@ export default function ExploreScreen() {
               </View>
             </View>
           ) : (
-            <View style={[styles.emptyContainer, { backgroundColor: colors.card }]}>
-              <View style={[styles.emptyIconContainer, { backgroundColor: `${BookLoopColors.burntOrange}15` }]}>
-                <Ionicons
-                  name={isShowingSearchResults ? 'search-outline' : 'book-outline'}
-                  size={40}
-                  color={BookLoopColors.burntOrange}
-                />
-              </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                {isShowingSearchResults ? 'No Results Found' : 'No Books Nearby'}
-              </Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {isShowingSearchResults
-                  ? 'Try adjusting your search or filters'
-                  : 'Be the first to list a book in your area!'}
-              </Text>
-              {!isShowingSearchResults && (
-                <TouchableOpacity
-                  style={styles.emptyActionButton}
-                  onPress={() => router.push('/listing/create')}
-                >
-                  <LinearGradient
-                    colors={[BookLoopColors.burntOrange, BookLoopColors.coffeeBrown]}
-                    style={styles.emptyActionGradient}
-                  >
-                    <Ionicons name="add" size={18} color="#FFFFFF" />
-                    <Text style={styles.emptyActionText}>List a Book</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-            </View>
+            <EmptyState
+              title={isShowingSearchResults ? 'No matches found' : 'No books nearby'}
+              body={
+                isShowingSearchResults
+                  ? 'Try a different title, author, or loosen your filters.'
+                  : 'Be the first to list a book in your area — start the loop.'
+              }
+              actionLabel={isShowingSearchResults ? undefined : 'List a book'}
+              actionIcon={BookPlus}
+              onAction={isShowingSearchResults ? undefined : () => router.push('/listing/create')}
+            />
           )}
         </View>
 

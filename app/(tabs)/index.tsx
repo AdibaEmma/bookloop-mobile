@@ -23,10 +23,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, Search, BookOpen, BookPlus, ArrowRight } from 'lucide-react-native';
+import { Bell, Search, BookPlus, ArrowRight } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { BookCard, StatsStrip, FilterChips } from '@/components/ui';
+import { BookCard, StatsStrip, FilterChips, EmptyState } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import type { StatItem, FilterChip } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -390,15 +390,17 @@ export default function HomeScreen() {
                 ))}
               </>
             ) : (
-              <View style={styles.empty}>
-                <BookOpen size={44} color={c.muted} strokeWidth={1.5} />
-                <Text style={[styles.emptyTitle, { color: c.text }]}>No books nearby</Text>
-                <Text style={[styles.emptyBody, { color: c.muted }]}>
-                  {activeFilter === 'all'
-                    ? 'Be the first to list a book in your area!'
-                    : 'Try a wider filter or increase your search radius.'}
-                </Text>
-              </View>
+              <EmptyState
+                title="No books nearby"
+                body={
+                  activeFilter === 'all'
+                    ? 'Be the first to list a book in your neighbourhood — someone nearby is waiting for a good read.'
+                    : 'Try a wider filter or a bigger search radius.'
+                }
+                actionLabel={activeFilter === 'all' ? 'List a book' : undefined}
+                actionIcon={BookPlus}
+                onAction={activeFilter === 'all' ? () => router.push('/listing/create') : undefined}
+              />
             )}
             </View>
           </Animated.ScrollView>

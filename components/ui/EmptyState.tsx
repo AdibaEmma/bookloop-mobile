@@ -13,11 +13,16 @@ import { BookLoopColors } from '@/constants/theme';
  * Shared across empty feeds/tabs (Home, Exchanges, etc.).
  */
 
+type IconType = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
 interface Props {
   title: string;
   body?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Icon shown in the CTA. Defaults to a magnifier (browse); pass e.g. BookPlus
+   *  for a "list a book" action so the icon matches the verb. */
+  actionIcon?: IconType;
 }
 
 function BookDoodle({ dark }: { dark: boolean }) {
@@ -56,7 +61,7 @@ function BookDoodle({ dark }: { dark: boolean }) {
   );
 }
 
-export function EmptyState({ title, body, actionLabel, onAction }: Props) {
+export function EmptyState({ title, body, actionLabel, onAction, actionIcon: ActionIcon = Search }: Props) {
   const isDark = (useColorScheme() ?? 'light') === 'dark';
   const text = isDark ? BookLoopColors.darkText : BookLoopColors.deepEspresso;
   const muted = isDark ? BookLoopColors.darkTextMuted : BookLoopColors.authorText;
@@ -75,7 +80,7 @@ export function EmptyState({ title, body, actionLabel, onAction }: Props) {
             onAction();
           }}
         >
-          <Search size={18} color={BookLoopColors.cream} strokeWidth={2} />
+          <ActionIcon size={18} color={BookLoopColors.cream} strokeWidth={2} />
           <Text style={styles.actionText}>{actionLabel}</Text>
         </TouchableOpacity>
       )}

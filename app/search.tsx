@@ -26,7 +26,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { GlassCard, GlassButton, GlassInput, GlassModal, BookCard } from '@/components/ui';
+import { GlassCard, GlassButton, GlassInput, GlassModal, BookCard, EmptyState } from '@/components/ui';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -181,24 +181,10 @@ export default function SearchScreen() {
    */
   const renderEmpty = () =>
     !isLoading && query ? (
-      <View style={styles.emptyContainer}>
-        <GlassCard variant="lg" padding="xl">
-          <View style={styles.emptyContent}>
-            <Ionicons
-              name="search-outline"
-              size={64}
-              color={colors.textSecondary}
-              style={styles.emptyIcon}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No Results Found
-            </Text>
-            <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-              Try adjusting your search or filters
-            </Text>
-          </View>
-        </GlassCard>
-      </View>
+      <EmptyState
+        title="No matches found"
+        body="Try a different title, author, or ISBN — or loosen your filters."
+      />
     ) : null;
 
   return (
