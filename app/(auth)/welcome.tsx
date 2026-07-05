@@ -30,6 +30,7 @@ import Animated, {
   withRepeat,
   withTiming,
   useReducedMotion,
+  interpolate,
 } from 'react-native-reanimated';
 import {
   BookOpen,
@@ -119,6 +120,24 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
 
+  // A single spark that flows List → Match → Swap and loops — the book moving
+  // through the loop, made literal on the step rail.
+  const flow = useSharedValue(0);
+  const railW = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    flow.value = withRepeat(
+      withTiming(1, { duration: 3200, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, [reduceMotion, flow]);
+
+  const sparkStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(flow.value, [0, 0.12, 0.82, 1], [0, 1, 1, 0]),
+    transform: [{ translateX: 43 + flow.value * Math.max(0, railW.value - 86) }],
+  }));
+
   // Skip entrance staggers under reduce-motion; render in place.
   const rise = (delay: number) =>
     reduceMotion
@@ -160,7 +179,16 @@ export default function WelcomeScreen() {
           </Animated.View>
 
           {/* The loop, made concrete */}
-          <Animated.View entering={rise(300)} style={styles.steps}>
+          <Animated.View
+            entering={rise(300)}
+            style={styles.steps}
+            onLayout={(e) => {
+              railW.value = e.nativeEvent.layout.width;
+            }}
+          >
+            {!reduceMotion && (
+              <Animated.View pointerEvents="none" style={[styles.spark, sparkStyle]} />
+            )}
             {STEPS.map((s, i) => (
               <React.Fragment key={s.label}>
                 {i > 0 && <View style={styles.stepDash} />}
@@ -320,6 +348,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 28,
     paddingHorizontal: 6,
+  },
+  spark: {
+    position: 'absolute',
+    top: 18,
+    left: 0,
+    marginLeft: -4.5,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: BookLoopColors.goldDeep,
+    shadowColor: BookLoopColors.goldDeep,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 4,
+    zIndex: 5,
   },
   step: { alignItems: 'center', width: 74 },
   stepIcon: {
