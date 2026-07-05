@@ -395,7 +395,9 @@ export function QuickBookSearch({
                 data={selectedBooks}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) =>
+                  String(item.id ?? (item as any).googleBooksId ?? item.isbn ?? index)
+                }
                 contentContainerStyle={styles.selectedList}
                 renderItem={({ item }) => (
                   <View style={[styles.selectedItem, { backgroundColor: glassStyle.backgroundColor }]}>
@@ -441,7 +443,7 @@ export function QuickBookSearch({
           {/* Results */}
           <FlatList
             data={googleResults}
-            keyExtractor={(item) => item.googleBooksId}
+            keyExtractor={(item, index) => String(item.googleBooksId ?? (item as any).id ?? index)}
             style={styles.resultsList}
             contentContainerStyle={styles.resultsContent}
             keyboardShouldPersistTaps="handled"
