@@ -12,7 +12,7 @@
  * - Listing type and condition selection
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -69,6 +69,9 @@ export default function CreateListingScreen() {
   // picker's cap and the "add" button's disabled state.
   const maxPreferences =
     user?.subscriptionTier === 'premium' ? 3 : user?.subscriptionTier === 'basic' ? 2 : 1;
+  // If a book was created but the listing then failed, remember its id so a retry
+  // reuses it instead of creating another orphaned book.
+  const createdBookIdRef = useRef<string | null>(null);
 
   // Book info
   const [isbn, setIsbn] = useState('');
@@ -546,15 +549,22 @@ export default function CreateListingScreen() {
         const existingBook = await booksService.searchByISBN(bookData.isbn);
         if (existingBook && existingBook.id) {
           bookId = existingBook.id;
+        } else if (createdBookIdRef.current) {
+          // A prior attempt already created the book — reuse it.
+          bookId = createdBookIdRef.current;
         } else {
           // Create new book
           const newBook = await booksService.createBook(bookData);
           bookId = newBook.id;
+          createdBookIdRef.current = bookId;
         }
+      } else if (createdBookIdRef.current) {
+        bookId = createdBookIdRef.current;
       } else {
         // Create book without ISBN
         const newBook = await booksService.createBook(bookData);
         bookId = newBook.id;
+        createdBookIdRef.current = bookId;
       }
 
       // Create listing (without photos first)
@@ -570,6 +580,9 @@ export default function CreateListingScreen() {
         region: location!.region,
         status: publishImmediately ? 'available' : 'draft',
       });
+
+      // Listing created — the book is safely attached, so clear the retry cache.
+      createdBookIdRef.current = null;
 
       // Upload photos after creating listing
       if (photos.length > 0) {
