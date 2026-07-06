@@ -16,11 +16,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Check, MessageSquare, QrCode } from 'lucide-react-native';
+import { MapPin, Check, MessageSquare, QrCode, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { EmptyState } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
@@ -42,6 +43,19 @@ const C = {
   idleBorder: '#E4DAC8',
   cardBorder: '#EFE2CE',
 };
+
+function timeAgo(iso?: string): string {
+  if (!iso) return 'recently';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return 'recently';
+  const s = Math.max(1, Math.floor((Date.now() - t) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 function bucketOf(status: string): Bucket {
   if (status === 'completed') return 'completed';
@@ -91,10 +105,34 @@ export default function ExchangesScreen() {
     return `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'a reader';
   };
 
+  const handleCancel = (ex: any) => {
+    Alert.alert(
+      'Cancel request',
+      `Cancel your request for "${ex.listing?.book?.title ?? 'this book'}"?`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel request',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await exchangesService.cancelExchange(ex.id);
+              load(true);
+            } catch {
+              Alert.alert('Error', 'Could not cancel. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderCard = (ex: any) => {
     const title = ex.listing?.book?.title || 'Book';
     const partner = partnerOf(ex);
     const step = stepOf(ex);
+    const isPending = ex.status === 'pending';
+    const partnerInitial = partner.charAt(0).toUpperCase() || '?';
     const meetupText =
       ex.meetup_spot_name && ex.meetup_time
         ? `${ex.meetup_spot_name} · ${new Date(ex.meetup_time).toLocaleString(undefined, {
@@ -118,8 +156,18 @@ export default function ExchangesScreen() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-            <Text style={styles.cardWith}>with {partner}</Text>
-            {step === 2 && meetupText ? (
+            <View style={styles.withRow}>
+              <View style={styles.partnerAvatar}>
+                <Text style={styles.partnerInitial}>{partnerInitial}</Text>
+              </View>
+              <Text style={styles.cardWith} numberOfLines={1}>with {partner}</Text>
+            </View>
+            {isPending ? (
+              <View style={styles.waitingPill}>
+                <View style={styles.waitingDot} />
+                <Text style={styles.waitingText}>Waiting for their reply</Text>
+              </View>
+            ) : step === 2 && meetupText ? (
               <View style={styles.meetRow}>
                 <MapPin size={13} color={C.active} strokeWidth={2} />
                 <Text style={styles.meetText} numberOfLines={1}>{meetupText}</Text>
@@ -175,6 +223,38 @@ export default function ExchangesScreen() {
             );
           })}
         </View>
+
+        {/* Pending — waiting on them */}
+        {isPending && (
+          <>
+            <View style={styles.pendingMeta}>
+              <Clock size={14} color={C.muted} strokeWidth={2} />
+              <Text style={styles.pendingMetaText}>
+                Requested {timeAgo(ex.created_at)} · usually replies within a day
+              </Text>
+            </View>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.primaryAction}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({ pathname: '/exchange/[id]', params: { id: ex.id } });
+                }}
+              >
+                <MessageSquare size={15} color="#fff" strokeWidth={2} />
+                <Text style={styles.primaryActionText}>Send a nudge</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelAction}
+                activeOpacity={0.8}
+                onPress={() => handleCancel(ex)}
+              >
+                <Text style={styles.cancelActionText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Actions */}
         {step === 2 && (
@@ -233,24 +313,28 @@ export default function ExchangesScreen() {
           <Text style={styles.headerTitle}>Exchanges</Text>
         </View>
 
-        <View style={styles.pills}>
+        <View style={styles.segment}>
           {(['active', 'pending', 'completed'] as Bucket[]).map((b) => {
             const on = tab === b;
             const label = b.charAt(0).toUpperCase() + b.slice(1);
             return (
               <TouchableOpacity
                 key={b}
-                style={[styles.pill, on && { backgroundColor: C.active }]}
+                style={[styles.segItem, on && styles.segItemActive]}
                 activeOpacity={0.8}
                 onPress={() => {
                   Haptics.selectionAsync();
                   setTab(b);
                 }}
               >
-                <Text style={[styles.pillText, { color: on ? '#fff' : C.muted }]}>
-                  {label}
-                  {counts[b] > 0 ? ` · ${counts[b]}` : ''}
-                </Text>
+                <Text style={[styles.segText, { color: on ? '#fff' : C.muted }]}>{label}</Text>
+                {counts[b] > 0 && (
+                  <View style={[styles.segBadge, on && styles.segBadgeActive]}>
+                    <Text style={[styles.segBadgeText, { color: on ? '#fff' : C.active }]}>
+                      {counts[b]}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -276,6 +360,12 @@ export default function ExchangesScreen() {
             }
           >
             {items.map(renderCard)}
+            {tab === 'pending' && (
+              <Text style={styles.expiryNote}>
+                Requests expire after 7 days if there&apos;s no reply. We&apos;ll notify you the
+                moment they respond.
+              </Text>
+            )}
           </ScrollView>
         )}
       </SafeAreaView>
@@ -288,9 +378,35 @@ const styles = StyleSheet.create({
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 10 },
   headerTitle: { fontFamily: 'Poppins-Bold', fontSize: 22, color: C.text },
-  pills: { flexDirection: 'row', gap: 6, paddingHorizontal: 18, paddingBottom: 12 },
-  pill: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10 },
-  pillText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600' },
+  segment: {
+    flexDirection: 'row',
+    gap: 4,
+    marginHorizontal: 18,
+    marginBottom: 14,
+    padding: 4,
+    backgroundColor: '#F1E7D6',
+    borderRadius: 12,
+  },
+  segItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
+  segItemActive: { backgroundColor: C.active },
+  segText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600' },
+  segBadge: {
+    paddingHorizontal: 6,
+    minWidth: 16,
+    alignItems: 'center',
+    borderRadius: 9,
+    backgroundColor: 'rgba(139,94,60,0.12)',
+  },
+  segBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  segBadgeText: { fontFamily: 'Inter-Bold', fontSize: 9.5, fontWeight: '700' },
   list: { paddingHorizontal: 14, paddingBottom: 24, gap: 12 },
   card: {
     backgroundColor: '#fff',
@@ -302,7 +418,51 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', gap: 12, padding: 13 },
   cover: { width: 48, height: 68, borderRadius: 7, overflow: 'hidden' },
   cardTitle: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.text, fontWeight: '700' },
-  cardWith: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, marginTop: 2 },
+  withRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  partnerAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#D4B896',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnerInitial: { fontFamily: 'Inter-Bold', fontSize: 8, fontWeight: '700', color: C.text },
+  cardWith: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, flexShrink: 1 },
+  waitingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    marginTop: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,152,0,0.14)',
+  },
+  waitingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9800' },
+  waitingText: { fontFamily: 'Inter-SemiBold', fontSize: 10.5, fontWeight: '600', color: '#B07D22' },
+  pendingMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
+  pendingMetaText: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, flex: 1, lineHeight: 15 },
+  cancelAction: {
+    height: 42,
+    paddingHorizontal: 16,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#E0B7B0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelActionText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600', color: '#C6362B' },
+  expiryNote: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11.5,
+    color: C.muted,
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 30,
+    paddingTop: 4,
+  },
   meetRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   meetText: { fontFamily: 'Inter-SemiBold', fontSize: 11, color: C.active, fontWeight: '600', flex: 1 },
   acceptedBadge: {
