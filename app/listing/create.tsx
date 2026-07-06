@@ -21,6 +21,8 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -73,6 +75,7 @@ export default function CreateListingScreen() {
   // Manual entry fields
   const [manualTitle, setManualTitle] = useState('');
   const [manualAuthor, setManualAuthor] = useState('');
+  const [manualExpanded, setManualExpanded] = useState(false);
 
   // User's existing books
   const [myBooks, setMyBooks] = useState<Book[]>([]);
@@ -714,64 +717,18 @@ export default function CreateListingScreen() {
           {/* STEP 1: Book Selection */}
           {currentStep === 1 && (
             <>
-          {/* ISBN Search */}
-          <GlassCard variant="lg" padding="lg">
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Find Your Book
-            </Text>
-
-            <View style={styles.isbnContainer}>
-              <View style={{ flex: 1 }}>
-                <GlassInput
-                  value={isbn}
-                  onChangeText={setIsbn}
-                  placeholder="Enter ISBN"
-                  keyboardType="numeric"
-                  onSubmitEditing={searchBookByISBN}
-                  returnKeyType="search"
-                />
-              </View>
-
-              <TouchableOpacity
-                onPress={scanBarcode}
-                style={[
-                  styles.scanButton,
-                  { backgroundColor: BookLoopColors.coffeeBrown },
-                ]}
-              >
-                <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            <GlassButton
-              title="Search by ISBN"
-              onPress={searchBookByISBN}
-              variant="primary"
-              size="md"
-              loading={isLoadingBook}
-              icon="search"
-            />
-          </GlassCard>
-
-          {/* Book Info (if found) */}
-          {bookData && (
+          {/* Book found → confirmation; otherwise the scan / ISBN / manual chooser */}
+          {bookData ? (
             <GlassCard variant="lg" padding="lg">
               <View style={styles.bookInfo}>
                 {bookData.coverImage && (
-                  <Image
-                    source={{ uri: bookData.coverImage }}
-                    style={styles.bookCover}
-                  />
+                  <Image source={{ uri: bookData.coverImage }} style={styles.bookCover} />
                 )}
-
                 <View style={styles.bookDetails}>
-                  <Text style={[styles.bookTitle, { color: colors.text }]}>
-                    {bookData.title}
-                  </Text>
+                  <Text style={[styles.bookTitle, { color: colors.text }]}>{bookData.title}</Text>
                   <Text style={[styles.bookAuthor, { color: colors.textSecondary }]}>
                     by {bookData.author}
                   </Text>
-
                   <TouchableOpacity
                     onPress={() => {
                       setBookData(null);
@@ -781,63 +738,106 @@ export default function CreateListingScreen() {
                     }}
                     style={styles.changeButton}
                   >
-                    <Ionicons
-                      name="create-outline"
-                      size={16}
-                      color={BookLoopColors.burntOrange}
-                    />
-                    <Text
-                      style={[
-                        styles.changeText,
-                        { color: BookLoopColors.burntOrange },
-                      ]}
-                    >
+                    <Ionicons name="create-outline" size={16} color={BookLoopColors.burntOrange} />
+                    <Text style={[styles.changeText, { color: BookLoopColors.burntOrange }]}>
                       Change Book
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </GlassCard>
-          )}
-
-          {/* Manual Entry */}
-          {!bookData && (
-            <GlassCard variant="lg" padding="lg">
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Or Enter Manually
-              </Text>
-
-              <View style={styles.formField}>
-                <Text style={[styles.label, { color: colors.text }]}>
-                  Title *
+          ) : (
+            <>
+              {/* Fastest — scan */}
+              <TouchableOpacity style={styles.scanCard} activeOpacity={0.9} onPress={scanBarcode}>
+                <View style={styles.scanBadgeRow}>
+                  <Ionicons name="flash" size={13} color={BookLoopColors.mutedGold} />
+                  <Text style={styles.scanBadgeText}>FASTEST — 2 TAPS</Text>
+                </View>
+                <Text style={styles.scanCardTitle}>Scan the barcode</Text>
+                <Text style={styles.scanCardDesc}>
+                  Point your camera at the back cover — we&apos;ll fill in the title, author &amp;
+                  cover automatically.
                 </Text>
-                <GlassInput
-                  value={manualTitle}
-                  onChangeText={setManualTitle}
-                  placeholder="Book title"
+                <View style={styles.scanCta}>
+                  <Ionicons name="scan-outline" size={19} color={BookLoopColors.deepEspresso} />
+                  <Text style={styles.scanCtaText}>Scan barcode</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* or enter ISBN */}
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>or enter ISBN</Text>
+                <View style={styles.orLine} />
+              </View>
+              <View style={styles.isbnRow}>
+                <TextInput
+                  style={styles.isbnInput}
+                  value={isbn}
+                  onChangeText={setIsbn}
+                  placeholder="978-0-…"
+                  placeholderTextColor="#B39C82"
+                  keyboardType="numeric"
+                  onSubmitEditing={searchBookByISBN}
+                  returnKeyType="search"
                 />
+                <TouchableOpacity
+                  style={styles.isbnGo}
+                  onPress={searchBookByISBN}
+                  disabled={isLoadingBook}
+                  activeOpacity={0.85}
+                >
+                  {isLoadingBook ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.isbnGoText}>Go</Text>
+                  )}
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.formField}>
-                <Text style={[styles.label, { color: colors.text }]}>
-                  Author *
-                </Text>
-                <GlassInput
-                  value={manualAuthor}
-                  onChangeText={setManualAuthor}
-                  placeholder="Author name"
-                />
+              {/* Manual entry (demoted, collapsible) */}
+              <View style={styles.manualCard}>
+                <TouchableOpacity
+                  style={styles.manualHeader}
+                  activeOpacity={0.8}
+                  onPress={() => setManualExpanded((v) => !v)}
+                >
+                  <View style={styles.manualHeaderLeft}>
+                    <Ionicons name="create-outline" size={17} color={BookLoopColors.coffeeBrown} />
+                    <Text style={styles.manualTitleText}>Enter details manually</Text>
+                  </View>
+                  <Ionicons
+                    name={manualExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#B39C82"
+                  />
+                </TouchableOpacity>
+                {manualExpanded && (
+                  <>
+                    <View style={styles.manualDivider} />
+                    <View style={styles.manualBody}>
+                      <View style={styles.manualField}>
+                        <Text style={styles.manualLabel}>Title *</Text>
+                        <GlassInput value={manualTitle} onChangeText={setManualTitle} placeholder="Book title" />
+                      </View>
+                      <View style={styles.manualField}>
+                        <Text style={styles.manualLabel}>Author *</Text>
+                        <GlassInput value={manualAuthor} onChangeText={setManualAuthor} placeholder="Author name" />
+                      </View>
+                      <GlassButton
+                        title="Use This Book"
+                        onPress={useManualEntry}
+                        variant="primary"
+                        size="md"
+                        disabled={!manualTitle.trim() || !manualAuthor.trim()}
+                        icon="checkmark-circle"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
-
-              <GlassButton
-                title="Use This Book"
-                onPress={useManualEntry}
-                variant="primary"
-                size="md"
-                disabled={!manualTitle.trim() || !manualAuthor.trim()}
-                icon="checkmark-circle"
-              />
-            </GlassCard>
+            </>
           )}
             </>
           )}
@@ -1377,6 +1377,106 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // --- 11c: scan / ISBN / manual chooser ---
+  scanCard: {
+    borderRadius: 18,
+    backgroundColor: BookLoopColors.coffeeBrown,
+    padding: 18,
+    overflow: 'hidden',
+  },
+  scanBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scanBadgeText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    color: 'rgba(255,248,240,0.85)',
+  },
+  scanCardTitle: {
+    fontFamily: 'Poppins-Bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: BookLoopColors.cream,
+    marginTop: 8,
+  },
+  scanCardDesc: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: 'rgba(255,248,240,0.82)',
+    marginTop: 3,
+  },
+  scanCta: {
+    height: 48,
+    marginTop: 14,
+    borderRadius: 12,
+    backgroundColor: BookLoopColors.mutedGold,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  scanCtaText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: BookLoopColors.deepEspresso,
+  },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 16 },
+  orLine: { flex: 1, height: 1, backgroundColor: '#EFE2CE' },
+  orText: { fontFamily: 'Inter-SemiBold', fontSize: 11, fontWeight: '600', color: '#B39C82' },
+  isbnRow: { flexDirection: 'row', gap: 9 },
+  isbnInput: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#D4B896',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    color: BookLoopColors.deepEspresso,
+  },
+  isbnGo: {
+    width: 64,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: BookLoopColors.coffeeBrown,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  isbnGoText: { fontFamily: 'Inter-SemiBold', fontSize: 13, fontWeight: '600', color: '#fff' },
+  manualCard: {
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#EFE2CE',
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  manualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  manualHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  manualTitleText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: BookLoopColors.deepEspresso,
+  },
+  manualDivider: { height: 1, backgroundColor: '#F2E9DA', marginHorizontal: 15 },
+  manualBody: { padding: 15, gap: 12 },
+  manualField: { gap: 6 },
+  manualLabel: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#6B5240',
   },
   bookInfo: {
     flexDirection: 'row',
