@@ -26,6 +26,7 @@ import * as Haptics from 'expo-haptics';
 import { EmptyState } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
+import type { Exchange } from '@/services/api/exchanges.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookLoopColors } from '@/constants/theme';
 
@@ -63,9 +64,9 @@ function bucketOf(status: string): Bucket {
   return 'pending'; // pending / declined / cancelled surface under Pending
 }
 
-function stepOf(ex: any): number {
+function stepOf(ex: Exchange): number {
   if (ex.status === 'completed') return 3;
-  if (ex.status === 'accepted') return ex.meetup_spot_id || ex.meetup_spot_name ? 2 : 1;
+  if (ex.status === 'accepted') return ex.meetupSpotId || ex.meetupSpotName ? 2 : 1;
   return 0; // pending → Requested
 }
 
@@ -73,7 +74,7 @@ export default function ExchangesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [tab, setTab] = useState<Bucket>('active');
-  const [all, setAll] = useState<any[]>([]);
+  const [all, setAll] = useState<Exchange[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -99,10 +100,10 @@ export default function ExchangesScreen() {
   };
   const items = all.filter((e) => bucketOf(e.status) === tab);
 
-  const partnerOf = (ex: any) => {
-    const iAmOwner = ex.owner_id === user?.id;
+  const partnerOf = (ex: Exchange) => {
+    const iAmOwner = ex.ownerId === user?.id;
     const p = iAmOwner ? ex.requester : ex.owner;
-    return `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'a reader';
+    return `${p?.firstName ?? ''} ${p?.lastName ?? ''}`.trim() || 'a reader';
   };
 
   const handleCancel = (ex: any) => {
@@ -134,13 +135,13 @@ export default function ExchangesScreen() {
     const isPending = ex.status === 'pending';
     const partnerInitial = partner.charAt(0).toUpperCase() || '?';
     const meetupText =
-      ex.meetup_spot_name && ex.meetup_time
-        ? `${ex.meetup_spot_name} · ${new Date(ex.meetup_time).toLocaleString(undefined, {
+      ex.meetupSpotName && ex.meetupTime
+        ? `${ex.meetupSpotName} · ${new Date(ex.meetupTime).toLocaleString(undefined, {
             weekday: 'short',
             hour: 'numeric',
             minute: '2-digit',
           })}`
-        : ex.meetup_spot_name || null;
+        : ex.meetupSpotName || null;
 
     return (
       <View key={ex.id} style={styles.card}>
@@ -230,7 +231,7 @@ export default function ExchangesScreen() {
             <View style={styles.pendingMeta}>
               <Clock size={14} color={C.muted} strokeWidth={2} />
               <Text style={styles.pendingMetaText}>
-                Requested {timeAgo(ex.created_at)} · usually replies within a day
+                Requested {timeAgo(ex.createdAt)} · usually replies within a day
               </Text>
             </View>
             <View style={styles.actionsRow}>

@@ -69,16 +69,16 @@ export default function RateExchangeScreen() {
     (async () => {
       try {
         const ex = await exchangesService.getExchangeById(id);
-        const iAmOwner = ex.owner_id === user?.id;
+        const iAmOwner = ex.ownerId === user?.id;
         const p = iAmOwner ? ex.requester : ex.owner;
-        const name = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'your partner';
+        const name = `${p?.firstName ?? ''} ${p?.lastName ?? ''}`.trim() || 'your partner';
         setPartner({
           name,
           initials:
-            ((p?.first_name?.charAt(0) ?? '') + (p?.last_name?.charAt(0) ?? '')).toUpperCase() || 'BL',
+            ((p?.firstName?.charAt(0) ?? '') + (p?.lastName?.charAt(0) ?? '')).toUpperCase() || 'BL',
         });
         const bookTitle = (ex.listing as any)?.book?.title;
-        const spot = ex.meetup_spot_name;
+        const spot = ex.meetupSpotName;
         setSubline([bookTitle, spot].filter(Boolean).join(' · '));
       } catch (error) {
         console.error('Failed to load exchange for rating:', error);

@@ -42,46 +42,45 @@ type TabType = 'incoming' | 'outgoing';
 
 interface ExchangeUser {
   id: string;
-  first_name: string;
-  last_name: string;
-  profile_picture?: string;
+  firstName: string;
+  lastName: string;
+  profilePicture?: string;
   rating?: number;
 }
 
 interface Exchange {
   id: string;
-  listing_id: string;
-  requester_id: string;
-  owner_id: string;
+  listingId: string;
+  requesterId: string;
+  ownerId: string;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  requester_message?: string;
-  owner_response?: string;
-  meetup_spot_id?: string;
-  meetup_spot_name?: string;
-  meetup_location?: {
+  requesterMessage?: string;
+  ownerResponse?: string;
+  meetupSpotId?: string;
+  meetupSpotName?: string;
+  meetupLocation?: {
     type: 'Point';
     coordinates: [number, number];
   } | string;
-  meetup_address?: string;
-  meetup_time?: string;
-  requester_confirmed_meetup: boolean;
-  owner_confirmed_meetup: boolean;
-  requester_confirmed_completion: boolean;
-  owner_confirmed_completion: boolean;
+  meetupAddress?: string;
+  meetupTime?: string;
+  requesterConfirmedMeetup: boolean;
+  ownerConfirmedMeetup: boolean;
+  requesterConfirmedCompletion: boolean;
+  ownerConfirmedCompletion: boolean;
   listing?: {
     id: string;
     book?: {
       id: string;
       title: string;
       author: string;
-      cover_image?: string;
       coverImage?: string; // Support both naming conventions
     };
   };
   requester?: ExchangeUser;
   owner?: ExchangeUser;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function MyExchangesScreen() {
@@ -324,7 +323,7 @@ export default function MyExchangesScreen() {
             <BookCover
               title={book?.title ?? 'Book'}
               author={book?.author}
-              coverImage={book?.cover_image || book?.coverImage}
+              coverImage={book?.coverImage}
               size="sm"
               fill
             />
@@ -344,8 +343,8 @@ export default function MyExchangesScreen() {
         {otherUser && (
           <View style={styles.userSection}>
             <Avatar
-              imageUrl={otherUser.profile_picture}
-              name={`${otherUser.first_name || ''} ${otherUser.last_name || ''}`}
+              imageUrl={otherUser.profilePicture}
+              name={`${otherUser.firstName || ''} ${otherUser.lastName || ''}`}
               size="md"
             />
 
@@ -353,7 +352,7 @@ export default function MyExchangesScreen() {
               <Text style={[styles.userName, { color: colors.text }]}>
                 {isIncoming ? 'Request from' : 'Request to'}{' '}
                 <Text style={styles.userNameBold}>
-                  {otherUser.first_name || 'User'} {otherUser.last_name || ''}
+                  {otherUser.firstName || 'User'} {otherUser.lastName || ''}
                 </Text>
               </Text>
               <View style={styles.karmaContainer}>
@@ -371,19 +370,19 @@ export default function MyExchangesScreen() {
         )}
 
         {/* Message */}
-        {exchange.requester_message && (
+        {exchange.requesterMessage && (
           <View style={styles.messageSection}>
             <Text style={[styles.messageLabel, { color: colors.textSecondary }]}>
               Message:
             </Text>
             <Text style={[styles.messageText, { color: colors.text }]}>
-              {exchange.requester_message}
+              {exchange.requesterMessage}
             </Text>
           </View>
         )}
 
         {/* Meetup Details */}
-        {(exchange.meetup_spot_name || exchange.meetup_address || exchange.meetup_time) && (
+        {(exchange.meetupSpotName || exchange.meetupAddress || exchange.meetupTime) && (
           <View style={styles.meetupSection}>
             {/* Location */}
             <View style={styles.locationSection}>
@@ -393,12 +392,12 @@ export default function MyExchangesScreen() {
                 color={BookLoopColors.burntOrange}
               />
               <Text style={[styles.locationName, { color: colors.text }]} numberOfLines={1}>
-                {exchange.meetup_spot_name || exchange.meetup_address || 'Location TBD'}
+                {exchange.meetupSpotName || exchange.meetupAddress || 'Location TBD'}
               </Text>
             </View>
 
             {/* Time */}
-            {exchange.meetup_time && (
+            {exchange.meetupTime && (
               <View style={styles.locationSection}>
                 <Ionicons
                   name="calendar"
@@ -406,7 +405,7 @@ export default function MyExchangesScreen() {
                   color={BookLoopColors.burntOrange}
                 />
                 <Text style={[styles.locationName, { color: colors.text }]}>
-                  {formatMeetupTime(exchange.meetup_time)}
+                  {formatMeetupTime(exchange.meetupTime)}
                 </Text>
               </View>
             )}

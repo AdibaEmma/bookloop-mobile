@@ -97,8 +97,8 @@ export default function UpdateMeetupScreen() {
       setExchange(exchangeData);
 
       // If exchange has existing meetup details, pre-populate
-      if (exchangeData.meetup_time) {
-        setMeetupDate(new Date(exchangeData.meetup_time));
+      if (exchangeData.meetupTime) {
+        setMeetupDate(new Date(exchangeData.meetupTime));
       }
 
       // Get user location
@@ -109,8 +109,8 @@ export default function UpdateMeetupScreen() {
       await loadMeetupSpots(location);
 
       // If exchange has existing meetup spot, pre-select it
-      if (exchangeData.meetup_spot_id) {
-        const existingSpot = meetupSpots.find(s => s.id === exchangeData.meetup_spot_id);
+      if (exchangeData.meetupSpotId) {
+        const existingSpot = meetupSpots.find(s => s.id === exchangeData.meetupSpotId);
         if (existingSpot) {
           setSelectedMeetupSpot(existingSpot);
         }

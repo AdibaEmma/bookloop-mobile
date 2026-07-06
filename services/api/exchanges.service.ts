@@ -17,55 +17,58 @@ import apiClient from './client';
 import { AxiosResponse } from 'axios';
 import { Listing } from './listings.service';
 
+// Response shapes are camelCase because the API client interceptor camelCases
+// every response key. The request DTOs below stay snake_case (no request
+// transform; the backend expects snake_case).
 interface ExchangeUser {
   id: string;
-  first_name: string;
-  last_name: string;
-  profile_picture?: string;
+  firstName: string;
+  lastName: string;
+  profilePicture?: string;
   rating?: number;
 }
 
 interface Exchange {
   id: string;
-  listing_id: string;
+  listingId: string;
   listing?: Listing;
-  offered_listing_id?: string;
-  offered_listing?: Listing;
-  requester_id: string;
+  offeredListingId?: string;
+  offeredListing?: Listing;
+  requesterId: string;
   requester?: ExchangeUser;
-  owner_id: string;
+  ownerId: string;
   owner?: ExchangeUser;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  requester_message?: string;
-  owner_response?: string;
+  requesterMessage?: string;
+  ownerResponse?: string;
   // Meetup details
-  meetup_spot_id?: string;
-  meetup_spot_name?: string;
-  meetup_location?: {
+  meetupSpotId?: string;
+  meetupSpotName?: string;
+  meetupLocation?: {
     type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
   } | string; // Can be WKT string or GeoJSON object
-  meetup_address?: string;
-  meetup_time?: string;
+  meetupAddress?: string;
+  meetupTime?: string;
   // Confirmation flags
-  requester_confirmed_meetup: boolean;
-  owner_confirmed_meetup: boolean;
-  requester_confirmed_completion: boolean;
-  owner_confirmed_completion: boolean;
-  completed_at?: string;
-  created_at: string;
-  updated_at: string;
+  requesterConfirmedMeetup: boolean;
+  ownerConfirmedMeetup: boolean;
+  requesterConfirmedCompletion: boolean;
+  ownerConfirmedCompletion: boolean;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Rating {
   id: string;
-  exchange_id: string;
-  rater_id: string;
-  rated_user_id: string;
+  exchangeId: string;
+  raterId: string;
+  ratedUserId: string;
   rating: number; // 1-5
   review?: string;
-  is_visible: boolean;
-  created_at: string;
+  isVisible: boolean;
+  createdAt: string;
 }
 
 interface ProposedMeetup {

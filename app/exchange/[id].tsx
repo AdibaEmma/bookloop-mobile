@@ -66,8 +66,8 @@ export default function ExchangeDetailScreen() {
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Determine user role
-  const isOwner = exchange?.owner_id === user?.id;
-  const isRequester = exchange?.requester_id === user?.id;
+  const isOwner = exchange?.ownerId === user?.id;
+  const isRequester = exchange?.requesterId === user?.id;
   const otherUser = isOwner ? exchange?.requester : exchange?.owner;
 
   /**
@@ -100,9 +100,9 @@ export default function ExchangeDetailScreen() {
    * Parse meetup location from various formats
    */
   const getMeetupCoordinates = (): { latitude: number; longitude: number } | null => {
-    if (!exchange?.meetup_location) return null;
+    if (!exchange?.meetupLocation) return null;
 
-    const location = exchange.meetup_location;
+    const location = exchange.meetupLocation;
 
     // Handle string format (WKT)
     if (typeof location === 'string') {
@@ -189,7 +189,7 @@ export default function ExchangeDetailScreen() {
         icon: 'paper-plane',
         completed: true,
         active: exchange.status === 'pending',
-        timestamp: exchange.created_at,
+        timestamp: exchange.createdAt,
       },
       {
         key: 'accepted',
@@ -197,15 +197,15 @@ export default function ExchangeDetailScreen() {
         description: 'Request accepted by owner',
         icon: 'checkmark-circle',
         completed: ['accepted', 'completed'].includes(exchange.status),
-        active: exchange.status === 'accepted' && !exchange.requester_confirmed_meetup && !exchange.owner_confirmed_meetup,
+        active: exchange.status === 'accepted' && !exchange.requesterConfirmedMeetup && !exchange.ownerConfirmedMeetup,
       },
       {
         key: 'meetup_confirmed',
         label: 'Meetup Confirmed',
         description: 'Both parties confirmed meetup',
         icon: 'location',
-        completed: exchange.requester_confirmed_meetup && exchange.owner_confirmed_meetup,
-        active: exchange.status === 'accepted' && (exchange.requester_confirmed_meetup || exchange.owner_confirmed_meetup),
+        completed: exchange.requesterConfirmedMeetup && exchange.ownerConfirmedMeetup,
+        active: exchange.status === 'accepted' && (exchange.requesterConfirmedMeetup || exchange.ownerConfirmedMeetup),
       },
       {
         key: 'completed',
@@ -214,7 +214,7 @@ export default function ExchangeDetailScreen() {
         icon: 'trophy',
         completed: exchange.status === 'completed',
         active: false,
-        timestamp: exchange.completed_at,
+        timestamp: exchange.completedAt,
       },
     ];
 
@@ -400,7 +400,7 @@ export default function ExchangeDetailScreen() {
     const coords = getMeetupCoordinates();
     if (!coords) return;
 
-    const address = encodeURIComponent(exchange?.meetup_address || '');
+    const address = encodeURIComponent(exchange?.meetupAddress || '');
     const scheme = Platform.select({
       ios: `maps:0,0?q=${address}@${coords.latitude},${coords.longitude}`,
       android: `geo:0,0?q=${coords.latitude},${coords.longitude}(${address})`,
@@ -504,13 +504,13 @@ export default function ExchangeDetailScreen() {
             {otherUser && (
               <View style={styles.userRow}>
                 <Avatar
-                  imageUrl={otherUser.profile_picture}
-                  name={`${otherUser.first_name || ''} ${otherUser.last_name || ''}`}
+                  imageUrl={otherUser.profilePicture}
+                  name={`${otherUser.firstName || ''} ${otherUser.lastName || ''}`}
                   size="lg"
                 />
                 <View style={styles.userInfo}>
                   <Text style={[styles.userName, { color: colors.text }]}>
-                    {otherUser.first_name || 'User'} {otherUser.last_name || ''}
+                    {otherUser.firstName || 'User'} {otherUser.lastName || ''}
                   </Text>
                   <View style={styles.karmaRow}>
                     <Ionicons name="star" size={16} color={BookLoopColors.mutedGold} />
@@ -523,13 +523,13 @@ export default function ExchangeDetailScreen() {
             )}
 
             {/* Message */}
-            {exchange.requester_message && (
+            {exchange.requesterMessage && (
               <View style={[styles.messageBox, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.messageLabel, { color: colors.textSecondary }]}>
                   {isOwner ? 'Message from requester' : 'Your message'}
                 </Text>
                 <Text style={[styles.messageText, { color: colors.text }]}>
-                  "{exchange.requester_message}"
+                  "{exchange.requesterMessage}"
                 </Text>
               </View>
             )}
@@ -544,15 +544,15 @@ export default function ExchangeDetailScreen() {
                 </View>
                 <View style={styles.nextStepsContent}>
                   <Text style={[styles.nextStepsTitle, { color: colors.text }]}>
-                    {!exchange.requester_confirmed_meetup || !exchange.owner_confirmed_meetup
+                    {!exchange.requesterConfirmedMeetup || !exchange.ownerConfirmedMeetup
                       ? 'Next: Confirm Meetup Details'
                       : 'Ready for Exchange!'}
                   </Text>
                   <Text style={[styles.nextStepsDesc, { color: colors.textSecondary }]}>
-                    {!exchange.meetup_location || !exchange.meetup_time
+                    {!exchange.meetupLocation || !exchange.meetupTime
                       ? 'Set a meetup location and time, then both parties must confirm.'
-                      : !exchange.requester_confirmed_meetup || !exchange.owner_confirmed_meetup
-                      ? `${exchange.requester_confirmed_meetup ? (isRequester ? 'You confirmed' : 'Requester confirmed') : (isRequester ? 'You need to confirm' : 'Waiting for requester')}. ${exchange.owner_confirmed_meetup ? (isOwner ? 'You confirmed' : 'Owner confirmed') : (isOwner ? 'You need to confirm' : 'Waiting for owner')}.`
+                      : !exchange.requesterConfirmedMeetup || !exchange.ownerConfirmedMeetup
+                      ? `${exchange.requesterConfirmedMeetup ? (isRequester ? 'You confirmed' : 'Requester confirmed') : (isRequester ? 'You need to confirm' : 'Waiting for requester')}. ${exchange.ownerConfirmedMeetup ? (isOwner ? 'You confirmed' : 'Owner confirmed') : (isOwner ? 'You need to confirm' : 'Waiting for owner')}.`
                       : 'Meet at the agreed location and use QR code handover to complete the exchange.'}
                   </Text>
                 </View>
@@ -566,8 +566,8 @@ export default function ExchangeDetailScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Meetup Details</Text>
               {/* Update Meetup Button - Only show if accepted and user hasn't confirmed yet */}
               {exchange.status === 'accepted' &&
-               ((isRequester && !exchange.requester_confirmed_meetup) ||
-                (isOwner && !exchange.owner_confirmed_meetup)) && (
+               ((isRequester && !exchange.requesterConfirmedMeetup) ||
+                (isOwner && !exchange.ownerConfirmedMeetup)) && (
                 <TouchableOpacity
                   onPress={() => router.push({
                     pathname: '/exchange/update-meetup',
@@ -577,14 +577,14 @@ export default function ExchangeDetailScreen() {
                 >
                   <Ionicons name="create-outline" size={16} color={BookLoopColors.burntOrange} />
                   <Text style={[styles.updateMeetupText, { color: BookLoopColors.burntOrange }]}>
-                    {exchange.meetup_location ? 'Update' : 'Set Details'}
+                    {exchange.meetupLocation ? 'Update' : 'Set Details'}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {/* No meetup set warning */}
-            {exchange.status === 'accepted' && (!exchange.meetup_location || !exchange.meetup_time) && (
+            {exchange.status === 'accepted' && (!exchange.meetupLocation || !exchange.meetupTime) && (
               <View style={[styles.noMeetupWarning, { backgroundColor: BookLoopColors.warning + '15' }]}>
                 <Ionicons name="warning" size={18} color={BookLoopColors.warning} />
                 <Text style={[styles.noMeetupText, { color: colors.text }]}>
@@ -632,7 +632,7 @@ export default function ExchangeDetailScreen() {
                 <View style={styles.meetupTextContainer}>
                   <Text style={[styles.meetupLabel, { color: colors.textSecondary }]}>Location</Text>
                   <Text style={[styles.meetupValue, { color: colors.text }]}>
-                    {exchange.meetup_spot_name || exchange.meetup_address || 'Not set'}
+                    {exchange.meetupSpotName || exchange.meetupAddress || 'Not set'}
                   </Text>
                 </View>
               </View>
@@ -644,7 +644,7 @@ export default function ExchangeDetailScreen() {
                 <View style={styles.meetupTextContainer}>
                   <Text style={[styles.meetupLabel, { color: colors.textSecondary }]}>Date</Text>
                   <Text style={[styles.meetupValue, { color: colors.text }]}>
-                    {formatDate(exchange.meetup_time)}
+                    {formatDate(exchange.meetupTime)}
                   </Text>
                 </View>
               </View>
@@ -656,7 +656,7 @@ export default function ExchangeDetailScreen() {
                 <View style={styles.meetupTextContainer}>
                   <Text style={[styles.meetupLabel, { color: colors.textSecondary }]}>Time</Text>
                   <Text style={[styles.meetupValue, { color: colors.text }]}>
-                    {formatTime(exchange.meetup_time) || 'Not set'}
+                    {formatTime(exchange.meetupTime) || 'Not set'}
                   </Text>
                 </View>
               </View>
@@ -670,22 +670,22 @@ export default function ExchangeDetailScreen() {
                 </Text>
                 <View style={styles.confirmationRow}>
                   <Ionicons
-                    name={exchange.requester_confirmed_meetup ? 'checkmark-circle' : 'ellipse-outline'}
+                    name={exchange.requesterConfirmedMeetup ? 'checkmark-circle' : 'ellipse-outline'}
                     size={20}
-                    color={exchange.requester_confirmed_meetup ? BookLoopColors.success : colors.textSecondary}
+                    color={exchange.requesterConfirmedMeetup ? BookLoopColors.success : colors.textSecondary}
                   />
                   <Text style={[styles.confirmationText, { color: colors.text }]}>
-                    {isRequester ? 'You' : 'Requester'} {exchange.requester_confirmed_meetup ? 'confirmed' : 'not confirmed'}
+                    {isRequester ? 'You' : 'Requester'} {exchange.requesterConfirmedMeetup ? 'confirmed' : 'not confirmed'}
                   </Text>
                 </View>
                 <View style={styles.confirmationRow}>
                   <Ionicons
-                    name={exchange.owner_confirmed_meetup ? 'checkmark-circle' : 'ellipse-outline'}
+                    name={exchange.ownerConfirmedMeetup ? 'checkmark-circle' : 'ellipse-outline'}
                     size={20}
-                    color={exchange.owner_confirmed_meetup ? BookLoopColors.success : colors.textSecondary}
+                    color={exchange.ownerConfirmedMeetup ? BookLoopColors.success : colors.textSecondary}
                   />
                   <Text style={[styles.confirmationText, { color: colors.text }]}>
-                    {isOwner ? 'You' : 'Owner'} {exchange.owner_confirmed_meetup ? 'confirmed' : 'not confirmed'}
+                    {isOwner ? 'You' : 'Owner'} {exchange.ownerConfirmedMeetup ? 'confirmed' : 'not confirmed'}
                   </Text>
                 </View>
               </View>
@@ -795,8 +795,8 @@ export default function ExchangeDetailScreen() {
             {exchange.status === 'accepted' && (
               <>
                 {/* Stage 1: Confirm meetup if user hasn't confirmed yet */}
-                {((isRequester && !exchange.requester_confirmed_meetup) ||
-                  (isOwner && !exchange.owner_confirmed_meetup)) && (
+                {((isRequester && !exchange.requesterConfirmedMeetup) ||
+                  (isOwner && !exchange.ownerConfirmedMeetup)) && (
                   <GlassButton
                     title="Confirm Meetup"
                     onPress={handleConfirmMeetup}
@@ -809,7 +809,7 @@ export default function ExchangeDetailScreen() {
                 )}
 
                 {/* Stage 2: After meetup confirmed, show completion options */}
-                {exchange.requester_confirmed_meetup && exchange.owner_confirmed_meetup && (
+                {exchange.requesterConfirmedMeetup && exchange.ownerConfirmedMeetup && (
                   <>
                     {/* Show QR handover option */}
                     <GlassButton
@@ -822,8 +822,8 @@ export default function ExchangeDetailScreen() {
                     />
 
                     {/* Manual completion confirmation */}
-                    {((isRequester && !exchange.requester_confirmed_completion) ||
-                      (isOwner && !exchange.owner_confirmed_completion)) && (
+                    {((isRequester && !exchange.requesterConfirmedCompletion) ||
+                      (isOwner && !exchange.ownerConfirmedCompletion)) && (
                       <GlassButton
                         title="Confirm Exchange Complete"
                         onPress={handleConfirmCompletion}
@@ -836,8 +836,8 @@ export default function ExchangeDetailScreen() {
                     )}
 
                     {/* Show waiting status if one party confirmed */}
-                    {((isRequester && exchange.requester_confirmed_completion && !exchange.owner_confirmed_completion) ||
-                      (isOwner && exchange.owner_confirmed_completion && !exchange.requester_confirmed_completion)) && (
+                    {((isRequester && exchange.requesterConfirmedCompletion && !exchange.ownerConfirmedCompletion) ||
+                      (isOwner && exchange.ownerConfirmedCompletion && !exchange.requesterConfirmedCompletion)) && (
                       <View style={styles.waitingStatus}>
                         <Ionicons name="hourglass" size={20} color={BookLoopColors.warning} />
                         <Text style={[styles.waitingText, { color: colors.textSecondary }]}>

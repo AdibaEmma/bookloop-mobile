@@ -112,10 +112,10 @@ export default function HandoverScreen() {
       try {
         const data = await exchangesService.getExchangeById(exchangeId);
         setRequesterName(
-          `${data.requester?.first_name ?? ''} ${data.requester?.last_name ?? ''}`.trim() || 'User'
+          `${data.requester?.firstName ?? ''} ${data.requester?.lastName ?? ''}`.trim() || 'User'
         );
         setOwnerName(
-          `${data.owner?.first_name ?? ''} ${data.owner?.last_name ?? ''}`.trim() || 'User'
+          `${data.owner?.firstName ?? ''} ${data.owner?.lastName ?? ''}`.trim() || 'User'
         );
         setBookTitle((data.listing as any)?.book?.title || 'the book');
       } catch (error) {
