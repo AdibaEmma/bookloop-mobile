@@ -282,7 +282,11 @@ apiClient.interceptors.response.use(
           await TokenManager.clearTokens();
           await TokenManager.clearUserData();
           processQueue(new Error('No refresh token available'), null);
-          return Promise.reject(new Error('Session expired. Please login again.'));
+          const expired = new Error(
+            'Session expired. Please login again.',
+          ) as Error & { sessionExpired?: boolean };
+          expired.sessionExpired = true;
+          return Promise.reject(expired);
         }
 
         // Call refresh endpoint
@@ -331,7 +335,14 @@ apiClient.interceptors.response.use(
           console.warn('[API] Refresh token rejected — ending session');
           await TokenManager.clearTokens();
           await TokenManager.clearUserData();
-          return Promise.reject(new Error('Session expired. Please login again.'));
+          // Tag the error so callers (e.g. session restore) can distinguish a
+          // genuine expiry from a transient failure — the thrown Error has no
+          // `.response`, so a status check alone would miss it.
+          const expired = new Error(
+            'Session expired. Please login again.',
+          ) as Error & { sessionExpired?: boolean };
+          expired.sessionExpired = true;
+          return Promise.reject(expired);
         }
 
         console.warn(

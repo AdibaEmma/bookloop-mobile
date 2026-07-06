@@ -64,7 +64,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(currentUser);
         } catch (err: any) {
           const status = err?.response?.status;
-          if (status === 401 || status === 403) {
+          // A rejected refresh surfaces as a tagged Error (no `.response`), so
+          // check the marker as well as the status.
+          if (err?.sessionExpired || status === 401 || status === 403) {
             // Genuine auth failure (refresh token rejected) → sign out.
             await TokenManager.clearTokens();
             await TokenManager.clearUserData();
