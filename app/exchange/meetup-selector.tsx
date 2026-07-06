@@ -30,7 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
-import { GlassCard, GlassButton } from '@/components/ui';
+import { GlassCard, GlassButton, ScreenHeader } from '@/components/ui';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { meetupSpotsService, MeetupSpot as ApiMeetupSpot } from '@/services/api';
 import {
@@ -349,17 +349,17 @@ export default function MeetupSelectorScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Choose Meetup Location',
-          headerShown: true,
-          headerTransparent: true,
-          headerStyle: { backgroundColor: 'transparent' },
-          headerTintColor: colors.text,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
+        {/* Floating header over the map */}
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}
+          pointerEvents="box-none"
+        >
+          <ScreenHeader title="Choose a spot" transparent />
+        </View>
+
         {/* Map View */}
         <View style={styles.mapContainer}>
           <MapView

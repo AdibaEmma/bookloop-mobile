@@ -28,7 +28,7 @@ import {
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton, BookCard } from '@/components/ui';
+import { GlassCard, GlassButton, BookCard, ScreenHeader } from '@/components/ui';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -417,24 +417,7 @@ export default function MyListingsScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'My Listings',
-          headerShown: true,
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={handleCreateListing}
-              style={styles.headerButton}
-            >
-              <Ionicons
-                name="add-circle"
-                size={28}
-                color={BookLoopColors.burntOrange}
-              />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
         {/* Background Gradient */}
@@ -447,7 +430,17 @@ export default function MyListingsScreen() {
           style={StyleSheet.absoluteFillObject}
         />
 
-        <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader
+          title="My listings"
+          transparent
+          right={
+            <TouchableOpacity onPress={handleCreateListing} accessibilityLabel="List a book" hitSlop={8}>
+              <Ionicons name="add-circle" size={28} color={BookLoopColors.coffeeBrown} />
+            </TouchableOpacity>
+          }
+        />
+
+        <View style={styles.safeArea}>
           <FlatList
             data={filteredListings}
             renderItem={renderListing}
@@ -464,7 +457,7 @@ export default function MyListingsScreen() {
               />
             }
           />
-        </SafeAreaView>
+        </View>
       </View>
     </>
   );

@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { GlassCard, GlassButton } from '@/components/ui';
+import { GlassCard, GlassButton, ScreenHeader } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   exchangesService,
@@ -383,12 +383,7 @@ export default function UpdateMeetupScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Update Meetup',
-          headerShown: true,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
         <LinearGradient
@@ -399,6 +394,8 @@ export default function UpdateMeetupScreen() {
           }
           style={StyleSheet.absoluteFillObject}
         />
+
+        <ScreenHeader title="Update meetup" transparent />
 
         <ScrollView
           style={styles.scrollView}

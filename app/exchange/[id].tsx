@@ -30,7 +30,7 @@ import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-rou
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GlassCard, GlassButton, Avatar } from '@/components/ui';
+import { GlassCard, GlassButton, Avatar, ScreenHeader } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import { exchangesService, Exchange } from '@/services/api';
@@ -443,12 +443,7 @@ export default function ExchangeDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Exchange Details',
-          headerShown: true,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
         <LinearGradient
@@ -459,6 +454,8 @@ export default function ExchangeDetailScreen() {
           }
           style={StyleSheet.absoluteFillObject}
         />
+
+        <ScreenHeader title="Exchange" transparent />
 
         <ScrollView
           style={styles.scrollView}

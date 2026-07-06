@@ -22,6 +22,7 @@ export { FilterChips } from './FilterChips';
 export type { FilterChip } from './FilterChips';
 export { EmptyState } from './EmptyState';
 export { Avatar } from './Avatar';
+export { ScreenHeader } from './ScreenHeader';
 export { SplashScreen } from './SplashScreen';
 export { Alert } from './Alert';
 export { AlertManager } from './AlertManager';

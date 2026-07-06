@@ -24,7 +24,7 @@ import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { GlassCard, GlassButton, GlassInput, Avatar } from '@/components/ui';
+import { GlassCard, GlassButton, GlassInput, Avatar, ScreenHeader } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -191,12 +191,7 @@ export default function EditProfileScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Edit Profile',
-          headerShown: true,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
         <LinearGradient
@@ -207,6 +202,8 @@ export default function EditProfileScreen() {
           }
           style={StyleSheet.absoluteFillObject}
         />
+
+        <ScreenHeader title="Edit profile" transparent />
 
         <ScrollView
           style={styles.scrollView}
