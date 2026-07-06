@@ -63,7 +63,7 @@ const TIER = {
 
 export default function ProfileTab() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [listings, setListings] = useState<any[]>([]);
@@ -90,7 +90,18 @@ export default function ProfileTab() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { if (user) load(); }, [user, load]));
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        load();
+        // Re-fetch the user so plan/karma changes (e.g. after an upgrade) show
+        // when returning to this tab.
+        refreshUser().catch(() => {});
+      }
+      // refreshUser is intentionally excluded — it's stable and would re-run the effect.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, load]),
+  );
 
   // Turn the stored coordinates into a friendly place name for the header.
   useEffect(() => {

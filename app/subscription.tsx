@@ -27,6 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ChevronLeft, Check, Crown, Layers, ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ConfirmModal } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { paymentsService, Subscription, SubscriptionPlan } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -44,6 +45,7 @@ const rankOf = (tier?: string) => TIER_RANK[tier ?? 'free'] ?? 0;
 export default function SubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { refreshUser } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -192,6 +194,9 @@ export default function SubscriptionScreen() {
           tier,
           payment_reference: reference,
         });
+
+        // Refresh the stored user so the plan pill (profile, etc.) updates now.
+        await refreshUser().catch(() => {});
 
         Alert.alert(
           'Success!',
