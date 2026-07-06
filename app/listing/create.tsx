@@ -65,6 +65,10 @@ export default function CreateListingScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { user } = useAuth();
+  // Max exchange-preference books by tier — one source of truth for both the
+  // picker's cap and the "add" button's disabled state.
+  const maxPreferences =
+    user?.subscriptionTier === 'premium' ? 3 : user?.subscriptionTier === 'basic' ? 2 : 1;
 
   // Book info
   const [isbn, setIsbn] = useState('');
@@ -668,7 +672,7 @@ export default function CreateListingScreen() {
           setShowPreferenceSelector(false);
         }}
         existingBookIds={exchangePreferences.map(b => b.id)}
-        maxBooks={user?.subscriptionTier === 'premium' ? 3 : user?.subscriptionTier === 'basic' ? 2 : 1}
+        maxBooks={maxPreferences}
         placeholder="Search by title, author, or both..."
       />
 
@@ -1090,7 +1094,7 @@ export default function CreateListingScreen() {
                 variant={exchangePreferences.length > 0 ? 'secondary' : 'primary'}
                 size="md"
                 icon="add-circle"
-                disabled={exchangePreferences.length >= 3} // Max 3 for premium
+                disabled={exchangePreferences.length >= maxPreferences} // cap by tier
               />
 
               {exchangePreferences.length === 0 && (

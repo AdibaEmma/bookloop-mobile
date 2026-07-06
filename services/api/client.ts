@@ -313,9 +313,13 @@ apiClient.interceptors.response.use(
 
         // Call refresh endpoint
         console.log('[API] Attempting token refresh');
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        });
+        const response = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refresh_token: refreshToken },
+          // Bound the refresh so a half-open connection can't wedge isRefreshing
+          // and park every queued 401 indefinitely.
+          { timeout: 15000 },
+        );
 
         // Handle response - backend wraps data in 'result' and tokens are in 'tokens' object
         const data = response.data.result || response.data;
