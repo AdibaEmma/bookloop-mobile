@@ -6,36 +6,39 @@
 
 import apiClient from './client';
 
+// NOTE: response shapes are camelCase because the API client interceptor
+// camelCases every response key. Request bodies below stay snake_case (there is
+// no request transform; the backend DTOs expect snake_case).
 export interface Payment {
   id: string;
-  user_id: string;
-  exchange_id?: string;
-  subscription_id?: string;
+  userId: string;
+  exchangeId?: string;
+  subscriptionId?: string;
   purpose: 'subscription' | 'exchange' | 'other';
   amount: number;
   method: 'card' | 'momo' | 'both';
   status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';
   reference: string;
   provider: 'paystack' | 'hubtel';
-  provider_reference?: string;
+  providerReference?: string;
   metadata?: Record<string, any>;
-  failure_reason?: string;
-  verified_at?: string;
-  created_at: string;
-  updated_at: string;
+  failureReason?: string;
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Subscription {
   id: string;
-  user_id: string;
+  userId: string;
   tier: 'free' | 'basic' | 'premium';
-  starts_at: string;
-  expires_at: string;
-  auto_renew: boolean;
-  active_listings_count: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  startsAt: string;
+  expiresAt: string;
+  autoRenew: boolean;
+  activeListingsCount: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SubscriptionPlan {
@@ -54,7 +57,7 @@ export interface PaymentsResponse {
   total: number;
   limit: number;
   offset: number;
-  has_more: boolean;
+  hasMore: boolean;
 }
 
 export interface InitializePaymentRequest {
@@ -66,10 +69,10 @@ export interface InitializePaymentRequest {
 }
 
 export interface InitializePaymentResponse {
-  payment_id: string;
+  paymentId: string;
   reference: string;
-  authorization_url: string;
-  access_code: string;
+  authorizationUrl: string;
+  accessCode: string;
 }
 
 export interface VerifyPaymentRequest {

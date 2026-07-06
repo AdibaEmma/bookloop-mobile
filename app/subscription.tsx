@@ -108,19 +108,21 @@ export default function SubscriptionScreen() {
     try {
       setIsUpgrading(true);
 
-      // Initialize payment
+      // Initialize payment for the amount the user actually agreed to — the
+      // billing toggle (monthly vs discounted yearly). The server maps this
+      // amount back to the tier + term, so the two can never disagree.
       const paymentData = await paymentsService.initializePayment({
-        amount: plan.price,
+        amount: effectivePrice(plan),
         method: 'card',
         purpose: 'subscription',
         subscription_id: currentSubscription?.id,
       });
 
       // Open Paystack checkout URL
-      const supported = await Linking.canOpenURL(paymentData.authorization_url);
+      const supported = await Linking.canOpenURL(paymentData.authorizationUrl);
 
       if (supported) {
-        await Linking.openURL(paymentData.authorization_url);
+        await Linking.openURL(paymentData.authorizationUrl);
 
         // Show instructions
         Alert.alert(
@@ -298,7 +300,7 @@ export default function SubscriptionScreen() {
                   <Text style={styles.summaryLabel}>Current plan</Text>
                   <Text style={styles.summaryTier}>{cap(currentTier)}</Text>
                   <Text style={styles.summarySub}>
-                    {currentSubscription?.active_listings_count ?? 0} of {usedLimitLabel} active listings used
+                    {currentSubscription?.activeListingsCount ?? 0} of {usedLimitLabel} active listings used
                   </Text>
                 </View>
               </LinearGradient>
