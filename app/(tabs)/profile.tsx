@@ -35,6 +35,7 @@ import {
   Crown,
   LogOut,
   Award,
+  Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
@@ -163,10 +164,9 @@ export default function ProfileTab() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 28 }}>
         {/* Cover banner */}
         <LinearGradient
-          colors={['#E6C08C', '#EFD9B4', '#FBEFD9']}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
+          colors={['#F4E1C1', '#D8B48A']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
           style={[styles.cover, { paddingTop: insets.top + 6 }]}
         >
           <View style={styles.bannerActions}>
@@ -198,9 +198,11 @@ export default function ProfileTab() {
                   <Text style={styles.avatarText}>{initials}</Text>
                 </View>
               )}
-              <View style={styles.karmaBadge}>
-                <Award size={10} color={BookLoopColors.deepEspresso} strokeWidth={2.4} />
-                <Text style={styles.karmaBadgeText}>{karma}</Text>
+              <View style={styles.karmaBadgeWrap} pointerEvents="none">
+                <View style={styles.karmaBadge}>
+                  <Award size={10} color={BookLoopColors.deepEspresso} strokeWidth={2.4} fill={BookLoopColors.deepEspresso} />
+                  <Text style={styles.karmaBadgeText}>{karma}</Text>
+                </View>
               </View>
             </View>
             <View style={styles.nameCol}>
@@ -228,19 +230,21 @@ export default function ProfileTab() {
             <StatsStrip stats={stats} />
           </View>
 
-          {/* Subscription upsell (folded-in tier UI) */}
+          {/* Subscription upsell — calmer white card */}
           {tier === 'free' && (
             <TouchableOpacity
               style={styles.upsell}
               activeOpacity={0.85}
               onPress={() => router.push('/subscription')}
             >
-              <Crown size={18} color={BookLoopColors.goldDeep} strokeWidth={2} />
+              <View style={styles.upsellIcon}>
+                <Crown size={20} color="#B07D22" strokeWidth={2} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.upsellTitle}>Go Premium</Text>
-                <Text style={styles.upsellDesc}>{tierInfo.desc}</Text>
+                <Text style={styles.upsellDesc}>Boosts, unlimited listings &amp; more</Text>
               </View>
-              <ChevronRight size={18} color={C.active} strokeWidth={2} />
+              <ChevronRight size={18} color={C.idleTab} strokeWidth={2} />
             </TouchableOpacity>
           )}
 
@@ -315,6 +319,17 @@ export default function ProfileTab() {
                     </TouchableOpacity>
                   );
                 })}
+                <TouchableOpacity
+                  style={styles.addTile}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/listing/create')}
+                  accessibilityLabel="List a book"
+                >
+                  <View style={styles.addTileIcon}>
+                    <Plus size={22} color={C.active} strokeWidth={2.2} />
+                  </View>
+                  <Text style={styles.addTileText}>List a book</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.tabEmpty}>
@@ -387,16 +402,20 @@ const styles = StyleSheet.create({
   avatarFallback: { backgroundColor: BookLoopColors.coffeeBrown, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontFamily: 'Poppins-Bold', fontSize: 26, color: BookLoopColors.cream },
   avatarWrap: { position: 'relative' },
-  karmaBadge: {
+  karmaBadgeWrap: {
     position: 'absolute',
-    bottom: -2,
-    right: -4,
+    bottom: -7,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  karmaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
     backgroundColor: BookLoopColors.mutedGold,
     borderRadius: 11,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderWidth: 2,
     borderColor: BookLoopColors.cream,
@@ -443,16 +462,44 @@ const styles = StyleSheet.create({
   upsell: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
-    marginTop: 14,
-    backgroundColor: 'rgba(255,213,128,0.22)',
+    gap: 12,
+    marginTop: 12,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: BookLoopColors.mutedGold,
+    borderColor: '#F0D9A8',
     borderRadius: 14,
     padding: 13,
   },
-  upsellTitle: { fontFamily: 'Inter-Bold', fontSize: 13.5, color: C.text, fontWeight: '700' },
+  upsellIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,213,128,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upsellTitle: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.text, fontWeight: '700' },
   upsellDesc: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, marginTop: 1 },
+  addTile: {
+    width: '47.5%',
+    minHeight: 200,
+    borderWidth: 1.5,
+    borderColor: '#D4C0A0',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  addTileIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(139,94,60,0.09)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addTileText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600', color: C.active },
   tabs: {
     flexDirection: 'row',
     alignItems: 'center',
