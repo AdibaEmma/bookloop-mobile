@@ -21,10 +21,11 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton } from '@/components/ui';
+import { ChevronLeft, Check, Crown, Layers, ArrowUp } from 'lucide-react-native';
 import { paymentsService, Subscription, SubscriptionPlan } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -36,6 +37,7 @@ import {
 
 export default function SubscriptionScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -43,6 +45,8 @@ export default function SubscriptionScreen() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -59,6 +63,14 @@ export default function SubscriptionScreen() {
 
       setCurrentSubscription(subscription);
       setPlans(subscriptionPlans);
+
+      // Default the CTA to the recommended upgrade (Basic), else the first
+      // upgradeable plan above the current tier.
+      const upgradeable = subscriptionPlans.filter(
+        (p) => p.tier !== 'free' && p.tier !== subscription?.tier
+      );
+      const recommended = upgradeable.find((p) => p.tier === 'basic') || upgradeable[0];
+      setSelectedTier(recommended?.tier ?? null);
     } catch (error) {
       console.error('Failed to load subscription data:', error);
       Alert.alert('Error', 'Failed to load subscription information');
@@ -162,282 +174,223 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const getPlanBadgeColor = (tier: string) => {
-    switch (tier) {
-      case 'premium':
-        return BookLoopColors.mutedGold;
-      case 'basic':
-        return BookLoopColors.teal;
-      default:
-        return colors.textSecondary;
-    }
+  const planColor = (tier: string) =>
+    tier === 'basic' ? '#2F8C9E' : tier === 'premium' ? BookLoopColors.coffeeBrown : '#8B7355';
+
+  const effectivePrice = (plan: SubscriptionPlan) =>
+    billing === 'yearly' ? Math.round(plan.price * 12 * 0.8) : plan.price;
+
+  const planFeatures = (plan: SubscriptionPlan): string[] => {
+    const out: string[] = [];
+    const listings = plan.limits?.listings;
+    out.push(listings === -1 ? 'Unlimited active listings' : `Up to ${listings} active listings`);
+    const radius = plan.limits?.radius ?? 0;
+    out.push(radius >= 500 || radius === -1 ? 'Nationwide search' : `${radius}km search radius`);
+    (plan.features || []).forEach((f) => {
+      if (!out.includes(f)) out.push(f);
+    });
+    return out;
   };
 
   const renderPlanCard = (plan: SubscriptionPlan) => {
     const isCurrentPlan = currentSubscription?.tier === plan.tier;
-    const canDowngrade = plan.tier === 'free' && currentSubscription?.tier !== 'free';
+    const isSelected = selectedTier === plan.tier;
+    const isPopular = plan.tier === 'basic';
+    const isFree = plan.tier === 'free';
 
     return (
-      <GlassCard
+      <TouchableOpacity
         key={plan.tier}
-        variant="lg"
-        padding="lg"
+        activeOpacity={isCurrentPlan ? 1 : 0.9}
+        disabled={isCurrentPlan}
+        onPress={() => setSelectedTier(plan.tier)}
         style={[
           styles.planCard,
-          isCurrentPlan && {
-            borderWidth: 2,
-            borderColor: BookLoopColors.burntOrange,
-          },
+          isCurrentPlan && styles.planCardCurrent,
+          isSelected && !isCurrentPlan && styles.planCardSelected,
+          isPopular && !isCurrentPlan && !isSelected && styles.planCardPopular,
         ]}
       >
-        {isCurrentPlan && (
-          <View style={[styles.currentBadge, { backgroundColor: BookLoopColors.burntOrange }]}>
-            <Text style={styles.currentBadgeText}>Current Plan</Text>
+        {isPopular && !isCurrentPlan && (
+          <View style={styles.popularRibbon}>
+            <Text style={styles.popularRibbonText}>MOST POPULAR</Text>
           </View>
         )}
-
-        <View style={styles.planHeader}>
-          <Text style={[styles.planName, { color: getPlanBadgeColor(plan.tier) }]}>
-            {plan.name}
-          </Text>
-          <View style={styles.priceContainer}>
-            <Text style={[styles.price, { color: colors.text }]}>
-              GHS {plan.price}
-            </Text>
-            {plan.price > 0 && (
-              <Text style={[styles.pricePeriod, { color: colors.textSecondary }]}>
-                /month
-              </Text>
-            )}
+        <View style={styles.planTop}>
+          <View>
+            <Text style={[styles.planName, { color: planColor(plan.tier) }]}>{plan.name}</Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceValue}>GHS {effectivePrice(plan)}</Text>
+              {!isFree && (
+                <Text style={styles.pricePeriod}>{billing === 'yearly' ? '/year' : '/month'}</Text>
+              )}
+            </View>
           </View>
+          {isCurrentPlan ? (
+            <View style={styles.currentPill}>
+              <Check size={11} color={BookLoopColors.coffeeBrown} strokeWidth={2.8} />
+              <Text style={styles.currentPillText}>Current</Text>
+            </View>
+          ) : plan.tier === 'premium' ? (
+            <Crown size={22} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
+          ) : null}
         </View>
-
-        <View style={styles.limitsContainer}>
-          <View style={styles.limitItem}>
-            <Ionicons name="book" size={16} color={colors.textSecondary} />
-            <Text style={[styles.limitText, { color: colors.textSecondary }]}>
-              {plan.limits.listings === -1 ? 'Unlimited' : plan.limits.listings} active listings
-            </Text>
-          </View>
-          <View style={styles.limitItem}>
-            <Ionicons name="location" size={16} color={colors.textSecondary} />
-            <Text style={[styles.limitText, { color: colors.textSecondary }]}>
-              {plan.limits.radius}km search radius
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.featuresContainer}>
-          {plan.features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={18} color={BookLoopColors.teal} />
-              <Text style={[styles.featureText, { color: colors.text }]}>
-                {feature}
-              </Text>
+        <View style={styles.planDivider} />
+        <View style={styles.featureList}>
+          {planFeatures(plan).map((f, i) => (
+            <View key={i} style={styles.featureRow}>
+              <Check size={14} color="#3B9B7F" strokeWidth={2.8} />
+              <Text style={styles.featureText}>{f}</Text>
             </View>
           ))}
         </View>
-
-        {!isCurrentPlan && (
-          <GlassButton
-            title={canDowngrade ? 'Downgrade' : 'Upgrade'}
-            onPress={() => handleUpgrade(plan)}
-            variant={canDowngrade ? 'secondary' : 'primary'}
-            size="md"
-            loading={isUpgrading}
-            disabled={isUpgrading}
-            icon={canDowngrade ? 'arrow-down' : 'arrow-up'}
-          />
-        )}
-      </GlassCard>
+      </TouchableOpacity>
     );
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
-        <ActivityIndicator size="large" color={BookLoopColors.burntOrange} />
-      </View>
-    );
-  }
+  const currentTier = currentSubscription?.tier || 'free';
+  const currentPlan = plans.find((p) => p.tier === currentTier);
+  const usedLimit = currentPlan?.limits?.listings;
+  const usedLimitLabel = usedLimit === -1 ? '∞' : usedLimit ?? 3;
+  const selectedPlan = plans.find((p) => p.tier === selectedTier);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Subscription',
-          headerShown: true,
-        }}
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <LinearGradient
+        colors={[BookLoopColors.creamTop, BookLoopColors.cream]}
+        style={StyleSheet.absoluteFillObject}
       />
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Back">
+            <ChevronLeft size={20} color={BookLoopColors.deepEspresso} strokeWidth={2} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Subscription</Text>
+        </View>
 
-      <View style={styles.container}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.cream, BookLoopColors.lightPeach]
-              : [BookLoopColors.deepBrown, BookLoopColors.charcoal]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Current Status */}
-          <GlassCard variant="lg" padding="lg">
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Current Subscription
-            </Text>
-
-            <View style={styles.statusContainer}>
-              <View style={styles.statusInfo}>
-                <Text style={[styles.currentTier, { color: BookLoopColors.burntOrange }]}>
-                  {currentSubscription?.tier.toUpperCase()}
-                </Text>
-                <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-                  {currentSubscription?.active_listings_count || 0} active listings
-                </Text>
-                {currentSubscription?.tier !== 'free' && (
-                  <Text style={[styles.expiryText, { color: colors.textSecondary }]}>
-                    {currentSubscription?.auto_renew ? 'Renews' : 'Expires'} on{' '}
-                    {new Date(currentSubscription?.expires_at || '').toLocaleDateString()}
+        {isLoading ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color={BookLoopColors.coffeeBrown} />
+          </View>
+        ) : (
+          <>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              {/* Current plan summary */}
+              <LinearGradient
+                colors={['#8B5E3C', '#6E4A2E']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.summary}
+              >
+                <View style={styles.summaryIcon}>
+                  <Layers size={23} color={BookLoopColors.mutedGold} strokeWidth={2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryLabel}>Current plan</Text>
+                  <Text style={styles.summaryTier}>{cap(currentTier)}</Text>
+                  <Text style={styles.summarySub}>
+                    {currentSubscription?.active_listings_count ?? 0} of {usedLimitLabel} active listings used
                   </Text>
-                )}
+                </View>
+              </LinearGradient>
+
+              {/* Billing toggle */}
+              <View style={styles.toggle}>
+                {(['monthly', 'yearly'] as const).map((b) => {
+                  const on = billing === b;
+                  return (
+                    <TouchableOpacity
+                      key={b}
+                      style={[styles.toggleItem, on && styles.toggleItemOn]}
+                      onPress={() => setBilling(b)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.toggleText, { color: on ? BookLoopColors.deepEspresso : '#8B7355' }]}>
+                        {b === 'monthly' ? 'Monthly' : 'Yearly'}
+                      </Text>
+                      {b === 'yearly' && (
+                        <View style={styles.savePill}>
+                          <Text style={styles.savePillText}>−20%</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </View>
-          </GlassCard>
 
-          {/* Plans */}
-          <Text style={[styles.plansHeader, { color: colors.text }]}>
-            Available Plans
-          </Text>
+              <Text style={styles.plansHeading}>Available plans</Text>
+              {plans.map((plan) => renderPlanCard(plan))}
+            </ScrollView>
 
-          {plans.map((plan) => renderPlanCard(plan))}
-        </ScrollView>
-      </View>
-    </>
+            {/* Sticky upgrade CTA */}
+            {selectedPlan && currentTier !== selectedPlan.tier && (
+              <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
+                <TouchableOpacity
+                  style={styles.upgradeBtn}
+                  activeOpacity={0.9}
+                  disabled={isUpgrading}
+                  onPress={() => handleUpgrade(selectedPlan)}
+                >
+                  {isUpgrading ? (
+                    <ActivityIndicator color={BookLoopColors.cream} />
+                  ) : (
+                    <>
+                      <ArrowUp size={18} color={BookLoopColors.cream} strokeWidth={2.2} />
+                      <Text style={styles.upgradeBtnText}>
+                        Upgrade to {selectedPlan.name} · GHS {effectivePrice(selectedPlan)}/
+                        {billing === 'yearly' ? 'yr' : 'mo'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    paddingBottom: Spacing['2xl'],
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
-    marginBottom: Spacing.md,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  statusInfo: {
-    flex: 1,
-  },
-  currentTier: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    marginBottom: 4,
-  },
-  statusText: {
-    fontSize: Typography.fontSize.sm,
-    marginBottom: 2,
-  },
-  expiryText: {
-    fontSize: Typography.fontSize.xs,
-  },
-  plansHeader: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
-    marginTop: Spacing.md,
-    paddingHorizontal: Spacing.xs,
-  },
-  planCard: {
-    position: 'relative',
-  },
-  currentBadge: {
-    position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  currentBadgeText: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.semibold,
-  },
-  planHeader: {
-    marginBottom: Spacing.md,
-  },
-  planName: {
-    fontSize: Typography.fontSize['2xl'],
-    fontWeight: Typography.fontWeight.bold,
-    marginBottom: 4,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  price: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.semibold,
-  },
-  pricePeriod: {
-    fontSize: Typography.fontSize.sm,
-    marginLeft: 4,
-  },
-  limitsContainer: {
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  limitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  limitText: {
-    fontSize: Typography.fontSize.sm,
-  },
-  featuresContainer: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  featureText: {
-    fontSize: Typography.fontSize.sm,
-    flex: 1,
-  },
+  container: { flex: 1 },
+  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 8 },
+  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F1E7D6', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 17, fontWeight: '600', color: BookLoopColors.deepEspresso },
+  scrollContent: { paddingHorizontal: 18, paddingBottom: 24 },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, padding: 16 },
+  summaryIcon: { width: 46, height: 46, borderRadius: 13, backgroundColor: 'rgba(255,213,128,0.25)', alignItems: 'center', justifyContent: 'center' },
+  summaryLabel: { fontFamily: 'Inter-Medium', fontSize: 11.5, color: 'rgba(255,248,240,0.8)' },
+  summaryTier: { fontFamily: 'Poppins-Bold', fontSize: 19, fontWeight: '700', color: BookLoopColors.cream, marginTop: 1 },
+  summarySub: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: 'rgba(255,248,240,0.82)', marginTop: 2 },
+  toggle: { flexDirection: 'row', gap: 4, marginTop: 16, padding: 4, backgroundColor: '#F1E7D6', borderRadius: 12 },
+  toggleItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 8, borderRadius: 9 },
+  toggleItemOn: { backgroundColor: '#fff', shadowColor: '#4A3528', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 1 },
+  toggleText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600' },
+  savePill: { backgroundColor: 'rgba(76,175,80,0.16)', paddingHorizontal: 6, borderRadius: 8 },
+  savePillText: { fontFamily: 'Inter-Bold', fontSize: 9, fontWeight: '700', color: '#3B7A3F' },
+  plansHeading: { fontFamily: 'Inter-Bold', fontSize: 14, fontWeight: '700', color: '#33251A', marginTop: 18, marginBottom: 12 },
+  planCard: { borderWidth: 1.5, borderColor: '#EFE2CE', borderRadius: 16, padding: 16, backgroundColor: '#fff', marginBottom: 14, position: 'relative' },
+  planCardCurrent: { opacity: 0.86 },
+  planCardSelected: { borderWidth: 2, borderColor: BookLoopColors.coffeeBrown, shadowColor: BookLoopColors.coffeeBrown, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 20, elevation: 5 },
+  planCardPopular: { borderWidth: 2, borderColor: BookLoopColors.coffeeBrown },
+  popularRibbon: { position: 'absolute', top: -10, left: 16, backgroundColor: BookLoopColors.coffeeBrown, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 9 },
+  popularRibbonText: { fontFamily: 'Inter-Bold', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4, color: BookLoopColors.cream },
+  planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  planName: { fontFamily: 'Poppins-Bold', fontSize: 17, fontWeight: '700' },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 },
+  priceValue: { fontFamily: 'Poppins-Bold', fontSize: 22, fontWeight: '800', color: BookLoopColors.deepEspresso },
+  pricePeriod: { fontFamily: 'Inter-Medium', fontSize: 12, color: '#8B7355' },
+  currentPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F1E7D6', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 20 },
+  currentPillText: { fontFamily: 'Inter-SemiBold', fontSize: 10.5, fontWeight: '600', color: BookLoopColors.coffeeBrown },
+  planDivider: { height: 1, backgroundColor: '#F2E9DA', marginVertical: 12 },
+  featureList: { gap: 9 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  featureText: { fontFamily: 'Inter-Medium', fontSize: 12.5, color: BookLoopColors.deepEspresso, flex: 1 },
+  footer: { paddingHorizontal: 18, paddingTop: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#EFE2CE' },
+  upgradeBtn: { height: 48, borderRadius: 12, backgroundColor: BookLoopColors.coffeeBrown, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, shadowColor: BookLoopColors.coffeeBrown, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 6 },
+  upgradeBtnText: { fontFamily: 'Inter-SemiBold', fontSize: 15, fontWeight: '600', color: BookLoopColors.cream },
 });
