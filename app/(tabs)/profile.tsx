@@ -457,7 +457,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bio: { fontFamily: 'Inter-Regular', fontSize: 12.5, color: C.bodyText, lineHeight: 19, marginTop: 12 },
+  bio: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12.5,
+    color: '#6B5240',
+    lineHeight: 18,
+    marginTop: 5,
+    marginLeft: 97, // align with the name column (avatar 82 + gap 15)
+  },
   statsWrap: { marginTop: 16 },
   upsell: {
     flexDirection: 'row',
