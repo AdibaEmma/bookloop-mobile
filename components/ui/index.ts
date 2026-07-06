@@ -23,6 +23,7 @@ export type { FilterChip } from './FilterChips';
 export { EmptyState } from './EmptyState';
 export { Avatar } from './Avatar';
 export { ScreenHeader } from './ScreenHeader';
+export { ConfirmModal } from './ConfirmModal';
 export { SplashScreen } from './SplashScreen';
 export { Alert } from './Alert';
 export { AlertManager } from './AlertManager';

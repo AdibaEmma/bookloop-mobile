@@ -26,6 +26,7 @@ import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ChevronLeft, Check, Crown, Layers, ArrowUp, ArrowDown } from 'lucide-react-native';
+import { ConfirmModal } from '@/components/ui';
 import { paymentsService, Subscription, SubscriptionPlan } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -51,6 +52,13 @@ export default function SubscriptionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [confirm, setConfirm] = useState<null | {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    onConfirm: () => void;
+  }>(null);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
   useEffect(() => {
@@ -135,26 +143,21 @@ export default function SubscriptionScreen() {
 
     if (plan.tier === 'free') {
       // Downgrade to the free plan.
-      Alert.alert(
-        'Downgrade to Free?',
-        'You will lose your paid features at the end of your current billing period.',
-        [
-          { text: `Keep ${cap(current)}`, style: 'cancel' },
-          {
-            text: 'Downgrade',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await paymentsService.cancelSubscription();
-                Alert.alert('Success', 'Subscription cancelled successfully');
-                loadData();
-              } catch (error) {
-                Alert.alert('Error', 'Failed to cancel subscription');
-              }
-            },
-          },
-        ]
-      );
+      setConfirm({
+        title: 'Downgrade to Free?',
+        message: 'You will lose your paid features at the end of your current billing period.',
+        confirmLabel: 'Downgrade',
+        cancelLabel: `Keep ${cap(current)}`,
+        onConfirm: async () => {
+          try {
+            await paymentsService.cancelSubscription();
+            Alert.alert('Success', 'Subscription cancelled successfully');
+            loadData();
+          } catch (error) {
+            Alert.alert('Error', 'Failed to cancel subscription');
+          }
+        },
+      });
       return;
     }
 
@@ -162,16 +165,16 @@ export default function SubscriptionScreen() {
     if (rankOf(plan.tier) < rankOf(current)) {
       const currentPlan = plans.find((p) => p.tier === current);
       const lost = (currentPlan?.features ?? []).filter((f) => !plan.features.includes(f));
-      Alert.alert(
-        `Downgrade to ${plan.name}?`,
-        `You're on ${cap(current)}. Switching to ${plan.name} gives up your ${cap(current)} benefits:` +
+      setConfirm({
+        title: `Downgrade to ${plan.name}?`,
+        message:
+          `You're on ${cap(current)}. Switching to ${plan.name} gives up your ${cap(current)} benefits:` +
           (lost.length ? `\n\n${lost.map((f) => `•  ${f}`).join('\n')}` : '') +
           `\n\nThe change takes effect once payment is confirmed.`,
-        [
-          { text: `Keep ${cap(current)}`, style: 'cancel' },
-          { text: 'Downgrade', style: 'destructive', onPress: () => proceedToPayment(plan) },
-        ]
-      );
+        confirmLabel: 'Downgrade',
+        cancelLabel: `Keep ${cap(current)}`,
+        onConfirm: () => proceedToPayment(plan),
+      });
       return;
     }
 
@@ -392,6 +395,21 @@ export default function SubscriptionScreen() {
           </>
         )}
       </SafeAreaView>
+
+      <ConfirmModal
+        visible={!!confirm}
+        title={confirm?.title ?? ''}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel}
+        cancelLabel={confirm?.cancelLabel}
+        destructive
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const run = confirm?.onConfirm;
+          setConfirm(null);
+          run?.();
+        }}
+      />
     </View>
   );
 }
