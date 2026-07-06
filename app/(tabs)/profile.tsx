@@ -219,10 +219,14 @@ export default function ProfileTab() {
               </View>
             </View>
           </View>
+          {!!user.bio && (
+            <Text style={styles.bio} numberOfLines={2}>
+              {user.bio}
+            </Text>
+          )}
         </LinearGradient>
 
         <View style={styles.hpad}>
-          {!!user.bio && <Text style={styles.bio}>{user.bio}</Text>}
 
           {/* Stats strip — warm tinted chips, shared with Home */}
           <View style={styles.statsWrap}>
