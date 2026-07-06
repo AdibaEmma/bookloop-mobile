@@ -34,7 +34,6 @@ import {
   Star,
   Crown,
   LogOut,
-  Award,
   Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -185,10 +184,8 @@ export default function ProfileTab() {
               <Settings size={17} color={C.text} strokeWidth={2} />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
 
-        <View style={styles.hpad}>
-          {/* Avatar + name row */}
+          {/* Identity — avatar + name, inside the header band */}
           <View style={styles.identityRow}>
             <View style={styles.avatarWrap}>
               {user.avatarUrl ? (
@@ -200,7 +197,7 @@ export default function ProfileTab() {
               )}
               <View style={styles.karmaBadgeWrap} pointerEvents="none">
                 <View style={styles.karmaBadge}>
-                  <Award size={10} color={BookLoopColors.deepEspresso} strokeWidth={2.4} fill={BookLoopColors.deepEspresso} />
+                  <Crown size={10} color="#5A3E1E" strokeWidth={2} fill="#5A3E1E" />
                   <Text style={styles.karmaBadgeText}>{karma}</Text>
                 </View>
               </View>
@@ -222,7 +219,9 @@ export default function ProfileTab() {
               </View>
             </View>
           </View>
+        </LinearGradient>
 
+        <View style={styles.hpad}>
           {!!user.bio && <Text style={styles.bio}>{user.bio}</Text>}
 
           {/* Stats strip — warm tinted chips, shared with Home */}
@@ -361,9 +360,8 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   cover: {
-    height: 132,
     paddingHorizontal: 18,
-    paddingBottom: 44,
+    paddingBottom: 20,
   },
   bannerActions: {
     alignSelf: 'flex-end',
@@ -384,8 +382,8 @@ const styles = StyleSheet.create({
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginTop: -38,
+    gap: 15,
+    marginTop: 8,
   },
   avatar: {
     width: 82,
@@ -427,7 +425,7 @@ const styles = StyleSheet.create({
     color: BookLoopColors.deepEspresso,
   },
   nameCol: { flex: 1 },
-  name: { fontFamily: 'Poppins-Bold', fontSize: 20, color: C.text },
+  name: { fontFamily: 'Poppins-Bold', fontSize: 21, color: C.text },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,18 +433,18 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 7,
   },
-  since: { fontFamily: 'Inter-Regular', fontSize: 11.5, color: C.muted, fontWeight: '500' },
+  since: { fontFamily: 'Inter-Medium', fontSize: 11.5, color: '#6B5240', fontWeight: '500' },
   tierPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(139,94,60,0.08)',
+    backgroundColor: 'rgba(255,248,240,0.7)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
-  tierText: { fontFamily: 'Inter-SemiBold', fontSize: 11, color: C.active, fontWeight: '600' },
+  tierText: { fontFamily: 'Inter-SemiBold', fontSize: 11, color: '#6B5240', fontWeight: '600' },
   editBtn: {
     width: 38,
     height: 38,
