@@ -458,11 +458,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bio: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12.5,
-    color: '#6B5240',
-    lineHeight: 18,
-    marginTop: 5,
+    // The reader's own voice — set in the literary italic so it reads as a
+    // personal note, clearly distinct from the factual "Reader since" line.
+    fontFamily: 'LibreBaskerville-Italic',
+    fontSize: 13,
+    color: '#4A3528',
+    lineHeight: 19,
+    marginTop: 10,
     marginLeft: 97, // align with the name column (avatar 82 + gap 15)
   },
   statsWrap: { marginTop: 16 },
