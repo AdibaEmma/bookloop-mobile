@@ -128,8 +128,9 @@ export const authService = {
       hasRefreshToken: !!savedRefreshToken,
     });
 
-    // Transform backend user data to match mobile User interface
-    // Note: response.data is already transformed to camelCase by client interceptor
+    // Store a basic user immediately so there's always a session, then upgrade
+    // it with the REAL profile (subscription tier etc.) — don't assume 'free',
+    // which would throttle a premium user until the next fetch.
     const user: User = {
       id: response.data.userId,
       email: response.data.email,
@@ -143,6 +144,12 @@ export const authService = {
       updatedAt: new Date().toISOString(),
     };
     await TokenManager.setUserData(user);
+
+    try {
+      await authService.getCurrentUser();
+    } catch {
+      // Non-fatal — a later getCurrentUser / restoreSession will hydrate it.
+    }
 
     return response.data;
   },
@@ -176,6 +183,13 @@ export const authService = {
         updatedAt: new Date().toISOString(),
       };
       await TokenManager.setUserData(user);
+
+      // Upgrade to the real profile (tier etc.) instead of assuming 'free'.
+      try {
+        await authService.getCurrentUser();
+      } catch {
+        // Non-fatal — a later getCurrentUser / restoreSession will hydrate it.
+      }
     }
 
     return response.data;
