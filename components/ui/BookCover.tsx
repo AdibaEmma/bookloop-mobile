@@ -77,24 +77,15 @@ export function BookCover({
     : { width: s.w, height: s.h, borderRadius: s.radius };
   const radius = fill ? 0 : s.radius;
 
-  if (coverImage && !imgFailed) {
-    return (
-      <View style={[dims, !fill && styles.shadow, style]}>
-        <Image
-          // iOS blocks insecure http image loads — upgrade to https.
-          source={{ uri: coverImage.replace(/^http:\/\//, 'https://') }}
-          style={{ width: '100%', height: '100%', borderRadius: radius }}
-          resizeMode="cover"
-          onError={() => setImgFailed(true)}
-        />
-      </View>
-    );
-  }
-
   const [face, shade] = jacketFor(title);
+  // Only treat it as a cover if it's a real http(s) URL — an empty/malformed value
+  // should draw the jacket, not a blank image.
+  const hasCover = !!coverImage && /^https?:\/\/\S+/i.test(coverImage.trim());
 
   return (
     <View style={[dims, !fill && styles.shadow, style]}>
+      {/* The drawn jacket is ALWAYS the base layer, so a missing, slow, or broken
+          cover still reads as a book with its title — never a flat empty block. */}
       <LinearGradient
         colors={[face, shade]}
         start={{ x: 0.12, y: 0 }}
@@ -108,7 +99,7 @@ export function BookCover({
         <View
           style={[
             styles.spine,
-            { width: s.spine, borderTopLeftRadius: s.radius, borderBottomLeftRadius: s.radius },
+            { width: s.spine, borderTopLeftRadius: radius, borderBottomLeftRadius: radius },
           ]}
         />
         <View style={[styles.keyline, { left: s.spine + 2 }]} />
@@ -128,6 +119,18 @@ export function BookCover({
           )}
         </View>
       </LinearGradient>
+
+      {/* A real cover overlays the jacket when it loads; on error we simply reveal
+          the jacket underneath (no flat placeholder). */}
+      {hasCover && !imgFailed && (
+        <Image
+          // iOS blocks insecure http image loads — upgrade to https.
+          source={{ uri: coverImage!.replace(/^http:\/\//, 'https://') }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]}
+          resizeMode="cover"
+          onError={() => setImgFailed(true)}
+        />
+      )}
     </View>
   );
 }

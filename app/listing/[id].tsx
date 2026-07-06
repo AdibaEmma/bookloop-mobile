@@ -356,6 +356,31 @@ export default function ListingDetailScreen() {
               )}
             </View>
           )}
+
+          {/* How the swap works — useful context for a requester, and it gives the
+              page substance when a listing carries no description. */}
+          {!isOwner && isAvailable && (
+            <View style={styles.howCard}>
+              <Text style={styles.howTitle}>How the swap works</Text>
+              <View style={styles.steps}>
+                {[
+                  { t: 'Send a request', d: 'Pick a safe public meetup spot and a time that suits you.' },
+                  { t: 'Agree on the meetup', d: `${listing.user.firstName || 'The owner'} confirms, or suggests another spot.` },
+                  { t: 'Swap and confirm', d: 'Meet, hand over the book, and confirm the handover with a QR code.' },
+                ].map((step, i) => (
+                  <View key={i} style={styles.step}>
+                    <View style={styles.stepNum}>
+                      <Text style={styles.stepNumText}>{i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stepTitle}>{step.t}</Text>
+                      <Text style={styles.stepDesc}>{step.d}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -520,6 +545,29 @@ const styles = StyleSheet.create({
   factValue: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: C.text, fontWeight: '600' },
   factLabel: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, marginTop: 2 },
   factDivider: { width: 1, alignSelf: 'stretch', backgroundColor: C.cardBorder, marginVertical: 2 },
+  howCard: {
+    marginTop: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: 14,
+    backgroundColor: '#FFFDF9',
+  },
+  howTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 14 },
+  steps: { gap: 14 },
+  step: { flexDirection: 'row', gap: 12 },
+  stepNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.active,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepNumText: { fontFamily: 'Inter-Bold', fontSize: 12, fontWeight: '700', color: BookLoopColors.cream },
+  stepTitle: { fontFamily: 'Inter-SemiBold', fontSize: 13, fontWeight: '600', color: C.text },
+  stepDesc: { fontFamily: 'Inter-Regular', fontSize: 12, color: C.body, lineHeight: 17, marginTop: 1 },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
