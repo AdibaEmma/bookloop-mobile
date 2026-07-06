@@ -42,7 +42,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { StatsStrip } from '@/components/ui';
 import type { StatItem } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
-import { listingsService, exchangesService } from '@/services/api';
+import { listingsService, exchangesService, paymentsService } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
 const C = {
@@ -71,17 +71,26 @@ export default function ProfileTab() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'listings' | 'reviews'>('listings');
   const [city, setCity] = useState<string | null>(null);
+  // Read the plan from the authoritative subscription, not the denormalized
+  // user.subscriptionTier cache (which can lag behind an upgrade).
+  const [planTier, setPlanTier] = useState<'free' | 'basic' | 'premium'>(
+    (user?.subscriptionTier as 'free' | 'basic' | 'premium') || 'free',
+  );
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [mine, requests] = await Promise.allSettled([
+      const [mine, requests, sub] = await Promise.allSettled([
         listingsService.getMyListings('available'),
         exchangesService.getMyRequests(),
+        paymentsService.getCurrentSubscription(),
       ]);
       if (mine.status === 'fulfilled') setListings(mine.value ?? []);
       if (requests.status === 'fulfilled') {
         setSwaps((requests.value ?? []).filter((e: any) => e.status === 'completed').length);
+      }
+      if (sub.status === 'fulfilled' && sub.value?.tier) {
+        setPlanTier(sub.value.tier);
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -142,7 +151,7 @@ export default function ProfileTab() {
 
   if (!user) return null;
 
-  const tier = (user.subscriptionTier || 'free') as keyof typeof TIER;
+  const tier = planTier as keyof typeof TIER;
   const tierInfo = TIER[tier];
 
   // A warm "reading identity" line, e.g. "Reader since Jul 2026 · Accra".
