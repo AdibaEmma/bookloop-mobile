@@ -427,11 +427,9 @@ const styles = StyleSheet.create({
   nameCol: { flex: 1 },
   name: { fontFamily: 'Poppins-Bold', fontSize: 21, color: C.text },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 9,
-    marginTop: 7,
+    alignItems: 'flex-start',
+    gap: 7,
+    marginTop: 8,
   },
   since: { fontFamily: 'Inter-Medium', fontSize: 11.5, color: '#6B5240', fontWeight: '500' },
   tierPill: {
