@@ -217,8 +217,13 @@ export default function SubscriptionScreen() {
           </View>
         )}
         <View style={styles.planTop}>
-          <View>
-            <Text style={[styles.planName, { color: planColor(plan.tier) }]}>{plan.name}</Text>
+          <View style={{ flex: 1 }}>
+            <View style={styles.planNameRow}>
+              <Text style={[styles.planName, { color: planColor(plan.tier) }]}>{plan.name}</Text>
+              {plan.tier === 'premium' && (
+                <Crown size={16} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
+              )}
+            </View>
             <View style={styles.priceRow}>
               <Text style={styles.priceValue}>GHS {effectivePrice(plan)}</Text>
               {!isFree && (
@@ -231,9 +236,11 @@ export default function SubscriptionScreen() {
               <Check size={11} color={BookLoopColors.coffeeBrown} strokeWidth={2.8} />
               <Text style={styles.currentPillText}>Current</Text>
             </View>
-          ) : plan.tier === 'premium' ? (
-            <Crown size={22} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
-          ) : null}
+          ) : (
+            <View style={[styles.radio, isSelected && styles.radioOn]}>
+              {isSelected && <Check size={13} color={BookLoopColors.cream} strokeWidth={3} />}
+            </View>
+          )}
         </View>
         <View style={styles.planDivider} />
         <View style={styles.featureList}>
@@ -375,8 +382,11 @@ const styles = StyleSheet.create({
   plansHeading: { fontFamily: 'Inter-Bold', fontSize: 14, fontWeight: '700', color: '#33251A', marginTop: 18, marginBottom: 12 },
   planCard: { borderWidth: 1.5, borderColor: '#EFE2CE', borderRadius: 16, padding: 16, backgroundColor: '#fff', marginBottom: 14, position: 'relative' },
   planCardCurrent: { opacity: 0.86 },
-  planCardSelected: { borderWidth: 2, borderColor: BookLoopColors.coffeeBrown, shadowColor: BookLoopColors.coffeeBrown, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 20, elevation: 5 },
-  planCardPopular: { borderWidth: 2, borderColor: BookLoopColors.coffeeBrown },
+  planCardSelected: { borderWidth: 2, borderColor: BookLoopColors.coffeeBrown, backgroundColor: '#FBF3E6', shadowColor: BookLoopColors.coffeeBrown, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 6 },
+  planCardPopular: { borderWidth: 1.5, borderColor: '#E9CF9F' },
+  planNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D4C0A0', alignItems: 'center', justifyContent: 'center' },
+  radioOn: { backgroundColor: BookLoopColors.coffeeBrown, borderColor: BookLoopColors.coffeeBrown },
   popularRibbon: { position: 'absolute', top: -10, left: 16, backgroundColor: BookLoopColors.coffeeBrown, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 9 },
   popularRibbonText: { fontFamily: 'Inter-Bold', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4, color: BookLoopColors.cream },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
