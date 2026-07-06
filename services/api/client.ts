@@ -67,11 +67,23 @@ const getDevHost = (): string | null => {
   ];
   for (const c of candidates) {
     if (typeof c === 'string' && c) {
-      // e.g. "192.168.1.44:8081" or "exp://192.168.1.44:8081"
-      const host = c.replace(/^\w+:\/\//, '').split('/')[0].split(':')[0];
-      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) && host !== '127.0.0.1') {
-        return host;
+      // e.g. "192.168.1.44:8081", "exp://192.168.1.44:8081", "my-mac.local:8081"
+      const host = c
+        .replace(/^\w+:\/\//, '')
+        .split('/')[0]
+        .replace(/:\d+$/, ''); // strip trailing :port (keeps IPv6 as-is)
+      if (!host || host === '127.0.0.1' || host === 'localhost' || host === '::1') {
+        continue;
       }
+      // Tunnels (exp.direct / ngrok) serve the JS bundle but NOT the API on
+      // API_PORT — deriving from them yields an unreachable URL, so skip them
+      // and let an explicit apiUrl take over.
+      if (/\.(exp\.direct|ngrok\.io|ngrok-free\.app)$/i.test(host)) {
+        continue;
+      }
+      // A LAN IPv4, an mDNS ".local" name, or an IPv6 host — all reachable from
+      // a device on the same network, where the API also runs.
+      return host;
     }
   }
   return null;
