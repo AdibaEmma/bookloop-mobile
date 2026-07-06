@@ -43,13 +43,14 @@ import {
   Globe,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, Listing } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
-const GALLERY_H = 300;
+const GALLERY_H = 344;
 
 const C = {
   bg: BookLoopColors.cream,
@@ -141,17 +142,21 @@ export default function ListingDetailScreen() {
   }
   if (!listing) return null;
 
-  // Narrow to string[] (fixes the prior FlatList typing error).
-  const photos: string[] = (listing.photos && listing.photos.length > 0
-    ? listing.photos
-    : [listing.book.coverImage]
-  ).filter((p): p is string => Boolean(p));
+  // Real user photos of this copy. The cover itself is drawn by the hero via
+  // BookCover, which shows the jacket when there's no cover (or it fails to load)
+  // — so a coverless book no longer renders as a flat empty block.
+  const userPhotos: string[] = (listing.photos ?? []).filter((p): p is string => Boolean(p));
+  const hasPhotos = userPhotos.length > 0;
 
   const cond = ConditionBadge[listing.condition] ?? ConditionBadge.good;
   const isOwner = listing.userId === user?.id;
   const isAvailable = listing.status === 'available';
   const year = listing.book.publishedDate ? String(listing.book.publishedDate).slice(0, 4) : null;
   const prefs = listing.exchangePreferences ?? [];
+  // Fall back to the book's synopsis when this copy has no note of its own, so the
+  // page has substance instead of a large empty gap.
+  const aboutText = listing.description || listing.book.description || '';
+  const aboutTitle = listing.description ? 'About this copy' : 'About this book';
 
   return (
     <View style={styles.container}>
@@ -160,20 +165,34 @@ export default function ListingDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 96 }}>
         {/* Gallery */}
         <View style={styles.gallery}>
-          {photos.length > 0 ? (
+          <LinearGradient
+            colors={['#ECD9B6', '#D6B888']}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.85, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {hasPhotos ? (
             <ScrollView
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={onGalleryScroll}
             >
-              {photos.map((p, i) => (
+              {userPhotos.map((p, i) => (
                 <Image key={i} source={{ uri: p }} style={styles.galleryImg} resizeMode="cover" />
               ))}
             </ScrollView>
           ) : (
-            <View style={[styles.galleryImg, styles.spineFallback]}>
-              <BookCover title={listing.book.title} author={listing.book.author} size="lg" />
+            // Coverless (or broken-cover) book — present it as a real book resting
+            // on a warm surface, not a flat empty rectangle.
+            <View style={styles.heroWrap}>
+              <BookCover
+                title={listing.book.title}
+                author={listing.book.author}
+                coverImage={listing.book.coverImage}
+                size="lg"
+              />
+              <View style={styles.heroGround} />
             </View>
           )}
 
@@ -215,9 +234,9 @@ export default function ListingDetailScreen() {
             </View>
           </SafeAreaView>
 
-          {photos.length > 1 && (
+          {hasPhotos && userPhotos.length > 1 && (
             <View style={styles.dots}>
-              {photos.map((_, i) => (
+              {userPhotos.map((_, i) => (
                 <View key={i} style={[styles.dot, i === photoIndex ? styles.dotOn : styles.dotOff]} />
               ))}
             </View>
@@ -305,16 +324,35 @@ export default function ListingDetailScreen() {
           </TouchableOpacity>
 
           {/* About */}
-          {!!listing.description && (
+          {!!aboutText && (
             <View style={styles.about}>
-              <Text style={styles.aboutTitle}>About this copy</Text>
-              <Text style={styles.aboutBody} numberOfLines={expanded ? undefined : 3}>
-                {listing.description}
+              <Text style={styles.aboutTitle}>{aboutTitle}</Text>
+              <Text style={styles.aboutBody} numberOfLines={expanded ? undefined : 4}>
+                {aboutText}
               </Text>
-              {listing.description.length > 120 && (
+              {aboutText.length > 160 && (
                 <TouchableOpacity onPress={() => setExpanded((e) => !e)}>
                   <Text style={styles.readMore}>{expanded ? 'Show less' : 'Read more'}</Text>
                 </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Book facts */}
+          {(!!year || !!listing.book.pageCount) && (
+            <View style={styles.facts}>
+              {!!year && (
+                <View style={styles.factItem}>
+                  <Text style={styles.factValue}>{year}</Text>
+                  <Text style={styles.factLabel}>Published</Text>
+                </View>
+              )}
+              {!!year && !!listing.book.pageCount && <View style={styles.factDivider} />}
+              {!!listing.book.pageCount && (
+                <View style={styles.factItem}>
+                  <Text style={styles.factValue}>{listing.book.pageCount}</Text>
+                  <Text style={styles.factLabel}>Pages</Text>
+                </View>
               )}
             </View>
           )}
@@ -374,12 +412,20 @@ export default function ListingDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
-  gallery: { height: GALLERY_H, position: 'relative', backgroundColor: C.spine },
+  gallery: { height: GALLERY_H, position: 'relative', overflow: 'hidden' },
   galleryImg: { width, height: GALLERY_H },
-  spineFallback: {
-    backgroundColor: BookLoopColors.parchmentBeige,
-    justifyContent: 'center',
+  heroWrap: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 34, // clear the top action buttons
+  },
+  heroGround: {
+    marginTop: 14,
+    width: 118,
+    height: 13,
+    borderRadius: 60,
+    backgroundColor: 'rgba(74,53,40,0.16)',
   },
   galleryOverlay: { position: 'absolute', top: 0, left: 0, right: 0 },
   galleryTop: {
@@ -461,6 +507,19 @@ const styles = StyleSheet.create({
   aboutTitle: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.text, marginBottom: 6, fontWeight: '700' },
   aboutBody: { fontFamily: 'Inter-Regular', fontSize: 12.5, color: C.body, lineHeight: 20 },
   readMore: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, color: C.active, marginTop: 4, fontWeight: '600' },
+  facts: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  factItem: { flex: 1, alignItems: 'center' },
+  factValue: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: C.text, fontWeight: '600' },
+  factLabel: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, marginTop: 2 },
+  factDivider: { width: 1, alignSelf: 'stretch', backgroundColor: C.cardBorder, marginVertical: 2 },
   bottomBar: {
     position: 'absolute',
     bottom: 0,

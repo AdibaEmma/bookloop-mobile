@@ -28,6 +28,7 @@ import {
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -447,23 +448,32 @@ export default function ExchangeRequestScreen() {
   }
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Request Exchange',
-          headerShown: true,
-        }}
+    <View style={styles.container}>
+      {/* Custom header — replaces the native iOS header whose back button showed
+          the raw previous route name ("listing/[id]"). */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <LinearGradient
+        colors={
+          colorScheme === 'light'
+            ? [BookLoopColors.creamTop, BookLoopColors.cream]
+            : [BookLoopColors.darkBg, BookLoopColors.darkBgDeep]
+        }
+        style={StyleSheet.absoluteFillObject}
       />
 
-      <View style={styles.container}>
-        <LinearGradient
-          colors={
-            colorScheme === 'light'
-              ? [BookLoopColors.creamTop, BookLoopColors.cream]
-              : [BookLoopColors.darkBg, BookLoopColors.darkBgDeep]
-          }
-          style={StyleSheet.absoluteFillObject}
-        />
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerBack}
+            onPress={() => router.back()}
+            accessibilityLabel="Back"
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={22} color={BookLoopColors.deepEspresso} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Request exchange</Text>
+        </View>
 
         <ScrollView
           style={styles.scrollView}
@@ -814,14 +824,35 @@ export default function ExchangeRequestScreen() {
             style={styles.submitButton}
           />
         </ScrollView>
-      </View>
-    </>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  headerBack: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1E7D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 17,
+    fontWeight: '600',
+    color: BookLoopColors.deepEspresso,
   },
   centerContent: {
     justifyContent: 'center',
