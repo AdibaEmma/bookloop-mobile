@@ -28,6 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { GlassCard, GlassButton, GlassModal, CompactBookCard, EmptyState } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { BookPlus } from 'lucide-react-native';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -54,6 +55,7 @@ interface Category {
 export default function ExploreScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
@@ -241,7 +243,11 @@ export default function ExploreScreen() {
   };
 
   const hasActiveFilters = selectedCategory || selectedCondition || selectedType;
-  const displayListings = searchResults.length > 0 ? searchResults : recentListings;
+  // Explore is for discovering OTHER readers' books — never your own, which would
+  // make it read like "my listings".
+  const displayListings = (searchResults.length > 0 ? searchResults : recentListings).filter(
+    (l) => l.userId !== user?.id,
+  );
   const isShowingSearchResults = searchResults.length > 0 || query.trim().length > 0;
 
   // Split listings into two columns for grid layout
@@ -440,11 +446,11 @@ export default function ExploreScreen() {
             </View>
           ) : (
             <EmptyState
-              title={isShowingSearchResults ? 'No matches found' : 'No books nearby'}
+              title={isShowingSearchResults ? 'No matches found' : 'No books nearby yet'}
               body={
                 isShowingSearchResults
                   ? 'Try a different title, author, or loosen your filters.'
-                  : 'Be the first to list a book in your area — start the loop.'
+                  : `Books other readers share near you show up here. None within ${radius} km yet — widen your radius, or be the first to list one and start the loop.`
               }
               actionLabel={isShowingSearchResults ? undefined : 'List a book'}
               actionIcon={BookPlus}
