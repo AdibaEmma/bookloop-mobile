@@ -19,6 +19,7 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -124,13 +125,31 @@ const STORAGE_KEYS = {
 };
 
 /**
+ * Read a token from the encrypted keystore, migrating a legacy AsyncStorage
+ * copy on first read so existing sessions survive the move to SecureStore.
+ */
+async function readTokenWithMigration(key: string): Promise<string | null> {
+  const secure = await SecureStore.getItemAsync(key);
+  if (secure !== null) return secure;
+
+  const legacy = await AsyncStorage.getItem(key);
+  if (legacy !== null) {
+    await SecureStore.setItemAsync(key, legacy);
+    await AsyncStorage.removeItem(key);
+    return legacy;
+  }
+  return null;
+}
+
+/**
  * Token Management
- * Using AsyncStorage instead of SecureStore for broader compatibility
- * Note: For production, consider using expo-secure-store for sensitive data
+ * Access/refresh tokens are credentials, so they live in the OS keychain/keystore
+ * via expo-secure-store (not plaintext AsyncStorage). Non-secret user_data stays
+ * in AsyncStorage — SecureStore has a ~2KB/value limit the profile blob can exceed.
  */
 export const TokenManager = {
   async getAccessToken(): Promise<string | null> {
-    return await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    return await readTokenWithMigration(STORAGE_KEYS.ACCESS_TOKEN);
   },
 
   async setAccessToken(token: string | null | undefined): Promise<void> {
@@ -138,11 +157,11 @@ export const TokenManager = {
       console.warn('[TokenManager] Attempted to set null/undefined access token');
       return;
     }
-    await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
+    await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, token);
   },
 
   async getRefreshToken(): Promise<string | null> {
-    return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    return await readTokenWithMigration(STORAGE_KEYS.REFRESH_TOKEN);
   },
 
   async setRefreshToken(token: string | null | undefined): Promise<void> {
@@ -150,10 +169,13 @@ export const TokenManager = {
       console.warn('[TokenManager] Attempted to set null/undefined refresh token');
       return;
     }
-    await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+    await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, token);
   },
 
   async clearTokens(): Promise<void> {
+    await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+    // Also drop any legacy plaintext copies from before the SecureStore move.
     await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   },
