@@ -6,16 +6,18 @@
 
 import apiClient from './client';
 
+// Response type is camelCase (the client interceptor camelCases every response
+// key, recursively — including keys inside `data`). Request DTOs stay snake_case.
 export interface Notification {
   id: string;
-  user_id: string;
+  userId: string;
   type: string;
   title: string;
   message: string;
   data?: Record<string, any>;
-  is_read: boolean;
-  read_at?: string;
-  created_at: string;
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
 }
 
 export interface NotificationResponse {
@@ -23,7 +25,7 @@ export interface NotificationResponse {
   total: number;
   limit: number;
   offset: number;
-  has_more: boolean;
+  hasMore: boolean;
 }
 
 export interface UnreadCountResponse {

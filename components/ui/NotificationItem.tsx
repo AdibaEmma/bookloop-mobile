@@ -60,7 +60,7 @@ function metaFor(type?: string) {
 export function NotificationItem({ notification, onPress, onDelete }: NotificationItemProps) {
   const isDark = (useColorScheme() ?? 'light') === 'dark';
   const { Icon, color } = metaFor(notification.type);
-  const unread = !notification.is_read;
+  const unread = !notification.isRead;
 
   const c = isDark
     ? {
@@ -84,7 +84,7 @@ export function NotificationItem({ notification, onPress, onDelete }: Notificati
 
   const formattedTime = (() => {
     try {
-      const date = new Date(notification.created_at);
+      const date = new Date(notification.createdAt);
       if (isNaN(date.getTime())) return 'Just now';
       return formatDistanceToNow(date, { addSuffix: true });
     } catch {

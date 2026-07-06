@@ -103,14 +103,14 @@ const notificationTypeConfig: Record<string, NotificationTypeConfig> = {
     color: BookLoopColors.success,
     label: 'Listing Approved',
     actionLabel: 'View Listing',
-    getRoute: (data) => (data?.listing_id ? `/listing/${data.listing_id}` : null),
+    getRoute: (data) => (data?.listingId ? `/listing/${data.listingId}` : null),
   },
   LISTING_REJECTED: {
     icon: 'warning',
     color: BookLoopColors.error,
     label: 'Listing Rejected',
     actionLabel: 'View Details',
-    getRoute: (data) => (data?.listing_id ? `/listing/${data.listing_id}` : null),
+    getRoute: (data) => (data?.listingId ? `/listing/${data.listingId}` : null),
   },
   SYSTEM_ANNOUNCEMENT: {
     icon: 'megaphone',
@@ -140,7 +140,7 @@ export default function NotificationDetailScreen() {
     if (found) {
       setNotification(found);
       // Mark as read
-      if (!found.is_read) {
+      if (!found.isRead) {
         markAsRead(found.id);
       }
     }
@@ -275,11 +275,11 @@ export default function NotificationDetailScreen() {
               color={colors.textSecondary}
             />
             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-              {formatDate(notification.created_at)}
+              {formatDate(notification.createdAt)}
             </Text>
           </View>
 
-          {notification.is_read && notification.read_at && (
+          {notification.isRead && notification.readAt && (
             <View style={styles.metaRow}>
               <Ionicons
                 name="checkmark-circle-outline"
@@ -287,7 +287,7 @@ export default function NotificationDetailScreen() {
                 color={BookLoopColors.success}
               />
               <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                Read {formatDate(notification.read_at)}
+                Read {formatDate(notification.readAt)}
               </Text>
             </View>
           )}
@@ -299,23 +299,23 @@ export default function NotificationDetailScreen() {
             <Text style={[styles.dataTitle, { color: colors.text }]}>
               Details
             </Text>
-            {notification.data.exchange_id && (
+            {notification.data.exchangeId && (
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>
                   Exchange ID
                 </Text>
                 <Text style={[styles.dataValue, { color: colors.text }]}>
-                  {notification.data.exchange_id.slice(0, 8)}...
+                  {notification.data.exchangeId.slice(0, 8)}...
                 </Text>
               </View>
             )}
-            {notification.data.listing_id && (
+            {notification.data.listingId && (
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>
                   Listing ID
                 </Text>
                 <Text style={[styles.dataValue, { color: colors.text }]}>
-                  {notification.data.listing_id.slice(0, 8)}...
+                  {notification.data.listingId.slice(0, 8)}...
                 </Text>
               </View>
             )}

@@ -237,7 +237,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           setNotifications((prev) => [...prev, ...response.data]);
         }
 
-        setHasMore(response.has_more);
+        setHasMore(response.hasMore);
         setOffset(currentOffset + LIMIT);
       } catch (error) {
         console.error('[Notifications] Fetch error:', error);
@@ -275,7 +275,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
         // Update local state
         setNotifications((prev) =>
-          prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+          prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
 
@@ -296,7 +296,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       await notificationsService.markAllAsRead();
 
       // Update local state
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
 
       // Clear badge
@@ -319,7 +319,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
 
         // Update unread count if notification was unread
-        if (notification && !notification.is_read) {
+        if (notification && !notification.isRead) {
           setUnreadCount((prev) => Math.max(0, prev - 1));
           await Notifications.setBadgeCountAsync(Math.max(0, unreadCount - 1));
         }
@@ -338,7 +338,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       await notificationsService.deleteReadNotifications();
 
       // Update local state - keep only unread
-      setNotifications((prev) => prev.filter((n) => !n.is_read));
+      setNotifications((prev) => prev.filter((n) => !n.isRead));
     } catch (error) {
       console.error('[Notifications] Clear read error:', error);
     }
@@ -370,7 +370,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           case 'EXCHANGE_COMPLETED':
           case 'EXCHANGE_CANCELLED':
           case 'EXCHANGE_REMINDER':
-            if (data.exchange_id) {
+            if (data.exchangeId) {
               router.push(`/exchange/my-exchanges`);
             }
             break;
@@ -379,8 +379,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             break;
           case 'LISTING_APPROVED':
           case 'LISTING_REJECTED':
-            if (data.listing_id) {
-              router.push(`/listing/${data.listing_id}`);
+            if (data.listingId) {
+              router.push(`/listing/${data.listingId}`);
             }
             break;
           case 'RATING_RECEIVED':
@@ -409,13 +409,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const notificationData = notification.request.content.data as Record<string, any> | undefined;
       const newNotification: Notification = {
         id: notification.request.identifier,
-        user_id: user?.id || '',
+        userId: user?.id || '',
         type: (notificationData?.type as string) || 'SYSTEM_ANNOUNCEMENT',
         title: notification.request.content.title || '',
         message: notification.request.content.body || '',
         data: notificationData,
-        is_read: false,
-        created_at: new Date().toISOString(),
+        isRead: false,
+        createdAt: new Date().toISOString(),
       };
 
       setNotifications((prev) => [newNotification, ...prev]);

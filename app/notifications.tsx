@@ -83,7 +83,7 @@ export default function NotificationsScreen() {
   }, [markAllAsRead, unreadCount]);
 
   const handleClearRead = useCallback(() => {
-    const readCount = notifications.filter((n) => n.is_read).length;
+    const readCount = notifications.filter((n) => n.isRead).length;
     if (readCount === 0) return;
 
     Alert.alert(
@@ -125,7 +125,7 @@ export default function NotificationsScreen() {
           </Text>
         </Pressable>
       )}
-      {notifications.some((n) => n.is_read) && (
+      {notifications.some((n) => n.isRead) && (
         <Pressable style={styles.actionButton} onPress={handleClearRead}>
           <Ionicons name="trash-outline" size={18} color={BookLoopColors.error} />
           <Text style={[styles.actionText, { color: colors.text }]}>
