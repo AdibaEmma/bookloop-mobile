@@ -101,6 +101,19 @@ interface ExchangePreference {
 }
 
 /**
+ * The API stores condition in the DB column `book_condition`, which the client
+ * interceptor camelCases to `bookCondition` — but the app reads `listing.condition`.
+ * Backfill `condition` from `bookCondition` on read so every screen (including the
+ * edit form, which has no `?? good` fallback) gets the real value.
+ */
+function normalizeListing<T extends Record<string, any>>(l: T): T {
+  if (l && l.condition == null && l.bookCondition != null) {
+    (l as any).condition = l.bookCondition;
+  }
+  return l;
+}
+
+/**
  * Listings Service
  */
 export const listingsService = {
@@ -113,7 +126,11 @@ export const listingsService = {
       '/listings/search',
       { params },
     );
-    return response.data;
+    const paged = response.data;
+    if (paged && Array.isArray(paged.data)) {
+      paged.data = paged.data.map(normalizeListing);
+    }
+    return paged;
   },
 
   /**
@@ -138,7 +155,7 @@ export const listingsService = {
    */
   async getListingById(id: string): Promise<Listing> {
     const response: AxiosResponse<Listing> = await apiClient.get(`/listings/${id}`);
-    return response.data;
+    return normalizeListing(response.data);
   },
 
   /**
@@ -148,7 +165,7 @@ export const listingsService = {
     const response: AxiosResponse<Listing[]> = await apiClient.get('/listings/user/me', {
       params: { status },
     });
-    return response.data;
+    return (response.data ?? []).map(normalizeListing);
   },
 
   /**
@@ -156,7 +173,7 @@ export const listingsService = {
    */
   async getUserListings(userId: string): Promise<Listing[]> {
     const response: AxiosResponse<Listing[]> = await apiClient.get(`/listings/user/${userId}`);
-    return response.data;
+    return (response.data ?? []).map(normalizeListing);
   },
 
   /**
