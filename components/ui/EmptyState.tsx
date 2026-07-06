@@ -23,6 +23,9 @@ interface Props {
   /** Icon shown in the CTA. Defaults to a magnifier (browse); pass e.g. BookPlus
    *  for a "list a book" action so the icon matches the verb. */
   actionIcon?: IconType;
+  /** Optional lower-emphasis action shown as a text link below the primary CTA. */
+  secondaryLabel?: string;
+  onSecondaryAction?: () => void;
 }
 
 function BookDoodle({ dark }: { dark: boolean }) {
@@ -61,7 +64,15 @@ function BookDoodle({ dark }: { dark: boolean }) {
   );
 }
 
-export function EmptyState({ title, body, actionLabel, onAction, actionIcon: ActionIcon = Search }: Props) {
+export function EmptyState({
+  title,
+  body,
+  actionLabel,
+  onAction,
+  actionIcon: ActionIcon = Search,
+  secondaryLabel,
+  onSecondaryAction,
+}: Props) {
   const isDark = (useColorScheme() ?? 'light') === 'dark';
   const text = isDark ? BookLoopColors.darkText : BookLoopColors.deepEspresso;
   const muted = isDark ? BookLoopColors.darkTextMuted : BookLoopColors.authorText;
@@ -82,6 +93,18 @@ export function EmptyState({ title, body, actionLabel, onAction, actionIcon: Act
         >
           <ActionIcon size={18} color={BookLoopColors.cream} strokeWidth={2} />
           <Text style={styles.actionText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
+      {secondaryLabel && onSecondaryAction && (
+        <TouchableOpacity
+          style={styles.secondary}
+          activeOpacity={0.7}
+          onPress={() => {
+            Haptics.selectionAsync();
+            onSecondaryAction();
+          }}
+        >
+          <Text style={[styles.secondaryText, { color: muted }]}>{secondaryLabel}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -130,5 +153,12 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '600',
     color: BookLoopColors.cream,
+  },
+  secondary: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12 },
+  secondaryText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

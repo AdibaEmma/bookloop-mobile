@@ -67,6 +67,8 @@ export default function ExploreScreen() {
   const [searchResults, setSearchResults] = useState<Listing[]>([]);
   const [recentListings, setRecentListings] = useState<Listing[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
+  // "Search wider" drops the ~50km nearby radius and pulls listings countrywide.
+  const [widened, setWidened] = useState(false);
 
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
@@ -124,9 +126,10 @@ export default function ExploreScreen() {
     }
   }, [query]);
 
-  const loadRecentListings = async () => {
+  const loadRecentListings = async (wide = false) => {
     try {
       setIsLoadingRecent(true);
+      setWidened(wide);
 
       let location: { latitude: number; longitude: number } | null = null;
       try {
@@ -143,10 +146,12 @@ export default function ExploreScreen() {
       }
 
       const searchParams: any = {
-        limit: 20,
+        limit: wide ? 40 : 20,
       };
 
-      if (location) {
+      // Nearby view constrains to ~50km; "wide" drops the radius for a
+      // countrywide sweep.
+      if (location && !wide) {
         searchParams.latitude = location.latitude;
         searchParams.longitude = location.longitude;
         searchParams.radiusMeters = 50000;
@@ -398,7 +403,7 @@ export default function ExploreScreen() {
               {isShowingSearchResults ? 'Search Results' : 'Near You'}
             </Text>
             {!isShowingSearchResults && (
-              <TouchableOpacity onPress={loadRecentListings} style={styles.refreshButton}>
+              <TouchableOpacity onPress={() => loadRecentListings(widened)} style={styles.refreshButton}>
                 <Ionicons name="refresh" size={18} color={BookLoopColors.burntOrange} />
               </TouchableOpacity>
             )}
@@ -446,15 +451,35 @@ export default function ExploreScreen() {
             </View>
           ) : (
             <EmptyState
-              title={isShowingSearchResults ? 'No matches found' : 'No books nearby yet'}
+              title={
+                isShowingSearchResults
+                  ? 'No matches found'
+                  : widened
+                    ? 'No books shared yet'
+                    : 'No books nearby yet'
+              }
               body={
                 isShowingSearchResults
                   ? 'Try a different title, author, or loosen your filters.'
-                  : `Books other readers share near you show up here. None within ${radius} km yet — widen your radius, or be the first to list one and start the loop.`
+                  : widened
+                    ? 'No one has shared a book to swap yet. Be the first to list one and start the loop.'
+                    : 'Books other readers share near you show up here. None close by yet — search wider, or be the first to list one.'
               }
-              actionLabel={isShowingSearchResults ? undefined : 'List a book'}
-              actionIcon={BookPlus}
-              onAction={isShowingSearchResults ? undefined : () => router.push('/listing/create')}
+              actionLabel={
+                isShowingSearchResults ? undefined : widened ? 'List a book' : 'Search wider'
+              }
+              actionIcon={!isShowingSearchResults && widened ? BookPlus : undefined}
+              onAction={
+                isShowingSearchResults
+                  ? undefined
+                  : widened
+                    ? () => router.push('/listing/create')
+                    : () => loadRecentListings(true)
+              }
+              secondaryLabel={!isShowingSearchResults && !widened ? 'List a book' : undefined}
+              onSecondaryAction={
+                !isShowingSearchResults && !widened ? () => router.push('/listing/create') : undefined
+              }
             />
           )}
         </View>
