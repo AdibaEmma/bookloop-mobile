@@ -25,7 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { ChevronLeft, Check, Crown, Layers, ArrowUp } from 'lucide-react-native';
+import { ChevronLeft, Check, Crown, Layers, ArrowUp, ArrowDown } from 'lucide-react-native';
 import { paymentsService, Subscription, SubscriptionPlan } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -34,6 +34,11 @@ import {
   Spacing,
   BookLoopColors,
 } from '@/constants/theme';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Plan ordering, so we can tell an upgrade from a downgrade.
+const TIER_RANK: Record<string, number> = { free: 0, basic: 1, premium: 2 };
+const rankOf = (tier?: string) => TIER_RANK[tier ?? 'free'] ?? 0;
 
 export default function SubscriptionScreen() {
   const router = useRouter();
@@ -79,32 +84,7 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const handleUpgrade = async (plan: SubscriptionPlan) => {
-    if (plan.tier === 'free') {
-      // Downgrade to free
-      Alert.alert(
-        'Cancel Subscription?',
-        'Are you sure you want to downgrade to the Free plan? You will lose premium features at the end of your current billing period.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Confirm',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await paymentsService.cancelSubscription();
-                Alert.alert('Success', 'Subscription cancelled successfully');
-                loadData();
-              } catch (error) {
-                Alert.alert('Error', 'Failed to cancel subscription');
-              }
-            },
-          },
-        ]
-      );
-      return;
-    }
-
+  const proceedToPayment = async (plan: SubscriptionPlan) => {
     try {
       setIsUpgrading(true);
 
@@ -148,6 +128,54 @@ export default function SubscriptionScreen() {
     } finally {
       setIsUpgrading(false);
     }
+  };
+
+  const handleUpgrade = async (plan: SubscriptionPlan) => {
+    const current = currentSubscription?.tier || 'free';
+
+    if (plan.tier === 'free') {
+      // Downgrade to the free plan.
+      Alert.alert(
+        'Downgrade to Free?',
+        'You will lose your paid features at the end of your current billing period.',
+        [
+          { text: `Keep ${cap(current)}`, style: 'cancel' },
+          {
+            text: 'Downgrade',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await paymentsService.cancelSubscription();
+                Alert.alert('Success', 'Subscription cancelled successfully');
+                loadData();
+              } catch (error) {
+                Alert.alert('Error', 'Failed to cancel subscription');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Paid downgrade (e.g. Premium → Basic): spell out what they give up first.
+    if (rankOf(plan.tier) < rankOf(current)) {
+      const currentPlan = plans.find((p) => p.tier === current);
+      const lost = (currentPlan?.features ?? []).filter((f) => !plan.features.includes(f));
+      Alert.alert(
+        `Downgrade to ${plan.name}?`,
+        `You're on ${cap(current)}. Switching to ${plan.name} gives up your ${cap(current)} benefits:` +
+          (lost.length ? `\n\n${lost.map((f) => `•  ${f}`).join('\n')}` : '') +
+          `\n\nThe change takes effect once payment is confirmed.`,
+        [
+          { text: `Keep ${cap(current)}`, style: 'cancel' },
+          { text: 'Downgrade', style: 'destructive', onPress: () => proceedToPayment(plan) },
+        ]
+      );
+      return;
+    }
+
+    proceedToPayment(plan);
   };
 
   const handleVerifyPayment = async (reference: string, tier: 'basic' | 'premium') => {
@@ -262,7 +290,7 @@ export default function SubscriptionScreen() {
   const usedLimit = currentPlan?.limits?.listings;
   const usedLimitLabel = usedLimit === -1 ? '∞' : usedLimit ?? 3;
   const selectedPlan = plans.find((p) => p.tier === selectedTier);
-  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const selectedIsDowngrade = !!selectedPlan && rankOf(selectedPlan.tier) < rankOf(currentTier);
 
   return (
     <View style={styles.container}>
@@ -346,9 +374,14 @@ export default function SubscriptionScreen() {
                     <ActivityIndicator color={BookLoopColors.cream} />
                   ) : (
                     <>
-                      <ArrowUp size={18} color={BookLoopColors.cream} strokeWidth={2.2} />
+                      {selectedIsDowngrade ? (
+                        <ArrowDown size={18} color={BookLoopColors.cream} strokeWidth={2.2} />
+                      ) : (
+                        <ArrowUp size={18} color={BookLoopColors.cream} strokeWidth={2.2} />
+                      )}
                       <Text style={styles.upgradeBtnText}>
-                        Upgrade to {selectedPlan.name} · GHS {effectivePrice(selectedPlan)}/
+                        {selectedIsDowngrade ? 'Downgrade' : 'Upgrade'} to {selectedPlan.name} · GHS{' '}
+                        {effectivePrice(selectedPlan)}/
                         {billing === 'yearly' ? 'yr' : 'mo'}
                       </Text>
                     </>
