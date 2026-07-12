@@ -109,6 +109,10 @@ export function BookCover({
           <Text
             style={[styles.title, { fontSize: s.title, lineHeight: s.title * 1.2 }]}
             numberOfLines={s.lines}
+            // In narrow `fill` containers (list thumbnails) shrink the type
+            // instead of breaking words mid-syllable ("Surr-ound-ed").
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
           >
             {title}
           </Text>

@@ -181,22 +181,24 @@ export default function ExchangesScreen() {
           </View>
         </View>
 
-        {/* Stepper */}
+        {/* Stepper — each cell draws its own half-tracks so the line runs
+            continuously dot-to-dot and labels stay centered under their dots. */}
         <View style={styles.stepper}>
           {STEPS.map((label, i) => {
             const done = i < step;
             const current = i === step;
+            const first = i === 0;
+            const last = i === STEPS.length - 1;
             return (
-              <React.Fragment key={label}>
-                {i > 0 && (
+              <View key={label} style={styles.stepCell}>
+                <View style={styles.dotRow}>
                   <View
                     style={[
-                      styles.stepLine,
+                      styles.track,
                       { backgroundColor: i <= step ? C.active : C.idleBorder },
+                      first && styles.trackHidden,
                     ]}
                   />
-                )}
-                <View style={styles.stepNode}>
                   <View
                     style={[
                       styles.dot,
@@ -207,20 +209,27 @@ export default function ExchangesScreen() {
                   >
                     {done && <Check size={11} color="#fff" strokeWidth={3} />}
                   </View>
-                  <Text
+                  <View
                     style={[
-                      styles.stepLabel,
-                      {
-                        color: done ? C.text : current ? C.active : '#B39C82',
-                        fontWeight: current ? '700' : '600',
-                      },
+                      styles.track,
+                      { backgroundColor: i < step ? C.active : C.idleBorder },
+                      last && styles.trackHidden,
                     ]}
-                    numberOfLines={1}
-                  >
-                    {label}
-                  </Text>
+                  />
                 </View>
-              </React.Fragment>
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    {
+                      color: done ? C.text : current ? C.active : '#B39C82',
+                      fontWeight: current ? '700' : '600',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {label}
+                </Text>
+              </View>
             );
           })}
         </View>
@@ -416,8 +425,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  cardTop: { flexDirection: 'row', gap: 12, padding: 13 },
-  cover: { width: 48, height: 68, borderRadius: 7, overflow: 'hidden' },
+  cardTop: { flexDirection: 'row', gap: 12, padding: 14 },
+  cover: { width: 52, height: 74, borderRadius: 8, overflow: 'hidden' },
   cardTitle: { fontFamily: 'Inter-Bold', fontSize: 14, color: C.text, fontWeight: '700' },
   withRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   partnerAvatar: {
@@ -443,12 +452,19 @@ const styles = StyleSheet.create({
   },
   waitingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9800' },
   waitingText: { fontFamily: 'Inter-SemiBold', fontSize: 10.5, fontWeight: '600', color: '#B07D22' },
-  pendingMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
+  pendingMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 10,
+  },
   pendingMetaText: { fontFamily: 'Inter-Regular', fontSize: 11, color: C.muted, flex: 1, lineHeight: 15 },
   cancelAction: {
-    height: 42,
-    paddingHorizontal: 16,
-    borderRadius: 11,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E0B7B0',
     alignItems: 'center',
@@ -477,13 +493,14 @@ const styles = StyleSheet.create({
   acceptedText: { fontFamily: 'Inter-SemiBold', fontSize: 10, color: '#3B7A3F', fontWeight: '600' },
   stepper: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingBottom: 12,
     paddingTop: 4,
   },
-  stepNode: { flex: 1, alignItems: 'center', gap: 4 },
-  stepLine: { height: 2, width: 16, marginTop: 9 },
+  stepCell: { flex: 1, alignItems: 'center', gap: 5 },
+  dotRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },
+  track: { flex: 1, height: 2, borderRadius: 1 },
+  trackHidden: { opacity: 0 },
   dot: { width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   dotCurrent: {
     backgroundColor: BookLoopColors.mutedGold,
@@ -491,12 +508,12 @@ const styles = StyleSheet.create({
     borderColor: BookLoopColors.coffeeBrown,
   },
   dotIdle: { backgroundColor: C.idle, borderWidth: 2, borderColor: C.idleBorder },
-  stepLabel: { fontFamily: 'Inter-SemiBold', fontSize: 8.5, textAlign: 'center' },
-  actionsRow: { flexDirection: 'row', gap: 9, paddingHorizontal: 13, paddingBottom: 13 },
+  stepLabel: { fontFamily: 'Inter-SemiBold', fontSize: 9.5, textAlign: 'center' },
+  actionsRow: { flexDirection: 'row', gap: 9, paddingHorizontal: 14, paddingBottom: 14 },
   primaryAction: {
     flex: 1,
-    height: 40,
-    borderRadius: 10,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: C.active,
     flexDirection: 'row',
     alignItems: 'center',
@@ -505,19 +522,19 @@ const styles = StyleSheet.create({
   },
   primaryActionText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, color: '#fff', fontWeight: '600' },
   iconAction: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D4C9B6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   goldAction: {
-    height: 40,
-    marginHorizontal: 13,
-    marginBottom: 13,
-    borderRadius: 10,
+    height: 44,
+    marginHorizontal: 14,
+    marginBottom: 14,
+    borderRadius: 12,
     backgroundColor: BookLoopColors.mutedGold,
     flexDirection: 'row',
     alignItems: 'center',
