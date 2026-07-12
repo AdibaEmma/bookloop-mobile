@@ -26,7 +26,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassButton, GlassModal, EmptyState, ConfirmModal, OptionsSheet } from '@/components/ui';
+import { EmptyState, ConfirmModal, OptionsSheet } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { showSuccessAlert, showErrorAlert } from '@/components/ui/AlertManager';
 import { BookPlus } from 'lucide-react-native';
@@ -73,10 +73,6 @@ export default function MyListingsScreen() {
     statusFilter === 'all'
       ? listings
       : listings.filter((l) => STATUS_MATCH[statusFilter](l.status));
-
-  // Modal states
-  const [viewModalVisible, setViewModalVisible] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
 
   const statusFilters: Array<{
     value: StatusFilter;
@@ -303,103 +299,6 @@ export default function MyListingsScreen() {
 
 
   /**
-   * Render view listing modal
-   */
-  const renderViewModal = () => {
-    if (!selectedListing) return null;
-
-    return (
-      <GlassModal
-        visible={viewModalVisible}
-        onClose={() => setViewModalVisible(false)}
-        title={selectedListing.book.title}
-        height="auto"
-      >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.modalContent}>
-            {/* Book Info */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-                Author
-              </Text>
-              <Text style={[styles.modalValue, { color: colors.text }]}>
-                {selectedListing.book.author}
-              </Text>
-            </View>
-
-            {/* Condition */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-                Condition
-              </Text>
-              <Text style={[styles.modalValue, { color: colors.text }]}>
-                {selectedListing.condition?.replace('_', ' ') || 'N/A'}
-              </Text>
-            </View>
-
-            {/* Type */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-                Listing Type
-              </Text>
-              <Text style={[styles.modalValue, { color: colors.text }]}>
-                {selectedListing.listingType}
-              </Text>
-            </View>
-
-            {/* Description */}
-            {selectedListing.description && (
-              <View style={styles.modalSection}>
-                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-                  Description
-                </Text>
-                <Text style={[styles.modalValue, { color: colors.text }]}>
-                  {selectedListing.description}
-                </Text>
-              </View>
-            )}
-
-            {/* Status */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
-                Status
-              </Text>
-              <View
-                style={[
-                  styles.statusPill,
-                  {
-                    backgroundColor: `${getStatusColor(selectedListing.status)}26`,
-                    alignSelf: 'flex-start',
-                  },
-                ]}
-              >
-                <View
-                  style={[styles.statusDot, { backgroundColor: getStatusColor(selectedListing.status) }]}
-                />
-                <Text
-                  style={[styles.statusPillText, { color: getStatusColor(selectedListing.status) }]}
-                >
-                  {selectedListing.status.charAt(0).toUpperCase() + selectedListing.status.slice(1)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Action Button */}
-            <GlassButton
-              title="Close"
-              onPress={() => setViewModalVisible(false)}
-              variant="secondary"
-              size="md"
-              style={{ marginTop: Spacing.lg }}
-            />
-          </View>
-        </ScrollView>
-      </GlassModal>
-    );
-  };
-
-
-  /**
    * Render header with filters
    */
   const renderHeader = () => {
@@ -501,9 +400,6 @@ export default function MyListingsScreen() {
         />
       </SafeAreaView>
 
-      {/* Modals */}
-      {renderViewModal()}
-
       <OptionsSheet
         visible={optionsTarget !== null}
         title={optionsTarget?.book.title}
@@ -514,10 +410,7 @@ export default function MyListingsScreen() {
                 {
                   label: 'View details',
                   icon: 'book-outline',
-                  onPress: () => {
-                    setSelectedListing(optionsTarget);
-                    setViewModalVisible(true);
-                  },
+                  onPress: () => handleListingPress(optionsTarget),
                 },
                 {
                   label: 'Edit listing',
@@ -714,22 +607,5 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     marginTop: Spacing.md,
-  },
-  modalContent: {
-    paddingBottom: Spacing.xl,
-  },
-  modalSection: {
-    marginBottom: Spacing.lg,
-  },
-  modalLabel: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-    marginBottom: Spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  modalValue: {
-    fontSize: Typography.fontSize.base,
-    textTransform: 'capitalize',
   },
 });

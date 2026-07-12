@@ -374,7 +374,7 @@ export default function EditListingScreen() {
               <Ionicons name="pricetag" size={20} color={BookLoopColors.burntOrange} />
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Listing Type</Text>
             </View>
-            <View style={styles.typeOptions}>
+            <View style={styles.typeRow}>
               {typeOptions.map((option) => {
                 const isSelected = listingType === option.value;
                 return (
@@ -385,49 +385,33 @@ export default function EditListingScreen() {
                       setListingType(option.value);
                     }}
                     style={[
-                      styles.typeOption,
+                      styles.typeCard,
                       {
-                        backgroundColor: isSelected
-                          ? option.color + '20'
-                          : colors.card + '80',
-                        borderColor: isSelected
-                          ? option.color
-                          : 'transparent',
+                        backgroundColor: isSelected ? option.color + '1F' : colors.card + '80',
+                        borderColor: isSelected ? option.color : colors.border,
                       },
                     ]}
                   >
-                    <View style={[styles.typeIconContainer, { backgroundColor: option.color + '25' }]}>
-                      <Ionicons
-                        name={option.icon as any}
-                        size={24}
-                        color={option.color}
-                      />
-                    </View>
-                    <View style={styles.typeContent}>
-                      <Text
-                        style={[
-                          styles.typeLabel,
-                          {
-                            color: isSelected ? option.color : colors.text,
-                            fontWeight: isSelected
-                              ? Typography.fontWeight.bold
-                              : Typography.fontWeight.semibold,
-                          },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      <Text style={[styles.typeDescription, { color: colors.textSecondary }]}>
-                        {option.description}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={24} color={option.color} />
-                    )}
+                    <Ionicons
+                      name={option.icon as any}
+                      size={20}
+                      color={isSelected ? option.color : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.typeCardLabel,
+                        { color: isSelected ? option.color : colors.text },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+            <Text style={[styles.selectorHint, { color: colors.textSecondary }]}>
+              {typeOptions.find((o) => o.value === listingType)?.description}
+            </Text>
           </GlassCard>
 
           {/* Condition */}
@@ -436,9 +420,9 @@ export default function EditListingScreen() {
               <Ionicons name="star" size={20} color={BookLoopColors.burntOrange} />
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Book Condition</Text>
             </View>
-            <View style={styles.conditionOptions}>
+            <View style={styles.condRow}>
               {conditionOptions.map((option) => {
-                const isSelected = condition === option.value;
+                const on = condition === option.value;
                 return (
                   <TouchableOpacity
                     key={option.value}
@@ -447,49 +431,28 @@ export default function EditListingScreen() {
                       setCondition(option.value);
                     }}
                     style={[
-                      styles.conditionOption,
+                      styles.condChip,
                       {
-                        backgroundColor: isSelected
-                          ? BookLoopColors.burntOrange + '20'
-                          : colors.card + '80',
-                        borderColor: isSelected
-                          ? BookLoopColors.burntOrange
-                          : 'transparent',
+                        backgroundColor: on ? BookLoopColors.coffeeBrown : colors.card + '80',
+                        borderColor: on ? BookLoopColors.coffeeBrown : colors.border,
                       },
                     ]}
                   >
-                    <Ionicons
-                      name={option.icon as any}
-                      size={20}
-                      color={isSelected
-                        ? BookLoopColors.burntOrange
-                        : colors.textSecondary
-                      }
-                    />
-                    <View style={styles.conditionContent}>
-                      <Text
-                        style={[
-                          styles.conditionLabel,
-                          {
-                            color: isSelected
-                              ? BookLoopColors.burntOrange
-                              : colors.text,
-                            fontWeight: isSelected
-                              ? Typography.fontWeight.semibold
-                              : Typography.fontWeight.regular,
-                          },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      <Text style={[styles.conditionDescription, { color: colors.textSecondary }]}>
-                        {option.description}
-                      </Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.condChipText,
+                        { color: on ? BookLoopColors.cream : colors.text },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+            <Text style={[styles.selectorHint, { color: colors.textSecondary }]}>
+              {conditionOptions.find((o) => o.value === condition)?.description}
+            </Text>
           </GlassCard>
 
           {/* Description */}
@@ -596,133 +559,66 @@ export default function EditListingScreen() {
               </View>
             )}
 
-            <View style={styles.statusOptions}>
-              {/* Draft Status (Unavailable) */}
-              <TouchableOpacity
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setStatus('draft');
-                }}
-                disabled={listing?.status === 'cancelled' || listing?.status === 'exchanged'}
-                style={[
-                  styles.statusOption,
-                  {
-                    backgroundColor: status === 'draft'
-                      ? BookLoopColors.warmGray + '20'
-                      : colors.card + '80',
-                    borderColor: status === 'draft'
-                      ? BookLoopColors.warmGray
-                      : 'transparent',
-                    opacity: (listing?.status === 'cancelled' || listing?.status === 'exchanged') ? 0.5 : 1,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="eye-off-outline"
-                  size={28}
-                  color={status === 'draft' ? BookLoopColors.warmGray : colors.textSecondary}
-                />
-                <View style={styles.statusContent}>
-                  <Text
+            <View style={[styles.statusSegment, { borderColor: colors.border }]}>
+              {(
+                [
+                  { value: 'draft', label: 'Unavailable', icon: 'eye-off-outline' },
+                  { value: 'available', label: 'Published', icon: 'globe-outline' },
+                ] as const
+              ).map((opt) => {
+                const locked = listing?.status === 'cancelled' || listing?.status === 'exchanged';
+                const on = status === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    disabled={locked}
+                    onPress={async () => {
+                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStatus(opt.value);
+                    }}
                     style={[
-                      styles.statusLabel,
-                      {
-                        color: status === 'draft' ? BookLoopColors.warmGray : colors.text,
-                      },
+                      styles.segmentItem,
+                      on && { backgroundColor: BookLoopColors.coffeeBrown },
+                      locked && { opacity: 0.5 },
                     ]}
                   >
-                    Unavailable
-                  </Text>
-                  <Text style={[styles.statusDescription, { color: colors.textSecondary }]}>
-                    Hidden from search, can publish later
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                    <Ionicons
+                      name={opt.icon as any}
+                      size={16}
+                      color={on ? BookLoopColors.cream : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        { color: on ? BookLoopColors.cream : colors.text },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={[styles.selectorHint, { color: colors.textSecondary }]}>
+              {status === 'available'
+                ? 'Visible to readers nearby.'
+                : 'Hidden from search — publish whenever you\u2019re ready.'}
+            </Text>
 
-              {/* Available Status (Published) */}
+            {/* Permanent cancel — deliberate, quiet, and confirmed */}
+            {listing?.status !== 'cancelled' && listing?.status !== 'exchanged' && (
               <TouchableOpacity
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setStatus('available');
-                }}
-                disabled={listing?.status === 'cancelled' || listing?.status === 'exchanged'}
-                style={[
-                  styles.statusOption,
-                  {
-                    backgroundColor: status === 'available'
-                      ? BookLoopColors.teal + '20'
-                      : colors.card + '80',
-                    borderColor: status === 'available'
-                      ? BookLoopColors.teal
-                      : 'transparent',
-                    opacity: (listing?.status === 'cancelled' || listing?.status === 'exchanged') ? 0.5 : 1,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="globe-outline"
-                  size={28}
-                  color={status === 'available' ? BookLoopColors.teal : colors.textSecondary}
-                />
-                <View style={styles.statusContent}>
-                  <Text
-                    style={[
-                      styles.statusLabel,
-                      {
-                        color: status === 'available' ? BookLoopColors.teal : colors.text,
-                      },
-                    ]}
-                  >
-                    Published
-                  </Text>
-                  <Text style={[styles.statusDescription, { color: colors.textSecondary }]}>
-                    Visible to all users in search
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Cancelled Status (Permanent) */}
-              <TouchableOpacity
+                style={styles.cancelRow}
+                activeOpacity={0.75}
                 onPress={async () => {
                   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   setShowCancelConfirm(true);
                 }}
-                disabled={listing?.status === 'cancelled' || listing?.status === 'exchanged'}
-                style={[
-                  styles.statusOption,
-                  {
-                    backgroundColor: status === 'cancelled'
-                      ? BookLoopColors.error + '20'
-                      : colors.card + '80',
-                    borderColor: status === 'cancelled'
-                      ? BookLoopColors.error
-                      : 'transparent',
-                    opacity: (listing?.status === 'cancelled' || listing?.status === 'exchanged') ? 0.5 : 1,
-                  },
-                ]}
               >
-                <Ionicons
-                  name="trash-outline"
-                  size={28}
-                  color={status === 'cancelled' ? BookLoopColors.error : colors.textSecondary}
-                />
-                <View style={styles.statusContent}>
-                  <Text
-                    style={[
-                      styles.statusLabel,
-                      {
-                        color: status === 'cancelled' ? BookLoopColors.error : colors.text,
-                      },
-                    ]}
-                  >
-                    Cancel Permanently
-                  </Text>
-                  <Text style={[styles.statusDescription, { color: colors.textSecondary }]}>
-                    Cannot be undone or changed
-                  </Text>
-                </View>
+                <Ionicons name="trash-outline" size={16} color={BookLoopColors.error} />
+                <Text style={styles.cancelRowText}>Cancel this listing permanently</Text>
               </TouchableOpacity>
-            </View>
+            )}
           </GlassCard>
 
           {/* Bottom spacing */}
@@ -732,7 +628,7 @@ export default function EditListingScreen() {
         {/* Bottom Action Bar */}
         <View style={[styles.bottomBar, { backgroundColor: colors.background + 'F0', borderTopColor: colors.border }]}>
           <GlassButton
-            title="Cancel"
+            title="Discard"
             onPress={() => router.back()}
             variant="secondary"
             style={styles.cancelButton}
@@ -882,54 +778,76 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     lineHeight: 18,
   },
-  typeOptions: {
-    gap: Spacing.sm,
-  },
-  typeOption: {
+  typeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: 12,
-    borderWidth: 2,
+    gap: 10,
   },
-  typeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  typeCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 13,
+    borderWidth: 1.5,
+  },
+  typeCardLabel: {
+    fontSize: 12.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  selectorHint: {
+    fontSize: 12,
+    marginTop: 10,
+    lineHeight: 16,
+  },
+  condRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  condChip: {
+    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  typeContent: {
+  condChipText: {
+    fontSize: 12.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  statusSegment: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 4,
+    gap: 4,
+  },
+  segmentItem: {
     flex: 1,
-    gap: 2,
-  },
-  typeLabel: {
-    fontSize: Typography.fontSize.base,
-  },
-  typeDescription: {
-    fontSize: Typography.fontSize.xs,
-  },
-  conditionOptions: {
-    gap: Spacing.sm,
-  },
-  conditionOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
     borderRadius: 10,
-    borderWidth: 2,
   },
-  conditionContent: {
-    flex: 1,
-    gap: 2,
+  segmentText: {
+    fontSize: 13,
+    fontWeight: Typography.fontWeight.semibold,
   },
-  conditionLabel: {
-    fontSize: Typography.fontSize.sm,
+  cancelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    height: 44,
+    marginTop: 14,
   },
-  conditionDescription: {
-    fontSize: Typography.fontSize.xs,
+  cancelRowText: {
+    fontSize: 13,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BookLoopColors.error,
   },
   textArea: {
     minHeight: 120,
@@ -1017,28 +935,6 @@ const styles = StyleSheet.create({
   emptyPhotoSubtext: {
     fontSize: Typography.fontSize.sm,
     textAlign: 'center',
-  },
-  statusOptions: {
-    gap: Spacing.sm,
-  },
-  statusOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  statusContent: {
-    flex: 1,
-    gap: 2,
-  },
-  statusLabel: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: Typography.fontWeight.semibold,
-  },
-  statusDescription: {
-    fontSize: Typography.fontSize.xs,
   },
   bottomSpacing: {
     height: 20,
