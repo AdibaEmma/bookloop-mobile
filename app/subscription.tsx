@@ -17,7 +17,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Linking,
 } from 'react-native';
@@ -27,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ChevronLeft, Check, Crown, Layers, ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ConfirmModal } from '@/components/ui';
+import { showSuccessToastMessage, showErrorToastMessage, showInfoToastMessage } from '@/utils/errorHandler';
 import { useAuth } from '@/contexts/AuthContext';
 import { paymentsService, Subscription, SubscriptionPlan } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -62,6 +62,12 @@ export default function SubscriptionScreen() {
     onConfirm: () => void;
   }>(null);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  // Payment awaiting verification — survives the browser round-trip.
+  const [pendingPayment, setPendingPayment] = useState<{
+    reference: string;
+    tier: 'basic' | 'premium';
+  } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -88,7 +94,7 @@ export default function SubscriptionScreen() {
       setSelectedTier(recommended?.tier ?? null);
     } catch (error) {
       console.error('Failed to load subscription data:', error);
-      Alert.alert('Error', 'Failed to load subscription information');
+      showErrorToastMessage('Could not load your subscription. Pull down or reopen to try again.', 'Loading failed');
     } finally {
       setIsLoading(false);
     }
@@ -114,26 +120,24 @@ export default function SubscriptionScreen() {
       if (supported) {
         await Linking.openURL(paymentData.authorizationUrl);
 
-        // Show instructions
-        Alert.alert(
-          'Payment Opened',
-          'Complete the payment in your browser. Once done, return to the app to verify your payment.',
-          [
-            {
-              text: 'Verify Payment',
-              onPress: () => handleVerifyPayment(paymentData.reference, plan.tier as 'basic' | 'premium'),
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
+        // Keep a persistent "verify" path — a dismissable alert was the only
+        // way back to verification, a dead end after paying.
+        setPendingPayment({
+          reference: paymentData.reference,
+          tier: plan.tier as 'basic' | 'premium',
+        });
+        showInfoToastMessage(
+          'Complete the payment in your browser, then come back and tap "Verify payment".',
+          'Payment opened',
         );
       } else {
-        Alert.alert('Error', 'Cannot open payment URL');
+        showErrorToastMessage('Could not open the payment page. Please try again.', 'Payment failed');
       }
     } catch (error: any) {
       console.error('Failed to initialize payment:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to initialize payment'
+      showErrorToastMessage(
+        error.response?.data?.message || 'Could not start the payment. Please try again.',
+        'Payment failed',
       );
     } finally {
       setIsUpgrading(false);
@@ -153,10 +157,10 @@ export default function SubscriptionScreen() {
         onConfirm: async () => {
           try {
             await paymentsService.cancelSubscription();
-            Alert.alert('Success', 'Subscription cancelled successfully');
+            showSuccessToastMessage('Your subscription was cancelled.', 'Downgraded to Free');
             loadData();
           } catch (error) {
-            Alert.alert('Error', 'Failed to cancel subscription');
+            showErrorToastMessage('Could not cancel the subscription. Please try again.', 'Downgrade failed');
           }
         },
       });
@@ -183,13 +187,14 @@ export default function SubscriptionScreen() {
     proceedToPayment(plan);
   };
 
-  const handleVerifyPayment = async (reference: string, tier: 'basic' | 'premium') => {
+  const handleVerifyPayment = async () => {
+    if (!pendingPayment) return;
+    const { reference, tier } = pendingPayment;
     try {
-      // Verify payment
+      setIsVerifying(true);
       const verification = await paymentsService.verifyPayment({ reference });
 
       if (verification.status === 'success') {
-        // Upgrade subscription
         await paymentsService.upgradeSubscription({
           tier,
           payment_reference: reference,
@@ -198,17 +203,20 @@ export default function SubscriptionScreen() {
         // Refresh the stored user so the plan pill (profile, etc.) updates now.
         await refreshUser().catch(() => {});
 
-        Alert.alert(
-          'Success!',
-          `You have successfully upgraded to ${tier} plan`,
-          [{ text: 'OK', onPress: () => loadData() }]
-        );
+        setPendingPayment(null);
+        showSuccessToastMessage(`You're now on the ${cap(tier)} plan.`, 'Upgrade complete');
+        loadData();
       } else {
-        Alert.alert('Payment Failed', 'Your payment could not be verified. Please try again.');
+        showErrorToastMessage(
+          'Payment not confirmed yet. If you just paid, wait a moment and tap "Verify payment" again.',
+          'Not verified',
+        );
       }
     } catch (error) {
       console.error('Failed to verify payment:', error);
-      Alert.alert('Error', 'Failed to verify payment');
+      showErrorToastMessage('Could not verify the payment. Please try again.', 'Verification failed');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -341,6 +349,30 @@ export default function SubscriptionScreen() {
                 </View>
               </LinearGradient>
 
+              {/* Pending payment — persistent path back to verification */}
+              {pendingPayment && (
+                <View style={styles.pendingBanner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingTitle}>Payment in progress</Text>
+                    <Text style={styles.pendingBody}>
+                      Finished paying in the browser? Verify to activate your plan.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.verifyBtn}
+                    onPress={handleVerifyPayment}
+                    disabled={isVerifying}
+                    activeOpacity={0.85}
+                  >
+                    {isVerifying ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.verifyBtnText}>Verify payment</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Billing toggle */}
               <View style={styles.toggle}>
                 {(['monthly', 'yearly'] as const).map((b) => {
@@ -422,6 +454,39 @@ export default function SubscriptionScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(217,121,65,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(217,121,65,0.35)',
+  },
+  pendingTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13,
+    fontWeight: '600',
+    color: BookLoopColors.deepEspresso,
+  },
+  pendingBody: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: '#8B7355',
+    marginTop: 2,
+  },
+  verifyBtn: {
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 11,
+    backgroundColor: BookLoopColors.burntOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyBtnText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, fontWeight: '600', color: '#fff' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 8 },
   backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F1E7D6', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 17, fontWeight: '600', color: BookLoopColors.deepEspresso },

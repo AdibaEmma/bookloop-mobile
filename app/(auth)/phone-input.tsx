@@ -360,12 +360,12 @@ export default function PhoneInputScreen() {
                 <View
                   style={[
                     styles.progressFill,
-                    { backgroundColor: BookLoopColors.burntOrange, width: '33%' },
+                    { backgroundColor: BookLoopColors.burntOrange, width: '25%' },
                   ]}
                 />
               </View>
               <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-                Step 1 of 3
+                Step 1 of 4
               </Text>
             </View>
 

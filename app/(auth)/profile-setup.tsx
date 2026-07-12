@@ -15,7 +15,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   TouchableOpacity,
   TextInput,
   Image,
@@ -31,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/api';
 import { usePreventBack } from '@/hooks/usePreventBack';
 import { reverseGeocode } from '@/utils/geocode';
+import { showErrorToastMessage, showInfoToastMessage } from '@/utils/errorHandler';
 import { BookLoopColors } from '@/constants/theme';
 
 const C = {
@@ -61,7 +61,7 @@ export default function ProfileSetupScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Allow photo access to add a profile photo.');
+        showInfoToastMessage('Allow photo access to add a profile photo.', 'Permission needed');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -81,7 +81,7 @@ export default function ProfileSetupScreen() {
       setIsLocating(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Location helps you find books nearby.');
+        showInfoToastMessage('Location helps you find books nearby.', 'Permission needed');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
@@ -99,7 +99,7 @@ export default function ProfileSetupScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Location error:', error);
-      Alert.alert('Error', 'Could not get your location.');
+      showErrorToastMessage('Could not get your location. Check location settings and try again.', 'Location failed');
     } finally {
       setIsLocating(false);
     }
@@ -127,7 +127,7 @@ export default function ProfileSetupScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Profile setup error:', error);
-      Alert.alert('Error', error?.message || 'Failed to update profile');
+      showErrorToastMessage(error?.message || 'Could not save your profile. Please try again.', 'Save failed');
     } finally {
       setSaving(false);
     }

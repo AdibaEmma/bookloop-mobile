@@ -20,7 +20,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -40,6 +39,7 @@ import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { reverseGeocode } from '@/utils/geocode';
 import { StatsStrip, ConfirmModal } from '@/components/ui';
+import { showErrorAlert } from '@/components/ui/AlertManager';
 import type { StatItem } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, exchangesService, paymentsService } from '@/services/api';
@@ -145,7 +145,7 @@ export default function ProfileTab() {
       router.replace('/(auth)/welcome');
     } catch {
       setLogoutVisible(false);
-      Alert.alert('Error', 'Failed to log out');
+      showErrorAlert('Could not log out. Please try again.', 'Logout failed');
     } finally {
       setLoggingOut(false);
     }

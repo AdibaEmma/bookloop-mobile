@@ -76,17 +76,20 @@ export default function ExploreScreen() {
   const [radius, setRadius] = useState('10');
   const [sortBy, setSortBy] = useState<'distance' | 'recent' | 'popular'>('distance');
 
+  // One accent, not ten: chips differentiate by icon + label, and selection is
+  // the app's coffee brown — the previous rainbow palette fought the warm
+  // book-paper language everywhere else.
   const categories: Category[] = [
-    { name: 'Fiction', icon: 'book', color: '#FF6B6B' },
-    { name: 'Non-Fiction', icon: 'document-text', color: '#4ECDC4' },
-    { name: 'Science', icon: 'flask', color: '#45B7D1' },
-    { name: 'History', icon: 'time', color: '#FFA07A' },
-    { name: 'Biography', icon: 'person', color: '#98D8C8' },
-    { name: 'Fantasy', icon: 'planet', color: '#B19CD9' },
-    { name: 'Romance', icon: 'heart', color: '#FFB6C1' },
-    { name: 'Mystery', icon: 'search-circle', color: '#6C5CE7' },
-    { name: 'Self-Help', icon: 'bulb', color: '#FDB777' },
-    { name: 'Children', icon: 'happy', color: '#F7DC6F' },
+    { name: 'Fiction', icon: 'book', color: BookLoopColors.coffeeBrown },
+    { name: 'Non-Fiction', icon: 'document-text', color: BookLoopColors.coffeeBrown },
+    { name: 'Science', icon: 'flask', color: BookLoopColors.coffeeBrown },
+    { name: 'History', icon: 'time', color: BookLoopColors.coffeeBrown },
+    { name: 'Biography', icon: 'person', color: BookLoopColors.coffeeBrown },
+    { name: 'Fantasy', icon: 'planet', color: BookLoopColors.coffeeBrown },
+    { name: 'Romance', icon: 'heart', color: BookLoopColors.coffeeBrown },
+    { name: 'Mystery', icon: 'search-circle', color: BookLoopColors.coffeeBrown },
+    { name: 'Self-Help', icon: 'bulb', color: BookLoopColors.coffeeBrown },
+    { name: 'Children', icon: 'happy', color: BookLoopColors.coffeeBrown },
   ];
 
   const conditions = [
@@ -308,7 +311,6 @@ export default function ExploreScreen() {
               placeholder="Search by title, author, ISBN..."
               placeholderTextColor={colors.textSecondary}
               style={[styles.searchInput, { color: colors.text }]}
-              onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
             {query.length > 0 && (

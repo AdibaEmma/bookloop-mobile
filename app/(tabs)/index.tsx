@@ -512,7 +512,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   feedBody: {
-    paddingHorizontal: 14,
+    // Match the 18pt gutter used by the header/stats/search above.
+    paddingHorizontal: 18,
     paddingTop: 2,
     gap: 12,
   },

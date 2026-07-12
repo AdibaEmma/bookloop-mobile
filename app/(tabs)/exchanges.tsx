@@ -16,14 +16,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Check, MessageSquare, QrCode, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { EmptyState } from '@/components/ui';
+import { EmptyState, ConfirmModal } from '@/components/ui';
+import { showErrorAlert } from '@/components/ui/AlertManager';
 import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
 import type { Exchange } from '@/services/api/exchanges.service';
@@ -77,6 +77,8 @@ export default function ExchangesScreen() {
   const [all, setAll] = useState<Exchange[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
@@ -85,6 +87,9 @@ export default function ExchangesScreen() {
       setAll(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Failed to load exchanges:', error);
+      // Surface the failure — silently rendering the empty state would make
+      // a network error look like "no swaps yet".
+      showErrorAlert('Could not load your swaps. Pull down to try again.', 'Loading failed');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,25 +112,22 @@ export default function ExchangesScreen() {
   };
 
   const handleCancel = (ex: any) => {
-    Alert.alert(
-      'Cancel request',
-      `Cancel your request for "${ex.listing?.book?.title ?? 'this book'}"?`,
-      [
-        { text: 'Keep', style: 'cancel' },
-        {
-          text: 'Cancel request',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await exchangesService.cancelExchange(ex.id);
-              load(true);
-            } catch {
-              Alert.alert('Error', 'Could not cancel. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setCancelTarget(ex);
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    try {
+      setIsCancelling(true);
+      await exchangesService.cancelExchange(cancelTarget.id);
+      setCancelTarget(null);
+      load(true);
+    } catch {
+      setCancelTarget(null);
+      showErrorAlert('Could not cancel the request. Please try again.', 'Cancel failed');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const renderCard = (ex: any) => {
@@ -133,6 +135,8 @@ export default function ExchangesScreen() {
     const partner = partnerOf(ex);
     const step = stepOf(ex);
     const isPending = ex.status === 'pending';
+    const isDeclined = ex.status === 'declined';
+    const isCancelled = ex.status === 'cancelled';
     const partnerInitial = partner.charAt(0).toUpperCase() || '?';
     const meetupText =
       ex.meetupSpotName && ex.meetupTime
@@ -163,7 +167,16 @@ export default function ExchangesScreen() {
               </View>
               <Text style={styles.cardWith} numberOfLines={1}>with {partner}</Text>
             </View>
-            {isPending ? (
+            {isDeclined || isCancelled ? (
+              // Terminal states need their own label — without one these cards
+              // looked identical to a fresh, still-open request.
+              <View style={[styles.waitingPill, styles.endedPill]}>
+                <View style={[styles.waitingDot, styles.endedDot]} />
+                <Text style={[styles.waitingText, styles.endedText]}>
+                  {isDeclined ? 'They declined this request' : 'Request cancelled'}
+                </Text>
+              </View>
+            ) : isPending ? (
               <View style={styles.waitingPill}>
                 <View style={styles.waitingDot} />
                 <Text style={styles.waitingText}>Waiting for their reply</Text>
@@ -381,6 +394,22 @@ export default function ExchangesScreen() {
           </ScrollView>
         )}
       </SafeAreaView>
+
+      <ConfirmModal
+        visible={cancelTarget !== null}
+        title="Cancel request"
+        message={
+          cancelTarget
+            ? `Cancel your request for "${cancelTarget.listing?.book?.title ?? 'this book'}"?`
+            : undefined
+        }
+        confirmLabel="Cancel request"
+        cancelLabel="Keep"
+        destructive
+        loading={isCancelling}
+        onConfirm={confirmCancel}
+        onCancel={() => setCancelTarget(null)}
+      />
     </View>
   );
 }
@@ -454,6 +483,9 @@ const styles = StyleSheet.create({
   },
   waitingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9800' },
   waitingText: { fontFamily: 'Inter-SemiBold', fontSize: 10.5, fontWeight: '600', color: '#B07D22' },
+  endedPill: { backgroundColor: 'rgba(139,94,60,0.10)' },
+  endedDot: { backgroundColor: '#9C8B77' },
+  endedText: { color: '#8A7561' },
   pendingMeta: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -17,7 +17,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  Alert,
   TextInput,
   TouchableOpacity,
 } from 'react-native';
@@ -214,12 +213,12 @@ export default function VerifyOtpScreen() {
                 <View
                   style={[
                     styles.progressFill,
-                    { backgroundColor: BookLoopColors.burntOrange, width: '66%' },
+                    { backgroundColor: BookLoopColors.burntOrange, width: '50%' },
                   ]}
                 />
               </View>
               <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-                Step 2 of 3
+                Step 2 of 4
               </Text>
             </View>
           )}

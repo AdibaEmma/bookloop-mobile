@@ -20,14 +20,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton } from '@/components/ui';
+import { GlassCard, GlassButton, ConfirmModal } from '@/components/ui';
+import { showSuccessToastMessage, showErrorToastMessage, showInfoToastMessage } from '@/utils/errorHandler';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -73,6 +73,9 @@ export default function SettingsScreen() {
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
+  // Account
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   /**
    * Check biometric availability on mount
    */
@@ -106,7 +109,7 @@ export default function SettingsScreen() {
       if (value) {
         // Enable biometric
         if (!user) {
-          Alert.alert('Error', 'You must be logged in to enable biometric login');
+          showErrorToastMessage('You must be logged in to enable biometric login.', 'Not signed in');
           return;
         }
 
@@ -114,7 +117,7 @@ export default function SettingsScreen() {
         // session later. An access token would expire within minutes.
         const token = await TokenManager.getRefreshToken();
         if (!token) {
-          Alert.alert('Error', 'No active session found. Please log in again.');
+          showErrorToastMessage('No active session found. Please log in again.', 'Session missing');
           return;
         }
 
@@ -127,9 +130,9 @@ export default function SettingsScreen() {
         const success = await biometricService.enableBiometric(credentials);
         if (success) {
           setIsBiometricEnabled(true);
-          Alert.alert(
-            'Success',
-            `${biometricService.getBiometricTypeName(biometricCapability?.biometricType || 'fingerprint')} login enabled`
+          showSuccessToastMessage(
+            `${biometricService.getBiometricTypeName(biometricCapability?.biometricType || 'fingerprint')} login enabled`,
+            'Biometric login',
           );
         }
       } else {
@@ -137,12 +140,12 @@ export default function SettingsScreen() {
         const success = await biometricService.disableBiometric();
         if (success) {
           setIsBiometricEnabled(false);
-          Alert.alert('Success', 'Biometric login disabled');
+          showSuccessToastMessage('Biometric login disabled', 'Biometric login');
         }
       }
     } catch (error) {
       console.error('Failed to toggle biometric:', error);
-      Alert.alert('Error', 'Failed to update biometric settings');
+      showErrorToastMessage('Could not update biometric settings. Please try again.', 'Biometric login');
     } finally {
       setIsBiometricLoading(false);
     }
@@ -170,22 +173,14 @@ export default function SettingsScreen() {
    * Handle delete account
    */
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure? This action cannot be undone and all your data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Coming Soon',
-              'Account deletion will be available soon. Please contact support for now.'
-            );
-          },
-        },
-      ]
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    setShowDeleteConfirm(false);
+    showInfoToastMessage(
+      'Account deletion is coming soon. Contact support to delete your account today.',
+      'Not available yet',
     );
   };
 
@@ -299,14 +294,14 @@ export default function SettingsScreen() {
       title: 'Privacy Policy',
       icon: 'shield-checkmark',
       type: 'navigation',
-      onPress: () => Alert.alert('Coming Soon', 'Privacy policy coming soon'),
+      onPress: () => showInfoToastMessage('Privacy policy is coming soon.', 'Not available yet'),
     },
     {
       id: 'terms',
       title: 'Terms of Service',
       icon: 'document-text',
       type: 'navigation',
-      onPress: () => Alert.alert('Coming Soon', 'Terms of service coming soon'),
+      onPress: () => showInfoToastMessage('Terms of service are coming soon.', 'Not available yet'),
     },
   ];
 
@@ -316,21 +311,21 @@ export default function SettingsScreen() {
       title: 'Help & Support',
       icon: 'help-circle',
       type: 'navigation',
-      onPress: () => Alert.alert('Support', 'Email: support@bookloop.app'),
+      onPress: () => showInfoToastMessage('Email us at support@bookloop.app', 'Support'),
     },
     {
       id: 'feedback',
       title: 'Send Feedback',
       icon: 'chatbubble-ellipses',
       type: 'navigation',
-      onPress: () => Alert.alert('Coming Soon', 'Feedback form coming soon'),
+      onPress: () => showInfoToastMessage('The feedback form is coming soon.', 'Not available yet'),
     },
     {
       id: 'about',
       title: 'About BookLoop',
       icon: 'information-circle',
       type: 'navigation',
-      onPress: () => Alert.alert('BookLoop', 'Version 1.0.0'),
+      onPress: () => showInfoToastMessage('Version 1.0.0', 'BookLoop'),
     },
   ];
 
@@ -370,13 +365,13 @@ export default function SettingsScreen() {
           <Ionicons
             name={item.icon}
             size={20}
-            color={item.destructive ? '#FF3B30' : colors.text}
+            color={item.destructive ? BookLoopColors.error : colors.text}
           />
           <Text
             style={[
               styles.settingTitle,
               {
-                color: item.destructive ? '#FF3B30' : colors.text,
+                color: item.destructive ? BookLoopColors.error : colors.text,
               },
             ]}
           >
@@ -477,6 +472,16 @@ export default function SettingsScreen() {
           </Text>
         </ScrollView>
         </SafeAreaView>
+
+        <ConfirmModal
+          visible={showDeleteConfirm}
+          title="Delete account"
+          message="This cannot be undone — all your listings, swaps, and data will be permanently deleted."
+          confirmLabel="Delete account"
+          destructive
+          onConfirm={confirmDeleteAccount}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
       </View>
     </>
   );
@@ -547,7 +552,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteText: {
-    color: '#FF3B30',
+    color: BookLoopColors.error,
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.medium,
   },

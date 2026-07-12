@@ -14,7 +14,6 @@ import {
   RefreshControl,
   Pressable,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationItem } from '@/components/ui/NotificationItem';
 import { GlassButton } from '@/components/ui/GlassButton';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
   Colors,
   BookLoopColors,
@@ -36,6 +36,7 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const {
     notifications,
@@ -85,20 +86,13 @@ export default function NotificationsScreen() {
   const handleClearRead = useCallback(() => {
     const readCount = notifications.filter((n) => n.isRead).length;
     if (readCount === 0) return;
+    setShowClearConfirm(true);
+  }, [notifications]);
 
-    Alert.alert(
-      'Clear Read Notifications',
-      `Delete ${readCount} read notification${readCount > 1 ? 's' : ''}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: clearReadNotifications,
-        },
-      ]
-    );
-  }, [notifications, clearReadNotifications]);
+  const confirmClearRead = useCallback(() => {
+    setShowClearConfirm(false);
+    clearReadNotifications();
+  }, [clearReadNotifications]);
 
   const renderNotification = useCallback(
     ({ item }: { item: Notification }) => (
@@ -217,6 +211,16 @@ export default function NotificationsScreen() {
           notifications.length === 0 ? styles.emptyList : styles.list
         }
         showsVerticalScrollIndicator={false}
+      />
+
+      <ConfirmModal
+        visible={showClearConfirm}
+        title="Clear read notifications"
+        message="Delete all notifications you've already read? This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmClearRead}
+        onCancel={() => setShowClearConfirm(false)}
       />
     </SafeAreaView>
   );

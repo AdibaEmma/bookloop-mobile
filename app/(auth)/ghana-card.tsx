@@ -23,12 +23,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Alert, Image } from 'react-native';
+import { Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Check, ShieldCheck } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { usersService } from '@/services/api';
-import { showError } from '@/utils/errorHandler';
+import { showError, showSuccessToastMessage, showInfoToastMessage } from '@/utils/errorHandler';
 import { BookLoopColors } from '@/constants/theme';
 
 /**
@@ -75,7 +75,7 @@ export default function GhanaCardScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Camera needed', 'Allow camera access to photograph your Ghana Card.');
+        showInfoToastMessage('Allow camera access to photograph your Ghana Card.', 'Camera needed');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -117,13 +117,16 @@ export default function GhanaCardScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // SourceID may auto-verify instantly; otherwise it's pending admin review.
       const verified = result?.ghanaCardVerified ?? result?.ghana_card_verified ?? false;
-      Alert.alert(
-        verified ? 'Identity verified ✅' : 'Submitted for review',
-        verified
-          ? 'Your Ghana Card was verified. You’re all set!'
-          : 'Thanks! Our team will review your Ghana Card within 24–48 hours.',
-        [{ text: 'Continue', onPress: goNext }],
-      );
+      // Themed toast + direct navigation instead of a blocking OS alert.
+      if (verified) {
+        showSuccessToastMessage('Your Ghana Card was verified. You’re all set!', 'Identity verified');
+      } else {
+        showInfoToastMessage(
+          'Thanks! Our team will review your Ghana Card within 24–48 hours.',
+          'Submitted for review',
+        );
+      }
+      goNext();
     } catch (error) {
       showError(error, 'Could not submit Ghana Card');
     } finally {
@@ -212,7 +215,7 @@ export default function GhanaCardScreen() {
               placeholderTextColor={C.muted}
               autoCapitalize="characters"
               autoCorrect={false}
-              style={[styles.input, { borderColor: card ? (valid ? C.active : '#E0A0A0') : C.latte }]}
+              style={[styles.input, { borderColor: card ? (valid ? C.active : BookLoopColors.error) : C.latte }]}
             />
 
             <View style={{ flex: 1 }} />

@@ -20,6 +20,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -73,6 +74,7 @@ const slides: OnboardingSlide[] = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -142,8 +144,14 @@ export default function OnboardingScreen() {
 
       {/* Skip Button */}
       {currentIndex < slides.length - 1 && (
-        <View style={styles.skipContainer}>
-          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+        // Sit below the notch on every device; hardcoded top:50 clipped on
+        // taller status bars.
+        <View style={[styles.skipContainer, { top: insets.top + 8 }]}>
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleSkip}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         </View>
@@ -221,12 +229,13 @@ const styles = StyleSheet.create({
   },
   skipContainer: {
     position: 'absolute',
-    top: 50,
     right: 20,
     zIndex: 10,
   },
   skipButton: {
-    padding: Spacing.sm,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
   },
   skipText: {
     fontSize: Typography.fontSize.base,
