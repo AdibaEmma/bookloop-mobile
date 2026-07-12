@@ -185,8 +185,10 @@ export default function ExchangesScreen() {
             continuously dot-to-dot and labels stay centered under their dots. */}
         <View style={styles.stepper}>
           {STEPS.map((label, i) => {
-            const done = i < step;
-            const current = i === step;
+            // A completed exchange has no "in progress" step — its final
+            // step is done, so it gets the checkmark, not the current ring.
+            const done = i < step || (i === step && ex.status === 'completed');
+            const current = i === step && !done;
             const first = i === 0;
             const last = i === STEPS.length - 1;
             return (
