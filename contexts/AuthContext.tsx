@@ -13,6 +13,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService, TokenManager, User } from '@/services/api';
+import biometricService from '@/services/biometric.service';
 
 interface AuthContextType {
   user: User | null;
@@ -186,20 +187,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
   /**
    * Biometric login using stored token
    */
-  const biometricLogin = async (token: string) => {
+  const biometricLogin = async (storedRefreshToken: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
-      // Set the stored token
-      await TokenManager.setAccessToken(token);
+      // The stored credential is a REFRESH token — exchange it for a fresh
+      // session (access tokens expire within minutes of being stored).
+      // TokenManager.setRefreshToken syncs each rotation back into the
+      // biometric credential, so the next scan always has a live token.
+      await TokenManager.setRefreshToken(storedRefreshToken);
+      await authService.refreshToken();
 
-      // Fetch current user to validate token
       const currentUser = await authService.getCurrentUser();
       setUser(currentUser);
     } catch (err: any) {
-      // Clear invalid token
       await TokenManager.clearTokens();
+      // A rejected refresh means the saved session is gone (revoked or >7d
+      // old) — drop the stale credential so the user re-enrolls cleanly.
+      if (err.response?.status === 401) {
+        await biometricService.disableBiometric();
+        const msg = 'Your saved session has expired. Log in once, then re-enable biometric login.';
+        setError(msg);
+        throw new Error(msg);
+      }
       const errorMessage = err.response?.data?.message || 'Biometric login failed';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -216,7 +227,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
       setIsLoading(true);
 
-      await authService.logout();
+      // Server logout revokes the refresh token — the same token biometric
+      // re-login depends on. With biometric enabled, sign out locally only;
+      // turning biometric off (or logging out without it) fully revokes.
+      if (await biometricService.isBiometricEnabled()) {
+        await TokenManager.clearTokens();
+        await TokenManager.clearUserData();
+      } else {
+        await authService.logout();
+      }
       setUser(null);
     } catch (err: any) {
       console.error('[AuthContext] Logout error:', err);

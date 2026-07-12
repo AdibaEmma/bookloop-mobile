@@ -182,6 +182,15 @@ export const TokenManager = {
       return;
     }
     await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, token);
+    // The backend invalidates the previous refresh token on every rotation.
+    // Biometric login keeps its own copy, so update it in step (no-op when
+    // biometric credentials don't exist).
+    try {
+      const { biometricService } = await import('../biometric.service');
+      await biometricService.updateStoredToken(token);
+    } catch {
+      // Biometric sync is best-effort; the session tokens are already stored.
+    }
   },
 
   async clearTokens(): Promise<void> {

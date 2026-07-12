@@ -110,8 +110,9 @@ export default function SettingsScreen() {
           return;
         }
 
-        // Get current token
-        const token = await TokenManager.getAccessToken();
+        // Store the REFRESH token — biometric login exchanges it for a fresh
+        // session later. An access token would expire within minutes.
+        const token = await TokenManager.getRefreshToken();
         if (!token) {
           Alert.alert('Error', 'No active session found. Please log in again.');
           return;
