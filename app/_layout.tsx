@@ -23,6 +23,7 @@ import {
 } from '@expo-google-fonts/libre-baskerville';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { AlertManager } from '@/components/ui/AlertManager';
@@ -36,8 +37,6 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   // Register Google Fonts under the family names the design system already
   // references (see constants/theme.ts and the UI components).
   const [fontsLoaded] = useFonts({
@@ -60,9 +59,25 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AppThemeProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ThemedApp />
+        </NotificationProvider>
+      </AuthProvider>
+    </AppThemeProvider>
+  );
+}
+
+/**
+ * Inside AppThemeProvider so navigation chrome and the status bar follow the
+ * user's appearance choice, not just the OS.
+ */
+function ThemedApp() {
+  const colorScheme = useColorScheme();
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" />
@@ -85,10 +100,8 @@ export default function RootLayout() {
             <Stack.Screen name="subscription" />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
           </Stack>
-          <StatusBar style="auto" />
-          <AlertManager />
-        </ThemeProvider>
-      </NotificationProvider>
-    </AuthProvider>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <AlertManager />
+    </ThemeProvider>
   );
 }

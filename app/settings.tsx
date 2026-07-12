@@ -29,6 +29,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassCard, GlassButton, ConfirmModal } from '@/components/ui';
 import { showSuccessToastMessage, showErrorToastMessage, showInfoToastMessage } from '@/utils/errorHandler';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import type { ThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   Colors,
@@ -56,6 +58,7 @@ export default function SettingsScreen() {
   const { user } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { preference, setPreference } = useTheme();
 
   // Notification preferences
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -426,6 +429,60 @@ export default function SettingsScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
+          {/* Appearance */}
+          <GlassCard variant="lg" padding="md">
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Appearance
+            </Text>
+            <View style={styles.themeRow}>
+              {(
+                [
+                  { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
+                  { value: 'light', label: 'Light', icon: 'sunny-outline' },
+                  { value: 'dark', label: 'Dark', icon: 'moon-outline' },
+                ] as Array<{ value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }>
+              ).map((opt) => {
+                const on = preference === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => setPreference(opt.value)}
+                    style={[
+                      styles.themeCard,
+                      {
+                        backgroundColor: on ? BookLoopColors.coffeeBrown : colors.card + '80',
+                        borderColor: on ? BookLoopColors.coffeeBrown : colors.border,
+                      },
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Ionicons
+                      name={opt.icon}
+                      size={19}
+                      color={on ? BookLoopColors.cream : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.themeCardText,
+                        { color: on ? BookLoopColors.cream : colors.text },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={[styles.themeHint, { color: colors.textSecondary }]}>
+              {preference === 'system'
+                ? 'Matches your phone\u2019s appearance automatically.'
+                : preference === 'light'
+                  ? 'Always warm paper, day and night.'
+                  : 'Always espresso dark, day and night.'}
+            </Text>
+          </GlassCard>
+
           {/* Notifications */}
           <GlassCard variant="lg" padding="md">
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -523,6 +580,27 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.lg,
     gap: Spacing.lg,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  themeCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: 13,
+    borderWidth: 1.5,
+  },
+  themeCardText: {
+    fontSize: 12.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  themeHint: {
+    fontSize: 12,
+    marginTop: 10,
+    lineHeight: 16,
   },
   sectionTitle: {
     fontSize: Typography.fontSize.base,
