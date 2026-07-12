@@ -1,12 +1,10 @@
 /**
- * Home Screen (Feed) — design refresh 3a/3b
+ * Home Screen (Feed)
  *
  * Greeting + slim glass stats strip (Karma / Nearby / Swaps) + glass search
- * pill + filter chips + vertical BookCard feed. Replaces the old rainbow
- * quick-action tiles and emoji stat cards.
- *
- * Data/location/refresh logic is unchanged from the previous implementation;
- * only the presentation was reworked to the design.
+ * pill + "Fresh near you" shelf + "Swaps in motion" (your in-flight
+ * exchanges, the actionable pulse of the app). Full-catalogue browsing lives
+ * in Explore — Home deliberately doesn't duplicate it.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -23,25 +21,19 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, Search, BookPlus, ArrowRight } from 'lucide-react-native';
+import { Bell, Search, BookPlus, ArrowRight, ChevronRight } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { BookCard, StatsStrip, FilterChips, EmptyState } from '@/components/ui';
+import { StatsStrip, EmptyState } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
-import type { StatItem, FilterChip } from '@/components/ui';
+import type { StatItem } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
-import { listingsService, Listing } from '@/services/api';
+import { listingsService, exchangesService, Listing } from '@/services/api';
+import type { Exchange } from '@/services/api/exchanges.service';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { showError } from '@/utils/errorHandler';
 import { BookLoopColors } from '@/constants/theme';
-
-const FILTERS: FilterChip[] = [
-  { key: 'all', label: 'All' },
-  { key: 'near', label: 'Near me', icon: 'near' },
-  { key: 'fiction', label: 'Fiction' },
-  { key: 'verified', label: 'Verified' },
-];
 
 const fmtDist = (m?: number) =>
   m === undefined ? '' : m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
@@ -58,7 +50,7 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [swaps, setSwaps] = useState<Exchange[]>([]);
 
   const fadeAnim = useState(new Animated.Value(0))[0];
   const scrollY = useState(new Animated.Value(0))[0];
@@ -121,7 +113,7 @@ export default function HomeScreen() {
         setLocation(currentLocation);
       }
 
-      const [popular, nearby] = await Promise.allSettled([
+      const [popular, nearby, myExchanges] = await Promise.allSettled([
         listingsService.searchListings({ limit: 20 }),
         currentLocation
           ? listingsService.searchListings({
@@ -131,6 +123,7 @@ export default function HomeScreen() {
               limit: 20,
             })
           : Promise.resolve({ data: [] }),
+        exchangesService.getMyRequests(),
       ]);
 
       if (popular.status === 'fulfilled') {
@@ -142,6 +135,18 @@ export default function HomeScreen() {
         const data = (nearby.value as any).data || nearby.value || [];
         const list = (Array.isArray(data) ? data : []).filter((l: Listing) => l.userId !== user?.id);
         setNearbyListings(list);
+      }
+      if (myExchanges.status === 'fulfilled') {
+        const list = Array.isArray(myExchanges.value) ? myExchanges.value : [];
+        // In-flight swaps only, the ones that may need a next step from you.
+        // Accepted first (actionable), then newest.
+        const inFlight = list
+          .filter((e: Exchange) => e.status === 'pending' || e.status === 'accepted')
+          .sort((a: Exchange, b: Exchange) => {
+            if (a.status !== b.status) return a.status === 'accepted' ? -1 : 1;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+        setSwaps(inFlight.slice(0, 3));
       }
     } catch (error: any) {
       console.error('Failed to load home data:', error);
@@ -164,26 +169,38 @@ export default function HomeScreen() {
   const openListing = (l: Listing) =>
     router.push({ pathname: '/listing/[id]', params: { id: l.id } });
 
-  // Merge nearby + popular, dedupe, then apply the active filter chip.
+  // Merge nearby + popular, dedupe — the shelf shows the best of it, and
+  // Explore owns full browsing.
   const feed = useMemo(() => {
     const byId = new Map<string, Listing>();
     [...nearbyListings, ...popularListings].forEach((l) => byId.set(l.id, l));
-    let list = Array.from(byId.values());
-    if (activeFilter === 'near') {
-      list = list
-        .filter((l) => l.distance !== undefined)
-        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-    } else if (activeFilter === 'fiction') {
-      list = list.filter((l) =>
-        (l.book.categories ?? []).some((cat) => cat.toLowerCase().includes('fiction'))
-      );
-    }
-    // 'verified' has no backing field yet — kept visual only (see notes).
-    return list;
-  }, [nearbyListings, popularListings, activeFilter]);
+    return Array.from(byId.values());
+  }, [nearbyListings, popularListings]);
 
-  // The shelf: a highlight reel across the top; the feed below browses everything.
-  const fresh = useMemo(() => feed.slice(0, 8), [feed]);
+  const fresh = useMemo(() => feed.slice(0, 12), [feed]);
+
+  const partnerOf = (ex: Exchange) => {
+    const p = ex.ownerId === user?.id ? ex.requester : ex.owner;
+    return `${p?.firstName ?? ''}`.trim() || 'a reader';
+  };
+
+  // One actionable line per swap — what happens next, from your side.
+  const swapStatusOf = (ex: Exchange): { label: string; color: string } => {
+    if (ex.status === 'pending') {
+      return ex.ownerId === user?.id
+        ? { label: `Reply to ${partnerOf(ex)}'s request`, color: BookLoopColors.burntOrange }
+        : { label: `Waiting for ${partnerOf(ex)}`, color: '#B07D22' };
+    }
+    if (ex.meetupTime) {
+      const when = new Date(ex.meetupTime).toLocaleString(undefined, {
+        weekday: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      return { label: `Meetup ${when}`, color: BookLoopColors.coffeeBrown };
+    }
+    return { label: 'Accepted — pick a meetup', color: BookLoopColors.success };
+  };
 
   const stats: StatItem[] = [
     { value: user?.karma ?? 0, label: 'Karma', icon: 'karma', onPress: () => router.push('/(tabs)/profile') },
@@ -255,7 +272,6 @@ export default function HomeScreen() {
           <Animated.ScrollView
             style={styles.feed}
             contentContainerStyle={styles.feedInner}
-            stickyHeaderIndices={[2]}
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             onScroll={Animated.event(
@@ -308,20 +324,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 2 · filters — sticky, so they stay reachable while the greeting
-                and stats scroll away for more room */}
-            <View style={[styles.chipsSticky, { backgroundColor: c.grad[0] }]}>
-              <FilterChips chips={FILTERS} activeKey={activeFilter} onChange={setActiveFilter} />
-            </View>
-
-            {/* 3 · feed body */}
+            {/* 2 · feed body */}
             <View style={styles.feedBody}>
             {isLoading ? (
               <Text style={[styles.loading, { color: c.muted }]}>Loading your feed…</Text>
             ) : feed.length > 0 ? (
               <>
                 {/* Fresh near you — the shelf */}
-                {fresh.length >= 3 && (
+                {fresh.length > 0 && (
                   <View style={styles.shelf}>
                     <View style={styles.sectionHead}>
                       <Text style={[styles.sectionTitle, { color: c.text }]}>Fresh near you</Text>
@@ -358,48 +368,76 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {/* Browse all */}
-                <View style={styles.sectionHead}>
-                  <Text style={[styles.sectionTitle, { color: c.text }]}>Browse all</Text>
-                  <Text style={[styles.sectionHint, { color: c.muted }]}>
-                    {feed.length} book{feed.length === 1 ? '' : 's'}
+                {/* Hand browsing off to Explore instead of duplicating it here */}
+                <TouchableOpacity
+                  style={[styles.exploreLink, { borderColor: c.searchBorder }]}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/(tabs)/explore')}
+                >
+                  <Text style={[styles.exploreLinkText, { color: c.text }]}>
+                    Browse all books in Explore
                   </Text>
-                </View>
+                  <ArrowRight size={16} color={BookLoopColors.coffeeBrown} strokeWidth={2.2} />
+                </TouchableOpacity>
 
-                {feed.map((l) => (
-                  <BookCard
-                    key={l.id}
-                    title={l.book.title}
-                    author={l.book.author}
-                    coverImage={l.book.coverImage}
-                    condition={l.condition}
-                    listingType={l.listingType}
-                    distance={l.distance}
-                    exchangePreferences={l.exchangePreferences}
-                    owner={
-                      l.user
-                        ? {
-                            name: l.user.firstName,
-                            initials: ((l.user.firstName?.charAt(0) || '') + (l.user.lastName?.charAt(0) || '')).toUpperCase(),
-                            avatarUrl: l.user.avatarUrl,
+                {/* Swaps in motion — the personal pulse of the app */}
+                {swaps.length > 0 && (
+                  <View style={styles.swapsSection}>
+                    <View style={styles.sectionHead}>
+                      <Text style={[styles.sectionTitle, { color: c.text }]}>Swaps in motion</Text>
+                      <TouchableOpacity
+                        onPress={() => router.push('/(tabs)/exchanges')}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.seeAll}>See all</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {swaps.map((ex) => {
+                      const status = swapStatusOf(ex);
+                      return (
+                        <TouchableOpacity
+                          key={ex.id}
+                          style={[styles.swapRow, { borderColor: c.searchBorder }]}
+                          activeOpacity={0.85}
+                          onPress={() =>
+                            router.push({ pathname: '/exchange/[id]', params: { id: ex.id } })
                           }
-                        : undefined
-                    }
-                    onPress={() => openListing(l)}
-                  />
-                ))}
+                        >
+                          <View style={styles.swapCover}>
+                            <BookCover
+                              title={ex.listing?.book?.title ?? 'Book'}
+                              author={ex.listing?.book?.author}
+                              coverImage={ex.listing?.book?.coverImage}
+                              size="sm"
+                              fill
+                            />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[styles.swapTitle, { color: c.text }]} numberOfLines={1}>
+                              {ex.listing?.book?.title ?? 'Book'}
+                            </Text>
+                            <Text
+                              style={[styles.swapStatus, { color: status.color }]}
+                              numberOfLines={1}
+                            >
+                              {status.label}
+                            </Text>
+                          </View>
+                          <ChevronRight size={17} color={c.muted} strokeWidth={2} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </>
             ) : (
               <EmptyState
                 title="No books nearby"
-                body={
-                  activeFilter === 'all'
-                    ? 'Be the first to list a book in your neighbourhood — someone nearby is waiting for a good read.'
-                    : 'Try a wider filter or a bigger search radius.'
-                }
-                actionLabel={activeFilter === 'all' ? 'List a book' : undefined}
+                body="Be the first to list a book in your neighbourhood — someone nearby is waiting for a good read."
+                actionLabel="List a book"
                 actionIcon={BookPlus}
-                onAction={activeFilter === 'all' ? () => router.push('/listing/create') : undefined}
+                onAction={() => router.push('/listing/create')}
               />
             )}
             </View>
@@ -507,10 +545,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     marginBottom: 12,
   },
-  chipsSticky: {
-    paddingTop: 2,
-    paddingBottom: 12,
-  },
   feedBody: {
     // Match the 18pt gutter used by the header/stats/search above.
     paddingHorizontal: 18,
@@ -552,6 +586,57 @@ const styles = StyleSheet.create({
   },
   shelf: {
     marginBottom: 2,
+  },
+  exploreLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    height: 46,
+    borderWidth: 1,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  exploreLinkText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  swapsSection: {
+    marginTop: 6,
+  },
+  swapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+  },
+  swapCover: {
+    width: 38,
+    height: 54,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  swapTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  swapStatus: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11.5,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  seeAll: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: BookLoopColors.coffeeBrown,
   },
   sectionHead: {
     flexDirection: 'row',
