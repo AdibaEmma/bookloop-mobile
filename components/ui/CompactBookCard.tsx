@@ -37,10 +37,27 @@ interface CompactBookCardProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+/** Columns the explore grid renders — the card sizes itself to match. */
+export const COMPACT_CARD_COLUMNS = 3;
+
 const CARD_GAP = Spacing.sm;
 const CARD_HORIZONTAL_PADDING = Spacing.lg * 2;
-const CARD_WIDTH = (SCREEN_WIDTH - CARD_HORIZONTAL_PADDING - CARD_GAP) / 2;
-const COVER_HEIGHT = CARD_WIDTH * 1.4;
+// Floored so rounding can never push the last card of a row past the
+// container edge and wrap it early.
+const CARD_WIDTH = Math.floor(
+  (SCREEN_WIDTH - CARD_HORIZONTAL_PADDING - CARD_GAP * (COMPACT_CARD_COLUMNS - 1)) /
+    COMPACT_CARD_COLUMNS,
+);
+// Cover sits inside the card's padding; slightly squatter than 2:3 keeps the
+// card compact while the text block below stays attached to its cover.
+const CARD_PADDING = 6;
+const COVER_WIDTH = CARD_WIDTH - CARD_PADDING * 2;
+const COVER_HEIGHT = Math.round(COVER_WIDTH * 1.35);
+// Fixed text-block height so all cards match:
+// top padding (4) + 2-line title (30) + margin (1) + author line (13).
+const TITLE_LINE_HEIGHT = 15;
+const INFO_HEIGHT = 48;
 
 export function CompactBookCard({
   title,
@@ -93,11 +110,11 @@ export function CompactBookCard({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.85}
-      style={[styles.container, { width: CARD_WIDTH }]}
+      style={[styles.container, { width: CARD_WIDTH, backgroundColor: colors.card }]}
     >
       {/* Cover Image Container */}
       <View style={styles.coverContainer}>
-        <BookCover title={title} author={author} coverImage={coverImage} size="lg" fill />
+        <BookCover title={title} author={author} coverImage={coverImage} size="md" fill />
 
         {/* Gradient Overlay */}
         <LinearGradient
@@ -114,7 +131,7 @@ export function CompactBookCard({
         >
           <Ionicons
             name={listingTypeIcons[listingType]}
-            size={12}
+            size={11}
             color="#FFFFFF"
           />
         </View>
@@ -158,19 +175,20 @@ export function CompactBookCard({
 }
 
 const styles = StyleSheet.create({
+  // One card surface holding cover + title + author, so the text reads as
+  // part of the book instead of floating under it.
   container: {
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
+    padding: CARD_PADDING,
+    ...Shadows.sm,
   },
   coverContainer: {
-    width: '100%',
+    width: COVER_WIDTH,
     height: COVER_HEIGHT,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     overflow: 'hidden',
     position: 'relative',
-    ...Shadows.md,
   },
   gradient: {
     position: 'absolute',
@@ -183,9 +201,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.xs,
     left: Spacing.xs,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -198,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   conditionText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -219,18 +237,22 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#FFFFFF',
   },
+  // Fixed-height block keeps all cards equal; the author line follows the
+  // title directly (no reserved blank line), so short titles leave any spare
+  // space at the bottom instead of a gap mid-card.
   info: {
-    paddingTop: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+    height: INFO_HEIGHT,
+    paddingTop: Spacing.xs,
+    paddingHorizontal: 2,
   },
   title: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     fontWeight: Typography.fontWeight.semibold,
-    lineHeight: 18,
-    marginBottom: 2,
+    lineHeight: TITLE_LINE_HEIGHT,
+    marginBottom: 1,
   },
   author: {
-    fontSize: Typography.fontSize.xs,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 13,
   },
 });

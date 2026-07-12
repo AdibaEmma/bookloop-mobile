@@ -30,6 +30,7 @@ import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersService } from '@/services/api';
 import { usePreventBack } from '@/hooks/usePreventBack';
+import { reverseGeocode } from '@/utils/geocode';
 import { BookLoopColors } from '@/constants/theme';
 
 const C = {
@@ -88,20 +89,13 @@ export default function ProfileSetupScreen() {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       });
-      // Best-effort human-readable label
-      try {
-        const [place] = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        setLocationLabel(
-          [place?.district || place?.subregion || place?.name, place?.city]
-            .filter(Boolean)
-            .join(', ') || 'Location set',
-        );
-      } catch {
-        setLocationLabel('Location set');
-      }
+      // Best-effort human-readable label (cached + rate-limit safe)
+      const place = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      setLocationLabel(
+        [place?.district || place?.subregion || place?.name, place?.city]
+          .filter(Boolean)
+          .join(', ') || 'Location set',
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Location error:', error);

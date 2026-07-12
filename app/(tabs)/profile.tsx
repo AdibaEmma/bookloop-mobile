@@ -37,9 +37,9 @@ import {
   Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/AuthContext';
-import { StatsStrip } from '@/components/ui';
+import { reverseGeocode } from '@/utils/geocode';
+import { StatsStrip, ConfirmModal } from '@/components/ui';
 import type { StatItem } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, exchangesService, paymentsService } from '@/services/api';
@@ -76,6 +76,8 @@ export default function ProfileTab() {
   const [planTier, setPlanTier] = useState<'free' | 'basic' | 'premium'>(
     (user?.subscriptionTier as 'free' | 'basic' | 'premium') || 'free',
   );
+  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -113,40 +115,40 @@ export default function ProfileTab() {
   );
 
   // Turn the stored coordinates into a friendly place name for the header.
+  // Depend on the coordinate values, not the location object — refreshUser()
+  // recreates the object every tab focus, which would re-run this effect (and
+  // re-hit the geocoder) for identical coordinates.
+  const [lng, lat] = user?.location?.coordinates ?? [];
   useEffect(() => {
-    const coords = user?.location?.coordinates;
-    if (!coords) return;
+    if (lat == null || lng == null) return;
     let cancelled = false;
     (async () => {
-      try {
-        const [lng, lat] = coords;
-        const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-        if (!cancelled) setCity(place?.city || place?.region || place?.subregion || null);
-      } catch {
-        // Reverse geocoding is best-effort; the header just omits the place.
-      }
+      // Best-effort; cached + deduped, resolves null on failure.
+      const place = await reverseGeocode(lat, lng);
+      if (!cancelled && place) setCity(place.city || place.region || place.subregion || null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user?.location]);
+  }, [lat, lng]);
 
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logout();
-            router.replace('/(auth)/welcome');
-          } catch {
-            Alert.alert('Error', 'Failed to log out');
-          }
-        },
-      },
-    ]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setLogoutVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout();
+      setLogoutVisible(false);
+      router.replace('/(auth)/welcome');
+    } catch {
+      setLogoutVisible(false);
+      Alert.alert('Error', 'Failed to log out');
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   if (!user) return null;
@@ -377,6 +379,18 @@ export default function ProfileTab() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Log out confirmation — themed modal instead of the OS alert */}
+      <ConfirmModal
+        visible={logoutVisible}
+        title="Log out"
+        message="Are you sure you want to log out?"
+        confirmLabel="Log out"
+        destructive
+        loading={loggingOut}
+        onConfirm={confirmLogout}
+        onCancel={() => setLogoutVisible(false)}
+      />
     </View>
   );
 }

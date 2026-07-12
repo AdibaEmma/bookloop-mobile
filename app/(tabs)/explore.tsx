@@ -20,7 +20,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,7 +41,6 @@ import {
   Shadows,
 } from '@/constants/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = Spacing.sm;
 const GRID_PADDING = Spacing.lg;
 
@@ -105,45 +103,60 @@ export default function ExploreScreen() {
     { value: 'borrow', label: 'Borrow', icon: 'time' },
   ];
 
+  // Any criterion — text, category chip, or a modal filter — puts the screen
+  // in search mode. Radius alone doesn't (it only scopes an active search).
+  const hasSearchCriteria =
+    query.trim().length > 0 || !!selectedCategory || !!selectedCondition || !!selectedType;
+
   useEffect(() => {
     loadRecentListings();
   }, []);
 
+  // Deep links (/explore?query=...) land in the search box; the effect below
+  // picks the change up like any other keystroke.
   useEffect(() => {
-    if (params.query) {
-      handleSearch();
-    }
+    if (params.query) setQuery(params.query as string);
   }, [params.query]);
 
+  // Single driver for every search trigger (typing, chips, modal filters).
+  // Searching from an effect means state is committed before the request is
+  // built — no stale-closure reads, no setTimeout guesswork.
   useEffect(() => {
-    if (query.trim().length >= 2) {
-      const timeoutId = setTimeout(() => {
-        handleSearch();
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else if (query.trim().length === 0) {
+    if (!hasSearchCriteria) {
       setSearchResults([]);
+      return;
     }
-  }, [query]);
+    const timeoutId = setTimeout(handleSearch, 350);
+    return () => clearTimeout(timeoutId);
+    // handleSearch is recreated each render with fresh state; the criteria are the real deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, selectedCategory, selectedCondition, selectedType, radius]);
+
+  // One GPS fix per screen visit — repeated searches (debounced typing, chip
+  // taps) reuse it instead of re-querying the hardware every time.
+  const deviceLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    if (deviceLocationRef.current) return deviceLocationRef.current;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const pos = await Location.getCurrentPositionAsync({});
+      deviceLocationRef.current = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      };
+    } catch (error) {
+      console.log('Location not available');
+    }
+    return deviceLocationRef.current;
+  };
 
   const loadRecentListings = async (wide = false) => {
     try {
       setIsLoadingRecent(true);
-      setWidened(wide);
 
-      let location: { latitude: number; longitude: number } | null = null;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const currentLocation = await Location.getCurrentPositionAsync({});
-          location = {
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-          };
-        }
-      } catch (error) {
-        console.log('Location not available');
-      }
+      // The wide sweep is countrywide, so only the nearby view needs GPS.
+      const location = wide ? null : await getDeviceLocation();
 
       const searchParams: any = {
         limit: wide ? 40 : 20,
@@ -157,9 +170,25 @@ export default function ExploreScreen() {
         searchParams.radiusMeters = 50000;
       }
 
-      const response = await listingsService.searchListings(searchParams);
-      const data = response.data || response || [];
-      setRecentListings(Array.isArray(data) ? data : []);
+      let response = await listingsService.searchListings(searchParams);
+      let data: Listing[] = Array.isArray(response?.data) ? response.data : [];
+      let effectiveWide = wide;
+
+      // The grid hides the user's own listings, so judge "empty" by the same rule.
+      const fromOthers = data.filter((l) => l.userId !== user?.id);
+      if (!wide && fromOthers.length === 0) {
+        if (location) {
+          // Nothing within ~50km — widen automatically instead of dead-ending
+          // on an empty screen while books exist elsewhere.
+          response = await listingsService.searchListings({ limit: 40 });
+          data = Array.isArray(response?.data) ? response.data : [];
+        }
+        // Without GPS the first query was already countrywide — just relabel.
+        effectiveWide = true;
+      }
+
+      setWidened(effectiveWide);
+      setRecentListings(data);
     } catch (error) {
       console.error('Failed to load listings:', error);
       showError(error, 'Failed to Load Listings');
@@ -169,7 +198,9 @@ export default function ExploreScreen() {
   };
 
   const handleSearch = async () => {
-    if (!query.trim() && !selectedCategory) {
+    // Condition/type filters count as criteria too — the old guard only
+    // recognised text/category, which made modal-only filtering a no-op.
+    if (!hasSearchCriteria) {
       setSearchResults([]);
       return;
     }
@@ -177,19 +208,7 @@ export default function ExploreScreen() {
     try {
       setIsSearching(true);
 
-      let location: { latitude: number; longitude: number } | null = null;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const currentLocation = await Location.getCurrentPositionAsync({});
-          location = {
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-          };
-        }
-      } catch (error) {
-        console.log('Location not available for search');
-      }
+      const location = await getDeviceLocation();
 
       const searchParams: any = {
         query: query.trim() || undefined,
@@ -217,13 +236,8 @@ export default function ExploreScreen() {
   };
 
   const handleCategoryPress = (category: string) => {
-    if (selectedCategory === category) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory(category);
-    }
-    // Trigger search after state update
-    setTimeout(() => handleSearch(), 100);
+    // The search effect reacts to this state change — no manual trigger needed.
+    setSelectedCategory(selectedCategory === category ? null : category);
   };
 
   const clearFilters = () => {
@@ -236,8 +250,9 @@ export default function ExploreScreen() {
   };
 
   const applyFilters = () => {
+    // Filter chips update state as they're tapped, and the search effect has
+    // already re-queried — closing the modal reveals the results.
     setShowFilters(false);
-    handleSearch();
   };
 
   const handleListingPress = (listing: Listing) => {
@@ -248,16 +263,14 @@ export default function ExploreScreen() {
   };
 
   const hasActiveFilters = selectedCategory || selectedCondition || selectedType;
-  // Explore is for discovering OTHER readers' books — never your own, which would
-  // make it read like "my listings".
-  const displayListings = (searchResults.length > 0 ? searchResults : recentListings).filter(
+  // In search mode show the search results even when empty — falling back to
+  // the unfiltered browse list would make filters look ignored. Explore is for
+  // discovering OTHER readers' books, so the user's own are always hidden.
+  const displayListings = (hasSearchCriteria ? searchResults : recentListings).filter(
     (l) => l.userId !== user?.id,
   );
-  const isShowingSearchResults = searchResults.length > 0 || query.trim().length > 0;
+  const isShowingSearchResults = hasSearchCriteria;
 
-  // Split listings into two columns for grid layout
-  const leftColumnListings = displayListings.filter((_, i) => i % 2 === 0);
-  const rightColumnListings = displayListings.filter((_, i) => i % 2 === 1);
 
   return (
     <View style={styles.container}>
@@ -400,14 +413,22 @@ export default function ExploreScreen() {
         <View style={styles.resultsSection}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {isShowingSearchResults ? 'Search Results' : 'Near You'}
+              {isShowingSearchResults ? 'Search Results' : widened ? 'Across Ghana' : 'Near You'}
             </Text>
             {!isShowingSearchResults && (
-              <TouchableOpacity onPress={() => loadRecentListings(widened)} style={styles.refreshButton}>
+              // Refresh retries nearby-first; loadRecentListings re-widens on its own
+              // if there is still nothing close by.
+              <TouchableOpacity onPress={() => loadRecentListings()} style={styles.refreshButton}>
                 <Ionicons name="refresh" size={18} color={BookLoopColors.burntOrange} />
               </TouchableOpacity>
             )}
           </View>
+
+          {!isShowingSearchResults && widened && displayListings.length > 0 && (
+            <Text style={[styles.widenedNote, { color: colors.textSecondary }]}>
+              Nothing within 50 km yet — showing books from farther away.
+            </Text>
+          )}
 
           {isSearching || isLoadingRecent ? (
             <View style={styles.loadingContainer}>
@@ -417,37 +438,21 @@ export default function ExploreScreen() {
               </Text>
             </View>
           ) : displayListings.length > 0 ? (
+            // Wrapping row grid — rows stay aligned regardless of how tall an
+            // individual card's text runs (independent columns drift apart).
             <View style={styles.gridContainer}>
-              {/* Left Column */}
-              <View style={styles.gridColumn}>
-                {leftColumnListings.map((listing) => (
-                  <CompactBookCard
-                    key={listing.id}
-                    title={listing.book.title}
-                    author={listing.book.author}
-                    coverImage={listing.book.coverImage}
-                    condition={listing.condition}
-                    listingType={listing.listingType}
-                    distance={listing.distance}
-                    onPress={() => handleListingPress(listing)}
-                  />
-                ))}
-              </View>
-              {/* Right Column */}
-              <View style={styles.gridColumn}>
-                {rightColumnListings.map((listing) => (
-                  <CompactBookCard
-                    key={listing.id}
-                    title={listing.book.title}
-                    author={listing.book.author}
-                    coverImage={listing.book.coverImage}
-                    condition={listing.condition}
-                    listingType={listing.listingType}
-                    distance={listing.distance}
-                    onPress={() => handleListingPress(listing)}
-                  />
-                ))}
-              </View>
+              {displayListings.map((listing) => (
+                <CompactBookCard
+                  key={listing.id}
+                  title={listing.book.title}
+                  author={listing.book.author}
+                  coverImage={listing.book.coverImage}
+                  condition={listing.condition}
+                  listingType={listing.listingType}
+                  distance={listing.distance}
+                  onPress={() => handleListingPress(listing)}
+                />
+              ))}
             </View>
           ) : (
             <EmptyState
@@ -759,6 +764,11 @@ const styles = StyleSheet.create({
   refreshButton: {
     padding: Spacing.xs,
   },
+  widenedNote: {
+    fontSize: Typography.fontSize.xs,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: Spacing['2xl'],
@@ -769,10 +779,8 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     flexDirection: 'row',
-    gap: CARD_GAP,
-  },
-  gridColumn: {
-    flex: 1,
+    flexWrap: 'wrap',
+    columnGap: CARD_GAP,
   },
   emptyContainer: {
     alignItems: 'center',

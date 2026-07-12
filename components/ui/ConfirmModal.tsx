@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BookLoopColors } from '@/constants/theme';
 
 const DESTRUCTIVE = '#C15B3F'; // warm brick — signals caution without alarming red
@@ -34,15 +34,20 @@ export function ConfirmModal({
   onCancel: () => void;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={loading ? undefined : onCancel}>
+      <Pressable style={styles.backdrop} onPress={loading ? undefined : onCancel}>
         {/* stop taps inside the card from dismissing */}
         <Pressable style={styles.card} onPress={() => {}}>
           <Text style={styles.title}>{title}</Text>
           {!!message && <Text style={styles.message}>{message}</Text>}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={[styles.btn, styles.cancelBtn]} activeOpacity={0.85} onPress={onCancel}>
+            <TouchableOpacity
+              style={[styles.btn, styles.cancelBtn, loading && styles.btnDisabled]}
+              activeOpacity={0.85}
+              disabled={loading}
+              onPress={onCancel}
+            >
               <Text style={styles.cancelText}>{cancelLabel}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -51,7 +56,11 @@ export function ConfirmModal({
               disabled={loading}
               onPress={onConfirm}
             >
-              <Text style={styles.confirmText}>{confirmLabel}</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color={BookLoopColors.cream} />
+              ) : (
+                <Text style={styles.confirmText}>{confirmLabel}</Text>
+              )}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -106,6 +115,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4D8C4',
   },
+  btnDisabled: { opacity: 0.5 },
   cancelText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 14.5,

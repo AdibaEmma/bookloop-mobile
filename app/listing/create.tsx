@@ -37,6 +37,7 @@ import { QuickBookSearch } from '@/components/QuickBookSearch';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingsService, booksService, Book } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { reverseGeocode } from '@/utils/geocode';
 import {
   Colors,
   Typography,
@@ -193,14 +194,13 @@ export default function CreateListingScreen() {
 
       const currentLocation = await Location.getCurrentPositionAsync({});
 
-      // Reverse geocode to get address
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
+      // Reverse geocode to get address (cached + rate-limit safe)
+      const address = await reverseGeocode(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+      );
 
-      if (addresses && addresses.length > 0) {
-        const address = addresses[0];
+      if (address) {
         setLocation({
           latitude: currentLocation.coords.latitude,
           longitude: currentLocation.coords.longitude,
@@ -227,14 +227,16 @@ export default function CreateListingScreen() {
    * Search book by ISBN
    */
   const searchBookByISBN = async () => {
-    if (!isbn.trim()) {
+    // Accept pasted ISBNs with hyphens/spaces (e.g. "978-0-14-312774-1")
+    const cleanIsbn = isbn.replace(/[^0-9Xx]/g, '');
+    if (!cleanIsbn) {
       showErrorAlert('Please enter an ISBN', 'Missing ISBN');
       return;
     }
 
     try {
       setIsLoadingBook(true);
-      const book = await booksService.searchByISBN(isbn.trim());
+      const book = await booksService.searchByISBN(cleanIsbn);
 
       if (book) {
         // Store full book object with ID
@@ -242,7 +244,7 @@ export default function CreateListingScreen() {
         setBookData({
           title: book.title,
           author: book.author,
-          isbn: book.isbn || isbn.trim(),
+          isbn: book.isbn || cleanIsbn,
           publisher: book.publisher,
           publishedDate: book.publishedDate,
           pageCount: book.pageCount,
@@ -793,7 +795,7 @@ export default function CreateListingScreen() {
                   style={styles.isbnInput}
                   value={isbn}
                   onChangeText={setIsbn}
-                  placeholder="978-0-…"
+                  placeholder="e.g. 9780143127741"
                   placeholderTextColor="#B39C82"
                   keyboardType="numeric"
                   onSubmitEditing={searchBookByISBN}
