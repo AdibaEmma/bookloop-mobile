@@ -62,6 +62,18 @@
           "defaultChannel": "default"
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow BookLoop to use Face ID to sign you in securely."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BookLoop uses your location to show books shared by readers near you."
+        }
+      ],
       "expo-web-browser",
       "expo-secure-store",
       "expo-font"
