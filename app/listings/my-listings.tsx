@@ -28,7 +28,8 @@ import {
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton, BookCard, ScreenHeader } from '@/components/ui';
+import { GlassCard, GlassButton, BookCard, ScreenHeader, ConfirmModal } from '@/components/ui';
+import { showSuccessAlert, showErrorAlert } from '@/components/ui/AlertManager';
 import { listingsService, Listing } from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -38,7 +39,16 @@ import {
   BookLoopColors,
 } from '@/constants/theme';
 
-type StatusFilter = 'all' | 'available' | 'pending' | 'exchanged' | 'unavailable';
+type StatusFilter = 'all' | 'available' | 'reserved' | 'exchanged' | 'unavailable';
+
+// Filters must map to statuses listings actually carry
+// (draft/available/reserved/exchanged/expired/cancelled).
+const STATUS_MATCH: Record<Exclude<StatusFilter, 'all'>, (status: string) => boolean> = {
+  available: (s) => s === 'available',
+  reserved: (s) => s === 'reserved',
+  exchanged: (s) => s === 'exchanged',
+  unavailable: (s) => s === 'draft' || s === 'cancelled' || s === 'expired',
+};
 
 export default function MyListingsScreen() {
   const router = useRouter();
@@ -46,10 +56,17 @@ export default function MyListingsScreen() {
   const colors = Colors[colorScheme];
 
   const [listings, setListings] = useState<Listing[]>([]);
-  const [filteredListings, setFilteredListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [deleteTarget, setDeleteTarget] = useState<Listing | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Derived, not state — kept in sync automatically.
+  const filteredListings =
+    statusFilter === 'all'
+      ? listings
+      : listings.filter((l) => STATUS_MATCH[statusFilter](l.status));
 
   const statusFilters: Array<{
     value: StatusFilter;
@@ -58,7 +75,7 @@ export default function MyListingsScreen() {
   }> = [
     { value: 'all', label: 'All', icon: 'apps' },
     { value: 'available', label: 'Available', icon: 'checkmark-circle' },
-    { value: 'pending', label: 'Pending', icon: 'time' },
+    { value: 'reserved', label: 'Reserved', icon: 'time' },
     { value: 'exchanged', label: 'Exchanged', icon: 'swap-horizontal' },
     { value: 'unavailable', label: 'Unavailable', icon: 'close-circle' },
   ];
@@ -85,10 +102,9 @@ export default function MyListingsScreen() {
 
       const data = await listingsService.getMyListings();
       setListings(data);
-      filterListings(data, statusFilter);
     } catch (error) {
       console.error('Failed to load listings:', error);
-      Alert.alert('Error', 'Failed to load your listings');
+      showErrorAlert('Could not load your listings. Pull down to try again.', 'Loading failed');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -98,25 +114,8 @@ export default function MyListingsScreen() {
   /**
    * Filter listings by status
    */
-  const filterListings = (
-    listingsData: Listing[],
-    filter: StatusFilter
-  ) => {
-    if (filter === 'all') {
-      setFilteredListings(listingsData);
-    } else {
-      setFilteredListings(
-        listingsData.filter((listing) => listing.status === filter)
-      );
-    }
-  };
-
-  /**
-   * Handle status filter change
-   */
   const handleFilterChange = (filter: StatusFilter) => {
     setStatusFilter(filter);
-    filterListings(listings, filter);
   };
 
   /**
@@ -210,15 +209,15 @@ export default function MyListingsScreen() {
     try {
       if (listing.status === 'available') {
         await listingsService.markAsUnavailable(listing.id);
-        Alert.alert('Success', 'Listing marked as unavailable');
+        showSuccessAlert('Listing marked as unavailable');
       } else {
         await listingsService.reactivateListing(listing.id);
-        Alert.alert('Success', 'Listing reactivated');
+        showSuccessAlert('Listing reactivated');
       }
       loadListings(true);
     } catch (error) {
       console.error('Failed to toggle availability:', error);
-      Alert.alert('Error', 'Failed to update listing');
+      showErrorAlert('Could not update the listing. Please try again.', 'Update failed');
     }
   };
 
@@ -226,18 +225,7 @@ export default function MyListingsScreen() {
    * Confirm deletion
    */
   const confirmDelete = (listing: Listing) => {
-    Alert.alert(
-      'Delete Listing',
-      `Are you sure you want to delete "${listing.book.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteListing(listing),
-        },
-      ]
-    );
+    setDeleteTarget(listing);
   };
 
   /**
@@ -246,11 +234,11 @@ export default function MyListingsScreen() {
   const deleteListing = async (listing: Listing) => {
     try {
       await listingsService.deleteListing(listing.id);
-      Alert.alert('Success', 'Listing deleted');
+      showSuccessAlert('Listing deleted');
       loadListings(true);
     } catch (error) {
       console.error('Failed to delete listing:', error);
-      Alert.alert('Error', 'Failed to delete listing');
+      showErrorAlert('Could not delete the listing. Please try again.', 'Delete failed');
     }
   };
 
@@ -303,13 +291,12 @@ export default function MyListingsScreen() {
    * Get status color
    */
   const getStatusColor = (status: string): string => {
-    const colors: Record<string, string> = {
-      available: '#34C759',
-      pending: '#FF9500',
-      exchanged: '#007AFF',
-      unavailable: '#8E8E93',
+    const statusColors: Record<string, string> = {
+      available: BookLoopColors.success,
+      reserved: BookLoopColors.warning,
+      exchanged: BookLoopColors.coffeeBrown,
     };
-    return colors[status] || '#8E8E93';
+    return statusColors[status] || '#9C8B77';
   };
 
   /**
@@ -458,6 +445,27 @@ export default function MyListingsScreen() {
             }
           />
         </View>
+
+        <ConfirmModal
+          visible={deleteTarget !== null}
+          title="Delete listing"
+          message={
+            deleteTarget
+              ? `Are you sure you want to delete "${deleteTarget.book.title}"?`
+              : undefined
+          }
+          confirmLabel="Delete"
+          destructive
+          loading={isDeleting}
+          onConfirm={async () => {
+            if (!deleteTarget) return;
+            setIsDeleting(true);
+            await deleteListing(deleteTarget);
+            setIsDeleting(false);
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </View>
     </>
   );

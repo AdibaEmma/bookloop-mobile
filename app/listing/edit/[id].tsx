@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
   TextInput,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -30,7 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { GlassCard, GlassButton } from '@/components/ui';
+import { GlassCard, GlassButton, ConfirmModal } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingsService, Listing } from '@/services/api';
@@ -56,6 +55,7 @@ export default function EditListingScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Form state
   const [description, setDescription] = useState('');
@@ -540,7 +540,7 @@ export default function EditListingScreen() {
                       onPress={() => handleRemovePhoto(index)}
                       style={styles.removePhotoButton}
                     >
-                      <Ionicons name="close-circle" size={28} color="#FF3B30" />
+                      <Ionicons name="close-circle" size={28} color={BookLoopColors.error} />
                     </TouchableOpacity>
                     <View style={styles.photoIndex}>
                       <Text style={styles.photoIndexText}>{index + 1}</Text>
@@ -586,8 +586,8 @@ export default function EditListingScreen() {
 
             {/* Show message if listing is cancelled or exchanged */}
             {listing && (listing.status === 'cancelled' || listing.status === 'exchanged') && (
-              <View style={[styles.infoBox, { backgroundColor: '#FF3B30' + '15', borderColor: '#FF3B30' + '30', marginBottom: Spacing.md }]}>
-                <Ionicons name="lock-closed" size={16} color="#FF3B30" />
+              <View style={[styles.infoBox, { backgroundColor: BookLoopColors.error + '15', borderColor: BookLoopColors.error + '30', marginBottom: Spacing.md }]}>
+                <Ionicons name="lock-closed" size={16} color={BookLoopColors.error} />
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
                   This listing is {listing.status}. No further changes can be made.
                 </Text>
@@ -683,32 +683,17 @@ export default function EditListingScreen() {
               <TouchableOpacity
                 onPress={async () => {
                   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  // Show confirmation alert
-                  Alert.alert(
-                    'Cancel Listing Permanently?',
-                    'This action cannot be undone. The listing will be permanently cancelled and cannot be edited or published again.',
-                    [
-                      {
-                        text: 'Keep Listing',
-                        style: 'cancel',
-                      },
-                      {
-                        text: 'Cancel Permanently',
-                        style: 'destructive',
-                        onPress: () => setStatus('cancelled'),
-                      },
-                    ]
-                  );
+                  setShowCancelConfirm(true);
                 }}
                 disabled={listing?.status === 'cancelled' || listing?.status === 'exchanged'}
                 style={[
                   styles.statusOption,
                   {
                     backgroundColor: status === 'cancelled'
-                      ? '#FF3B30' + '20'
+                      ? BookLoopColors.error + '20'
                       : colors.card + '80',
                     borderColor: status === 'cancelled'
-                      ? '#FF3B30'
+                      ? BookLoopColors.error
                       : 'transparent',
                     opacity: (listing?.status === 'cancelled' || listing?.status === 'exchanged') ? 0.5 : 1,
                   },
@@ -717,14 +702,14 @@ export default function EditListingScreen() {
                 <Ionicons
                   name="trash-outline"
                   size={28}
-                  color={status === 'cancelled' ? '#FF3B30' : colors.textSecondary}
+                  color={status === 'cancelled' ? BookLoopColors.error : colors.textSecondary}
                 />
                 <View style={styles.statusContent}>
                   <Text
                     style={[
                       styles.statusLabel,
                       {
-                        color: status === 'cancelled' ? '#FF3B30' : colors.text,
+                        color: status === 'cancelled' ? BookLoopColors.error : colors.text,
                       },
                     ]}
                   >
@@ -760,6 +745,20 @@ export default function EditListingScreen() {
           />
         </View>
       </SafeAreaView>
+
+      <ConfirmModal
+        visible={showCancelConfirm}
+        title="Cancel listing permanently?"
+        message="This cannot be undone. The listing will be permanently cancelled and cannot be edited or published again."
+        confirmLabel="Cancel permanently"
+        cancelLabel="Keep listing"
+        destructive
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          setStatus('cancelled');
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </View>
   );
 }

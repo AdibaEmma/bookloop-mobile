@@ -98,9 +98,13 @@ export default function HandoverScreen() {
     } catch (error) {
       console.error('Failed to generate handover code:', error);
       // Offline / demo fallback: a local short code that still round-trips.
+      // Each character must be drawn independently — a constant expression
+      // produced 6 identical characters.
+      const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       setRawCode(
-        Array.from({ length: CODE_LEN }, () =>
-          'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor((Date.now() >> 2) % 30)]
+        Array.from(
+          { length: CODE_LEN },
+          () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)],
         ).join('')
       );
       setExpiry(new Date(Date.now() + 10 * 60 * 1000));

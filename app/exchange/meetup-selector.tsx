@@ -175,15 +175,15 @@ export default function MeetupSelectorScreen() {
         const longitude = match ? parseFloat(match[1]) : 0;
         const latitude = match ? parseFloat(match[2]) : 0;
 
-        // Calculate distance from user
-        const distance = userLocation
-          ? calculateDistance(
-              userLocation.latitude,
-              userLocation.longitude,
-              latitude,
-              longitude
-            )
-          : undefined;
+        // Distance from the search origin — the `userLocation` STATE is still
+        // null on the first load (setState hasn't committed), which made every
+        // distance undefined and the sort a no-op.
+        const distance = calculateDistance(
+          location.latitude,
+          location.longitude,
+          latitude,
+          longitude,
+        );
 
         return {
           id: spot.id,

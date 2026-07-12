@@ -30,7 +30,8 @@ import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-rou
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GlassCard, GlassButton, Avatar, ScreenHeader } from '@/components/ui';
+import { GlassCard, GlassButton, Avatar, ScreenHeader, ConfirmModal } from '@/components/ui';
+import { showSuccessToastMessage, showErrorToastMessage } from '@/utils/errorHandler';
 import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
 import { exchangesService, Exchange } from '@/services/api';
@@ -64,6 +65,8 @@ export default function ExchangeDetailScreen() {
   const [exchange, setExchange] = useState<Exchange | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  // Which destructive confirmation is open (themed modal, not the OS alert).
+  const [confirmAction, setConfirmAction] = useState<'decline' | 'cancel' | null>(null);
 
   // Determine user role
   const isOwner = exchange?.ownerId === user?.id;
@@ -89,7 +92,7 @@ export default function ExchangeDetailScreen() {
       setExchange(data);
     } catch (error) {
       console.error('Failed to load exchange:', error);
-      Alert.alert('Error', 'Failed to load exchange details');
+      showErrorToastMessage('Could not load the exchange details. Please try again.', 'Loading failed');
       router.back();
     } finally {
       setIsLoading(false);
@@ -230,11 +233,11 @@ export default function ExchangeDetailScreen() {
     try {
       setIsActionLoading(true);
       await exchangesService.acceptExchange(exchange.id);
-      Alert.alert('Success', 'Exchange request accepted!');
+      showSuccessToastMessage('Exchange request accepted!', 'Accepted');
       loadExchange();
     } catch (error) {
       console.error('Failed to accept:', error);
-      Alert.alert('Error', 'Failed to accept exchange');
+      showErrorToastMessage('Could not accept the exchange. Please try again.', 'Accept failed');
     } finally {
       setIsActionLoading(false);
     }
@@ -243,65 +246,44 @@ export default function ExchangeDetailScreen() {
   /**
    * Handle decline exchange
    */
-  const handleDecline = async () => {
-    if (!exchange) return;
-
-    Alert.alert(
-      'Decline Request',
-      'Are you sure you want to decline this exchange request?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsActionLoading(true);
-              await exchangesService.declineExchange(exchange.id);
-              Alert.alert('Declined', 'Exchange request has been declined');
-              router.back();
-            } catch (error) {
-              console.error('Failed to decline:', error);
-              Alert.alert('Error', 'Failed to decline exchange');
-            } finally {
-              setIsActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleDecline = () => {
+    if (exchange) setConfirmAction('decline');
   };
 
   /**
    * Handle cancel exchange
    */
-  const handleCancel = async () => {
-    if (!exchange) return;
+  const handleCancel = () => {
+    if (exchange) setConfirmAction('cancel');
+  };
 
-    Alert.alert(
-      'Cancel Exchange',
-      'Are you sure you want to cancel this exchange?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsActionLoading(true);
-              await exchangesService.cancelExchange(exchange.id);
-              Alert.alert('Cancelled', 'Exchange has been cancelled');
-              router.back();
-            } catch (error) {
-              console.error('Failed to cancel:', error);
-              Alert.alert('Error', 'Failed to cancel exchange');
-            } finally {
-              setIsActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  /** Run the confirmed destructive action. */
+  const runConfirmedAction = async () => {
+    if (!exchange || !confirmAction) return;
+    const action = confirmAction;
+    try {
+      setIsActionLoading(true);
+      if (action === 'decline') {
+        await exchangesService.declineExchange(exchange.id);
+        showSuccessToastMessage('The exchange request was declined.', 'Request declined');
+      } else {
+        await exchangesService.cancelExchange(exchange.id);
+        showSuccessToastMessage('The exchange was cancelled.', 'Exchange cancelled');
+      }
+      setConfirmAction(null);
+      router.back();
+    } catch (error) {
+      console.error(`Failed to ${action}:`, error);
+      setConfirmAction(null);
+      showErrorToastMessage(
+        action === 'decline'
+          ? 'Could not decline the request. Please try again.'
+          : 'Could not cancel the exchange. Please try again.',
+        action === 'decline' ? 'Decline failed' : 'Cancel failed',
+      );
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   /**
@@ -869,6 +851,22 @@ export default function ExchangeDetailScreen() {
             )}
           </View>
         </ScrollView>
+
+        <ConfirmModal
+          visible={confirmAction !== null}
+          title={confirmAction === 'decline' ? 'Decline request' : 'Cancel exchange'}
+          message={
+            confirmAction === 'decline'
+              ? 'Are you sure you want to decline this exchange request?'
+              : 'Are you sure you want to cancel this exchange?'
+          }
+          confirmLabel={confirmAction === 'decline' ? 'Decline' : 'Cancel exchange'}
+          cancelLabel="Keep"
+          destructive
+          loading={isActionLoading}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
       </View>
     </>
   );

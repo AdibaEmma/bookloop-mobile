@@ -31,7 +31,6 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
   ArrowLeft,
   Share2,
-  Heart,
   Pencil,
   MapPin,
   ArrowLeftRight,
@@ -78,7 +77,6 @@ export default function ListingDetailScreen() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
@@ -205,29 +203,16 @@ export default function ListingDetailScreen() {
                 <TouchableOpacity style={styles.circleBtn} onPress={share} accessibilityLabel="Share">
                   <Share2 size={18} color={C.text} strokeWidth={2} />
                 </TouchableOpacity>
-                {isOwner ? (
+                {/* Save-for-later removed until a favourites API exists — a
+                    heart that only toggled local state silently lost the save
+                    on every reload. */}
+                {isOwner && (
                   <TouchableOpacity
                     style={styles.circleBtn}
                     onPress={() => router.push(`/listing/edit/${listing.id}`)}
                     accessibilityLabel="Edit listing"
                   >
                     <Pencil size={18} color={C.text} strokeWidth={2} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.circleBtn}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setSaved((s) => !s);
-                    }}
-                    accessibilityLabel={saved ? 'Unsave' : 'Save'}
-                  >
-                    <Heart
-                      size={18}
-                      color={saved ? BookLoopColors.error : C.text}
-                      fill={saved ? BookLoopColors.error : 'transparent'}
-                      strokeWidth={2}
-                    />
                   </TouchableOpacity>
                 )}
               </View>
@@ -461,9 +446,9 @@ const styles = StyleSheet.create({
   },
   galleryTopRight: { flexDirection: 'row', gap: 8 },
   circleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,248,240,0.9)',
     justifyContent: 'center',
     alignItems: 'center',

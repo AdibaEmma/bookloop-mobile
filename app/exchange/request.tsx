@@ -71,7 +71,10 @@ interface UserLocation {
 }
 
 export default function ExchangeRequestScreen() {
-  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const { listingId, meetupSpotId } = useLocalSearchParams<{
+    listingId: string;
+    meetupSpotId?: string;
+  }>();
   const router = useRouter();
   const { user } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
@@ -178,8 +181,14 @@ export default function ExchangeRequestScreen() {
       formattedSpots.sort((a, b) => (a.distance || 0) - (b.distance || 0));
       setMeetupSpots(formattedSpots);
 
-      // Auto-select first spot
-      if (formattedSpots.length > 0) {
+      // Honour a spot chosen in the meetup selector; only fall back to the
+      // nearest one when the user didn't pick.
+      const preselected = meetupSpotId
+        ? formattedSpots.find((s) => s.id === meetupSpotId)
+        : undefined;
+      if (preselected) {
+        setSelectedMeetupSpot(preselected);
+      } else if (formattedSpots.length > 0) {
         setSelectedMeetupSpot(formattedSpots[0]);
       }
     } catch (error) {

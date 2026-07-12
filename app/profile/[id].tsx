@@ -304,9 +304,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,248,240,0.85)',
     alignItems: 'center',
     justifyContent: 'center',

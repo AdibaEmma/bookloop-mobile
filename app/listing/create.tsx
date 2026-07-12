@@ -19,7 +19,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
   TextInput,
   ActivityIndicator,
@@ -626,21 +625,14 @@ export default function CreateListingScreen() {
         }
       }
 
-      // Use Alert.alert for success with navigation callback
-      const statusMessage = publishImmediately
-        ? 'Your listing has been published and is now visible to all users!'
-        : 'Your listing has been saved as a draft. You can publish it later from your listings.';
-
-      Alert.alert(
-        publishImmediately ? 'Listing Published!' : 'Listing Saved as Draft',
-        statusMessage,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
+      // Themed toast + direct navigation — matches the rest of this screen.
+      showSuccessAlert(
+        publishImmediately
+          ? 'Your listing is now visible to readers nearby.'
+          : 'Saved as a draft — publish it anytime from your listings.',
+        publishImmediately ? 'Listing published' : 'Draft saved',
       );
+      router.back();
     } catch (error: any) {
       console.error('Create listing error:', error);
       showErrorAlert(
@@ -996,7 +988,7 @@ export default function CreateListingScreen() {
                     onPress={() => removePhoto(index)}
                     style={styles.removeButton}
                   >
-                    <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                    <Ionicons name="close-circle" size={24} color={BookLoopColors.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -1095,7 +1087,7 @@ export default function CreateListingScreen() {
                         }}
                         style={styles.removePreferenceButton}
                       >
-                        <Ionicons name="close-circle" size={24} color="#E74C3C" />
+                        <Ionicons name="close-circle" size={24} color={BookLoopColors.error} />
                       </TouchableOpacity>
                     </View>
                   ))}
