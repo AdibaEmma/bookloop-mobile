@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Home, Compass, Plus, Repeat, User } from 'lucide-react-native';
 
@@ -22,6 +23,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
  */
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
 
@@ -36,9 +38,15 @@ export default function TabLayout() {
           backgroundColor: isDark ? '#1C150F' : BookLoopColors.cream,
           borderTopColor: isDark ? BookLoopColors.darkBorder : 'rgba(139,94,60,0.1)',
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 74 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 10 : 8,
-          paddingTop: 6,
+          // Size the bar AROUND the home-indicator inset. A hardcoded 74pt
+          // absorbed the ~34pt inset, leaving ~40pt of touch area half inside
+          // the system gesture zone — taps constantly missed.
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 8,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
         tabBarLabelStyle: {
           fontFamily: 'Inter-Regular',
@@ -127,18 +135,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fabWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
+    width: 60,
+    height: 60,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 4,
-    marginTop: -18,
+    marginTop: -8,
   },
   fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: BookLoopColors.goldDeep,
