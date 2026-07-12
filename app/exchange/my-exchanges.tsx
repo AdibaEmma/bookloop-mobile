@@ -245,13 +245,13 @@ export default function MyExchangesScreen() {
    */
   const getStatusColor = (status: string): string => {
     const colors: Record<string, string> = {
-      pending: '#FF9500',
+      pending: BookLoopColors.warning,
       accepted: BookLoopColors.success,
       declined: BookLoopColors.error,
       completed: BookLoopColors.coffeeBrown,
-      cancelled: '#8E8E93',
+      cancelled: '#9C8B77',
     };
-    return colors[status] || '#8E8E93';
+    return colors[status] || '#9C8B77';
   };
 
   /**

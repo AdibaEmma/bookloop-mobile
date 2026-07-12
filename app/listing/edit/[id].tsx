@@ -80,18 +80,20 @@ export default function EditListingScreen() {
       color: BookLoopColors.burntOrange,
       description: 'Swap for another book'
     },
+    // Colors match the type coding used everywhere else (explore cards,
+    // exchange badges): exchange = burntOrange, donate = success, borrow = info.
     {
       value: 'donate',
       label: 'Donate',
       icon: 'heart',
-      color: BookLoopColors.teal,
+      color: BookLoopColors.success,
       description: 'Give away for free'
     },
     {
       value: 'borrow',
       label: 'Borrow',
       icon: 'time',
-      color: BookLoopColors.sage,
+      color: BookLoopColors.info,
       description: 'Lend temporarily'
     },
   ] as const;

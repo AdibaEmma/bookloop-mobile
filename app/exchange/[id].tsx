@@ -173,9 +173,9 @@ export default function ExchangeDetailScreen() {
       accepted: BookLoopColors.success,
       declined: BookLoopColors.error,
       completed: BookLoopColors.info,
-      cancelled: '#8E8E93',
+      cancelled: '#9C8B77',
     };
-    return statusColors[status] || '#8E8E93';
+    return statusColors[status] || '#9C8B77';
   };
 
   /**
