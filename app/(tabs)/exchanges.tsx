@@ -6,7 +6,7 @@
  * context-aware primary action. Friendly empty state (10e) when a bucket is empty.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,12 +28,13 @@ import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
 import type { Exchange } from '@/services/api/exchanges.service';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookLoopColors } from '@/constants/theme';
 
 type Bucket = 'active' | 'pending' | 'completed';
 const STEPS = ['Requested', 'Accepted', 'Meeting set', 'Done'];
 
-const C = {
+const LIGHT_C = {
   grad: [BookLoopColors.creamTop, BookLoopColors.cream] as const,
   text: BookLoopColors.deepEspresso,
   muted: BookLoopColors.authorText,
@@ -43,6 +44,22 @@ const C = {
   idle: '#F0E7D6',
   idleBorder: '#E4DAC8',
   cardBorder: '#EFE2CE',
+  cardBg: '#fff',
+  segmentBg: '#F1E7D6',
+};
+
+const DARK_C: typeof LIGHT_C = {
+  grad: [BookLoopColors.darkBg, BookLoopColors.darkBgDeep] as const,
+  text: BookLoopColors.darkText,
+  muted: BookLoopColors.darkTextMuted,
+  active: BookLoopColors.burntOrange,
+  gold: BookLoopColors.mutedGold,
+  goldDeep: BookLoopColors.goldDeep,
+  idle: '#3D2E24',
+  idleBorder: '#4A4238',
+  cardBorder: '#3D2E24',
+  cardBg: '#2C1F18',
+  segmentBg: '#2C1F18',
 };
 
 function timeAgo(iso?: string): string {
@@ -73,6 +90,9 @@ function stepOf(ex: Exchange): number {
 export default function ExchangesScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const scheme = useColorScheme() ?? 'light';
+  const C = scheme === 'dark' ? DARK_C : LIGHT_C;
+  const styles = useMemo(() => makeStyles(C), [C]);
   const [tab, setTab] = useState<Bucket>('active');
   const [all, setAll] = useState<Exchange[]>([]);
   const [loading, setLoading] = useState(true);
@@ -414,7 +434,8 @@ export default function ExchangesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: typeof LIGHT_C) =>
+  StyleSheet.create({
   container: { flex: 1 },
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 10 },
@@ -425,7 +446,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginBottom: 14,
     padding: 4,
-    backgroundColor: '#F1E7D6',
+    backgroundColor: C.segmentBg,
     borderRadius: 12,
   },
   segItem: {
@@ -450,7 +471,7 @@ const styles = StyleSheet.create({
   segBadgeText: { fontFamily: 'Inter-Bold', fontSize: 9.5, fontWeight: '700' },
   list: { paddingHorizontal: 14, paddingBottom: 24, gap: 12 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderWidth: 1,
     borderColor: C.cardBorder,
     borderRadius: 16,
@@ -576,4 +597,4 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   goldActionText: { fontFamily: 'Inter-SemiBold', fontSize: 12.5, color: C.text, fontWeight: '600' },
-});
+  });

@@ -11,7 +11,7 @@
  * User model doesn't carry them yet (location is coordinates only).
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { reverseGeocode } from '@/utils/geocode';
 import { StatsStrip, ConfirmModal } from '@/components/ui';
 import { showErrorAlert } from '@/components/ui/AlertManager';
@@ -45,7 +46,7 @@ import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, exchangesService, paymentsService } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
-const C = {
+const LIGHT_C = {
   bg: BookLoopColors.cream,
   text: BookLoopColors.deepEspresso,
   muted: BookLoopColors.authorText,
@@ -53,6 +54,29 @@ const C = {
   cardBorder: '#EFE2CE',
   bodyText: '#6B5240',
   idleTab: '#B39C82',
+  cardBg: '#fff',
+  statText: '#4A3528',
+  bannerGrad: ['#F4E1C1', '#D8B48A'] as readonly [string, string],
+  premIconBg: 'rgba(255,213,128,0.35)',
+  softBorder: '#D4C0A0',
+  tintBg: 'rgba(139,94,60,0.09)',
+};
+
+const DARK_C: typeof LIGHT_C = {
+  bg: BookLoopColors.darkBg,
+  text: BookLoopColors.darkText,
+  muted: BookLoopColors.darkTextMuted,
+  active: BookLoopColors.burntOrange,
+  cardBorder: '#3D2E24',
+  bodyText: '#C9B8A3',
+  idleTab: '#8C7660',
+  cardBg: '#2C1F18',
+  statText: '#E4D4C0',
+  // Deeper gold so the banner sits into the dark canvas instead of glaring.
+  bannerGrad: ['#C9A87C', '#8F6B45'] as readonly [string, string],
+  premIconBg: 'rgba(255,213,128,0.16)',
+  softBorder: '#4A4238',
+  tintBg: 'rgba(217,121,65,0.12)',
 };
 
 const TIER = {
@@ -65,6 +89,9 @@ export default function ProfileTab() {
   const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
+  const scheme = useColorScheme() ?? 'light';
+  const C = scheme === 'dark' ? DARK_C : LIGHT_C;
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   const [listings, setListings] = useState<any[]>([]);
   const [swaps, setSwaps] = useState(0);
@@ -185,7 +212,7 @@ export default function ProfileTab() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 28 }}>
         {/* Cover banner */}
         <LinearGradient
-          colors={['#F4E1C1', '#D8B48A']}
+          colors={C.bannerGrad}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={[styles.cover, { paddingTop: insets.top + 6 }]}
@@ -395,7 +422,8 @@ export default function ProfileTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: typeof LIGHT_C) =>
+  StyleSheet.create({
   container: { flex: 1 },
   cover: {
     paddingHorizontal: 18,
@@ -487,7 +515,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     borderWidth: 1,
     borderColor: C.cardBorder,
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -496,7 +524,7 @@ const styles = StyleSheet.create({
     // personal note, clearly distinct from the factual "Reader since" line.
     fontFamily: 'LibreBaskerville-Italic',
     fontSize: 13,
-    color: '#4A3528',
+    color: C.statText,
     lineHeight: 19,
     marginTop: 10,
     marginLeft: 97, // align with the name column (avatar 82 + gap 15)
@@ -507,7 +535,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderWidth: 1,
     borderColor: '#F0D9A8',
     borderRadius: 14,
@@ -517,7 +545,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,213,128,0.35)',
+    backgroundColor: C.premIconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -527,7 +555,7 @@ const styles = StyleSheet.create({
     width: '47.5%',
     minHeight: 200,
     borderWidth: 1.5,
-    borderColor: '#D4C0A0',
+    borderColor: C.softBorder,
     borderStyle: 'dashed',
     borderRadius: 14,
     alignItems: 'center',
@@ -538,7 +566,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(139,94,60,0.09)',
+    backgroundColor: C.tintBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -570,7 +598,7 @@ const styles = StyleSheet.create({
     borderColor: C.cardBorder,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
   },
   gridCover: { width: '100%', aspectRatio: 0.72, overflow: 'hidden' },
   gridBody: { padding: 10 },
@@ -610,4 +638,4 @@ const styles = StyleSheet.create({
     borderTopColor: C.cardBorder,
   },
   logoutText: { fontFamily: 'Inter-SemiBold', fontSize: 14, color: BookLoopColors.error, fontWeight: '600' },
-});
+  });
