@@ -194,7 +194,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       }
 
       return token;
-    } catch (error) {
+    } catch (error: any) {
+      // Builds signed without the push entitlement (e.g. free personal-team
+      // dev builds) can't register for remote push — expected, not an error.
+      // Local notifications and the rest of the app work normally.
+      if (String(error?.message ?? error).includes('aps-environment')) {
+        console.log('[Notifications] Remote push unavailable in this build (no aps-environment entitlement)');
+        setIsPushEnabled(false);
+        return null;
+      }
       console.error('[Notifications] Registration error:', error);
       return null;
     }
