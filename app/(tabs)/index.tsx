@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, Search, BookPlus, ArrowRight, ChevronRight } from 'lucide-react-native';
+import { Bell, BookPlus, ArrowRight, ChevronRight } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { StatsStrip, EmptyState } from '@/components/ui';
@@ -51,6 +51,7 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [swaps, setSwaps] = useState<Exchange[]>([]);
+  const [myListingCount, setMyListingCount] = useState<number | null>(null);
 
   const fadeAnim = useState(new Animated.Value(0))[0];
   const scrollY = useState(new Animated.Value(0))[0];
@@ -74,6 +75,8 @@ export default function HomeScreen() {
         searchBorder: BookLoopColors.darkBorderSoft,
         searchIcon: BookLoopColors.burntOrange,
         searchText: '#8C7660',
+        cardBg: 'rgba(61,46,36,0.55)',
+        chipBg: 'rgba(217,121,65,0.16)',
         fade: BookLoopColors.darkBgDeep,
       }
     : {
@@ -88,6 +91,8 @@ export default function HomeScreen() {
         searchBorder: 'rgba(139,94,60,0.14)',
         searchIcon: BookLoopColors.coffeeBrown,
         searchText: BookLoopColors.mutedText,
+        cardBg: 'rgba(255,255,255,0.65)',
+        chipBg: 'rgba(139,94,60,0.12)',
         fade: BookLoopColors.cream,
       };
 
@@ -113,7 +118,7 @@ export default function HomeScreen() {
         setLocation(currentLocation);
       }
 
-      const [popular, nearby, myExchanges] = await Promise.allSettled([
+      const [popular, nearby, myExchanges, mine] = await Promise.allSettled([
         listingsService.searchListings({ limit: 20 }),
         currentLocation
           ? listingsService.searchListings({
@@ -124,6 +129,7 @@ export default function HomeScreen() {
             })
           : Promise.resolve({ data: [] }),
         exchangesService.getMyRequests(),
+        listingsService.getMyListings(),
       ]);
 
       if (popular.status === 'fulfilled') {
@@ -147,6 +153,9 @@ export default function HomeScreen() {
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
           });
         setSwaps(inFlight.slice(0, 3));
+      }
+      if (mine.status === 'fulfilled') {
+        setMyListingCount(Array.isArray(mine.value) ? mine.value.length : 0);
       }
     } catch (error: any) {
       console.error('Failed to load home data:', error);
@@ -213,10 +222,13 @@ export default function HomeScreen() {
     },
   ];
 
-  // Brand-new reader: no karma, no swaps → an all-zero strip is dead weight, so
-  // we show a first-action nudge instead until they have something to count.
+  // Brand-new reader: nothing listed, no karma, no swaps → show a first-action
+  // nudge instead of an all-zero strip. Listings are the real signal — karma
+  // alone misfired for users who had listed but not yet swapped.
   const isNewUser =
-    (user?.karma ?? 0) === 0 && (((user as any)?.exchangesCompleted ?? 0) === 0);
+    myListingCount === 0 &&
+    (user?.karma ?? 0) === 0 &&
+    (((user as any)?.exchangesCompleted ?? 0) === 0);
 
   const firstName = user?.firstName || 'Reader';
   const initials =
@@ -290,11 +302,11 @@ export default function HomeScreen() {
             <View style={styles.topPad}>
               {isNewUser ? (
                 <TouchableOpacity
-                  style={[styles.nudge, { borderColor: c.searchBorder }]}
+                  style={[styles.nudge, { borderColor: c.searchBorder, backgroundColor: c.cardBg }]}
                   activeOpacity={0.9}
                   onPress={() => router.push('/listing/create')}
                 >
-                  <View style={styles.nudgeIcon}>
+                  <View style={[styles.nudgeIcon, { backgroundColor: c.chipBg }]}>
                     <BookPlus size={22} color={BookLoopColors.coffeeBrown} strokeWidth={2} />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -308,20 +320,6 @@ export default function HomeScreen() {
               ) : (
                 <StatsStrip stats={stats} />
               )}
-            </View>
-
-            {/* 1 · search */}
-            <View style={styles.topPad}>
-              <TouchableOpacity
-                style={[styles.search, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
-                activeOpacity={0.7}
-                onPress={() => router.push('/search')}
-                accessibilityRole="search"
-                accessibilityLabel="Search books nearby"
-              >
-                <Search size={18} color={c.searchIcon} strokeWidth={2} />
-                <Text style={[styles.searchText, { color: c.searchText }]}>Search books nearby…</Text>
-              </TouchableOpacity>
             </View>
 
             {/* 2 · feed body */}
@@ -370,7 +368,7 @@ export default function HomeScreen() {
 
                 {/* Hand browsing off to Explore instead of duplicating it here */}
                 <TouchableOpacity
-                  style={[styles.exploreLink, { borderColor: c.searchBorder }]}
+                  style={[styles.exploreLink, { borderColor: c.searchBorder, backgroundColor: c.cardBg }]}
                   activeOpacity={0.8}
                   onPress={() => router.push('/(tabs)/explore')}
                 >
@@ -398,7 +396,7 @@ export default function HomeScreen() {
                       return (
                         <TouchableOpacity
                           key={ex.id}
-                          style={[styles.swapRow, { borderColor: c.searchBorder }]}
+                          style={[styles.swapRow, { borderColor: c.searchBorder, backgroundColor: c.cardBg }]}
                           activeOpacity={0.85}
                           onPress={() =>
                             router.push({ pathname: '/exchange/[id]', params: { id: ex.id } })
@@ -555,7 +553,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: 'rgba(255,255,255,0.72)',
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
@@ -569,7 +566,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: 'rgba(139,94,60,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -595,7 +591,6 @@ const styles = StyleSheet.create({
     height: 46,
     borderWidth: 1,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   exploreLinkText: {
     fontFamily: 'Inter-SemiBold',
@@ -613,7 +608,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.62)',
   },
   swapCover: {
     width: 38,

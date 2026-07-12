@@ -20,16 +20,14 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
-  Alert,
   RefreshControl,
-  ActionSheetIOS,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, GlassButton, BookCard, GlassModal, EmptyState, ConfirmModal } from '@/components/ui';
+import { GlassButton, GlassModal, EmptyState, ConfirmModal, OptionsSheet } from '@/components/ui';
+import { BookCover } from '@/components/ui/BookCover';
 import { showSuccessAlert, showErrorAlert } from '@/components/ui/AlertManager';
 import { BookPlus } from 'lucide-react-native';
 import { listingsService, Listing } from '@/services/api';
@@ -40,6 +38,7 @@ import {
   Typography,
   Spacing,
   BookLoopColors,
+  ConditionBadge,
 } from '@/constants/theme';
 
 type StatusFilter = 'all' | 'available' | 'reserved' | 'exchanged' | 'unavailable';
@@ -66,6 +65,7 @@ export default function MyListingsScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deleteTarget, setDeleteTarget] = useState<Listing | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [optionsTarget, setOptionsTarget] = useState<Listing | null>(null);
 
   // Derived, not state — a copy kept in state went stale when the focus
   // effect reloaded with the first render's filter captured in its closure.
@@ -139,78 +139,10 @@ export default function MyListingsScreen() {
   };
 
   /**
-   * Show listing options menu
+   * Show listing options — themed bottom sheet on both platforms.
    */
   const showListingOptions = (listing: Listing) => {
-    const options = [
-      'View',
-      'Edit',
-      listing.status === 'available' ? 'Mark as Unavailable' : 'Reactivate',
-      'Delete',
-      'Cancel',
-    ];
-
-    const destructiveButtonIndex = 3;
-    const cancelButtonIndex = 4;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          destructiveButtonIndex,
-          cancelButtonIndex,
-        },
-        (buttonIndex) => {
-          handleOptionSelected(listing, buttonIndex);
-        }
-      );
-    } else {
-      // Android: Show alert dialog
-      Alert.alert('Listing Options', 'Choose an action', [
-        { text: 'View', onPress: () => handleOptionSelected(listing, 0) },
-        { text: 'Edit', onPress: () => handleOptionSelected(listing, 1) },
-        {
-          text: listing.status === 'available' ? 'Mark as Unavailable' : 'Reactivate',
-          onPress: () => handleOptionSelected(listing, 2),
-        },
-        {
-          text: 'Delete',
-          onPress: () => handleOptionSelected(listing, 3),
-          style: 'destructive',
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
-
-  /**
-   * Handle option selected from menu
-   */
-  const handleOptionSelected = async (listing: Listing, index: number) => {
-    switch (index) {
-      case 0: // View
-        setSelectedListing(listing);
-        setViewModalVisible(true);
-        break;
-
-      case 1: // Edit
-        router.push({
-          pathname: '/listing/edit/[id]',
-          params: { id: listing.id },
-        });
-        break;
-
-      case 2: // Toggle availability
-        await toggleAvailability(listing);
-        break;
-
-      case 3: // Delete
-        confirmDelete(listing);
-        break;
-
-      default:
-        break;
-    }
+    setOptionsTarget(listing);
   };
 
 
@@ -269,42 +201,75 @@ export default function MyListingsScreen() {
   /**
    * Render listing item
    */
-  const renderListing = ({ item }: { item: Listing }) => (
-    <View style={styles.listingWrapper}>
-      <BookCard
-        title={item.book.title}
-        author={item.book.author}
-        coverImage={item.book.coverImage}
-        condition={item.condition}
-        listingType={item.listingType}
-        onPress={() => handleListingPress(item)}
-        isOwnListing
-      />
-
-      {/* Status Badge */}
-      <View
-        style={[
-          styles.statusBadge,
-          {
-            backgroundColor: getStatusColor(item.status),
-          },
-        ]}
-      >
-        <Text style={styles.statusText}>
-          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-        </Text>
-      </View>
-
-      {/* Options Button */}
+  const renderListing = ({ item }: { item: Listing }) => {
+    const cond = ConditionBadge[item.condition] ?? ConditionBadge.good;
+    const condTone = cond[colorScheme];
+    const typeIcon: Record<string, keyof typeof Ionicons.glyphMap> = {
+      exchange: 'swap-horizontal',
+      donate: 'gift-outline',
+      borrow: 'time-outline',
+    };
+    const statusColor = getStatusColor(item.status);
+    return (
       <TouchableOpacity
-        onPress={() => showListingOptions(item)}
-        style={[styles.optionsButton, { backgroundColor: colors.surface }]}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        activeOpacity={0.85}
+        onPress={() => handleListingPress(item)}
       >
-        <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+        <View style={styles.cardCover}>
+          <BookCover
+            title={item.book.title}
+            author={item.book.author}
+            coverImage={item.book.coverImage}
+            size="sm"
+            fill
+          />
+        </View>
+
+        <View style={styles.cardBody}>
+          <View style={styles.cardTitleRow}>
+            <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
+              {item.book.title}
+            </Text>
+            <View style={[styles.statusPill, { backgroundColor: `${statusColor}26` }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.statusPillText, { color: statusColor }]}>
+                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.cardAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.book.author}
+          </Text>
+
+          <View style={styles.cardMeta}>
+            <View style={[styles.condPill, { backgroundColor: condTone.bg }]}>
+              <Text style={[styles.condPillText, { color: condTone.fg }]}>{cond.label}</Text>
+            </View>
+            <View style={styles.typeMeta}>
+              <Ionicons
+                name={typeIcon[item.listingType] ?? 'swap-horizontal'}
+                size={13}
+                color={BookLoopColors.burntOrange}
+              />
+              <Text style={[styles.typeMetaText, { color: colors.textSecondary }]}>
+                {item.listingType.charAt(0).toUpperCase() + item.listingType.slice(1)}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity
+              onPress={() => showListingOptions(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Listing options"
+            >
+              <Ionicons name="ellipsis-horizontal" size={19} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
       </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   /**
    * Get status color
@@ -401,14 +366,19 @@ export default function MyListingsScreen() {
               </Text>
               <View
                 style={[
-                  styles.statusBadge,
+                  styles.statusPill,
                   {
-                    backgroundColor: getStatusColor(selectedListing.status),
+                    backgroundColor: `${getStatusColor(selectedListing.status)}26`,
                     alignSelf: 'flex-start',
                   },
                 ]}
               >
-                <Text style={styles.statusText}>
+                <View
+                  style={[styles.statusDot, { backgroundColor: getStatusColor(selectedListing.status) }]}
+                />
+                <Text
+                  style={[styles.statusPillText, { color: getStatusColor(selectedListing.status) }]}
+                >
                   {selectedListing.status.charAt(0).toUpperCase() + selectedListing.status.slice(1)}
                 </Text>
               </View>
@@ -432,77 +402,73 @@ export default function MyListingsScreen() {
   /**
    * Render header with filters
    */
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {/* Title */}
-      <Text style={[styles.title, { color: colors.text }]}>My Listings</Text>
+  const renderHeader = () => {
+    const counts = {
+      total: listings.length,
+      available: listings.filter((l) => l.status === 'available').length,
+      exchanged: listings.filter((l) => l.status === 'exchanged').length,
+    };
+    return (
+      <View style={styles.header}>
+        {/* Title + one-line shelf summary */}
+        <Text style={[styles.title, { color: colors.text }]}>My Listings</Text>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {listings.length}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Total
-          </Text>
+        {/* Slim stat strip — three numbers on one shelf, not three slabs */}
+        <View style={[styles.statStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {(
+            [
+              { value: counts.total, label: 'On your shelf' },
+              { value: counts.available, label: 'Available' },
+              { value: counts.exchanged, label: 'Swapped' },
+            ] as const
+          ).map((stat, i) => (
+            <React.Fragment key={stat.label}>
+              {i > 0 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
+              <View style={styles.statCell}>
+                <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {listings.filter((l) => l.status === 'available').length}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Available
-          </Text>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {listings.filter((l) => l.status === 'exchanged').length}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Exchanged
-          </Text>
-        </View>
+        {/* Status filters — one scrollable row, never wraps */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
+        >
+          {statusFilters.map((filter) => {
+            const on = statusFilter === filter.value;
+            return (
+              <TouchableOpacity
+                key={filter.value}
+                onPress={() => handleFilterChange(filter.value)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: on ? BookLoopColors.coffeeBrown : colors.card,
+                    borderColor: on ? BookLoopColors.coffeeBrown : colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={filter.icon}
+                  size={14}
+                  color={on ? BookLoopColors.cream : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.filterText, { color: on ? BookLoopColors.cream : colors.text }]}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
-
-      {/* Status Filters */}
-      <View style={styles.filtersContainer}>
-        {statusFilters.map((filter) => (
-          <TouchableOpacity
-            key={filter.value}
-            onPress={() => handleFilterChange(filter.value)}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor:
-                  statusFilter === filter.value
-                    ? BookLoopColors.burntOrange
-                    : colors.surface,
-              },
-            ]}
-          >
-            <Ionicons
-              name={filter.icon}
-              size={16}
-              color={statusFilter === filter.value ? '#FFFFFF' : colors.text}
-            />
-            <Text
-              style={[
-                styles.filterText,
-                {
-                  color: statusFilter === filter.value ? '#FFFFFF' : colors.text,
-                },
-              ]}
-            >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -535,19 +501,51 @@ export default function MyListingsScreen() {
         />
       </SafeAreaView>
 
-      {/* FAB - Floating Action Button (hidden when empty) */}
-      {filteredListings.length > 0 && (
-        <TouchableOpacity
-          onPress={handleCreateListing}
-          style={[styles.fab, { backgroundColor: BookLoopColors.burntOrange }]}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
-
       {/* Modals */}
       {renderViewModal()}
+
+      <OptionsSheet
+        visible={optionsTarget !== null}
+        title={optionsTarget?.book.title}
+        onClose={() => setOptionsTarget(null)}
+        options={
+          optionsTarget
+            ? [
+                {
+                  label: 'View details',
+                  icon: 'book-outline',
+                  onPress: () => {
+                    setSelectedListing(optionsTarget);
+                    setViewModalVisible(true);
+                  },
+                },
+                {
+                  label: 'Edit listing',
+                  icon: 'create-outline',
+                  onPress: () =>
+                    router.push({ pathname: '/listing/edit/[id]', params: { id: optionsTarget.id } }),
+                },
+                optionsTarget.status === 'available'
+                  ? {
+                      label: 'Mark as unavailable',
+                      icon: 'eye-off-outline',
+                      onPress: () => toggleAvailability(optionsTarget),
+                    }
+                  : {
+                      label: 'Make available again',
+                      icon: 'refresh-outline',
+                      onPress: () => toggleAvailability(optionsTarget),
+                    },
+                {
+                  label: 'Delete listing',
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () => confirmDelete(optionsTarget),
+                },
+              ]
+            : []
+        }
+      />
 
       <ConfirmModal
         visible={deleteTarget !== null}
@@ -583,82 +581,112 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize['3xl'],
     fontWeight: Typography.fontWeight.bold,
     fontFamily: Typography.fontFamily.heading,
-    marginBottom: Spacing.md,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: Spacing.md,
     marginBottom: Spacing.sm,
   },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: Spacing.md,
-    alignItems: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    minHeight: 80,
+  // One shelf, three numbers — replaces the three heavy stat slabs.
+  statStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 15,
+    paddingVertical: 12,
   },
+  statCell: { flex: 1, alignItems: 'center', gap: 2 },
+  statDivider: { width: 1, height: 26 },
   statValue: {
-    fontSize: Typography.fontSize['2xl'],
+    fontFamily: Typography.fontFamily.heading,
+    fontSize: 19,
     fontWeight: Typography.fontWeight.bold,
-    textAlign: 'left',
-    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 10,
-    textAlign: 'left',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 10.5,
+    letterSpacing: 0.2,
   },
-  filtersContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  filtersRow: {
     gap: Spacing.sm,
+    paddingRight: Spacing.lg,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: 20,
-    gap: Spacing.xs,
-  },
-  filterText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  listingWrapper: {
-    position: 'relative',
-    marginBottom: Spacing.md,
-  },
-  statusBadge: {
-    position: 'absolute',
-    top: Spacing.sm,
-    left: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
-    zIndex: 1,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSize.xs,
-    fontWeight: Typography.fontWeight.semibold,
-  },
-  optionsButton: {
-    position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 36,
+    paddingHorizontal: 13,
     height: 36,
     borderRadius: 18,
-    justifyContent: 'center',
+    borderWidth: 1,
+    gap: 6,
+  },
+  filterText: {
+    fontSize: 12.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  // Shelf-row card: cover + facts, status as a quiet pill, options inline.
+  card: {
+    flexDirection: 'row',
+    gap: 13,
+    padding: 12,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderRadius: 16,
+  },
+  cardCover: {
+    width: 56,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  cardBody: { flex: 1, minWidth: 0 },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
+    fontFamily: Typography.fontFamily.heading,
+    fontSize: 14.5,
+    fontWeight: Typography.fontWeight.semibold,
+    lineHeight: 19,
+  },
+  cardAuthor: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cardMeta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 1,
+    gap: 10,
+    marginTop: 10,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusPillText: {
+    fontSize: 10.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  condPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+  },
+  condPillText: {
+    fontSize: 10.5,
+    fontWeight: Typography.fontWeight.semibold,
+  },
+  typeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  typeMetaText: {
+    fontSize: 11.5,
+    fontWeight: Typography.fontWeight.medium,
   },
   emptyContainer: {
     paddingTop: Spacing['3xl'],
@@ -686,21 +714,6 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     marginTop: Spacing.md,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   modalContent: {
     paddingBottom: Spacing.xl,

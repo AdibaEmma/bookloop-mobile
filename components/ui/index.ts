@@ -24,6 +24,8 @@ export { EmptyState } from './EmptyState';
 export { Avatar } from './Avatar';
 export { ScreenHeader } from './ScreenHeader';
 export { ConfirmModal } from './ConfirmModal';
+export { OptionsSheet } from './OptionsSheet';
+export type { SheetOption } from './OptionsSheet';
 export { SplashScreen } from './SplashScreen';
 export { Alert } from './Alert';
 export { AlertManager } from './AlertManager';
