@@ -116,6 +116,7 @@ export default function LoginScreen() {
         // Use stored token to login
         await biometricLogin(result.credentials.token);
         showSuccessToastMessage('Welcome back!', 'Login Successful');
+        router.replace('/(tabs)');
       } else if (result.error && result.error !== 'Authentication cancelled') {
         showErrorToastMessage(result.error, 'Biometric Login Failed');
       }
@@ -309,6 +310,7 @@ export default function LoginScreen() {
           'Welcome back!',
           'Login Successful'
         );
+        router.replace('/(tabs)');
       }
     } catch (error: any) {
       showErrorToastMessage(error, 'Login Failed');
