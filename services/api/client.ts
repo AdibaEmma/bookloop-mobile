@@ -47,7 +47,9 @@ const transformKeys = (obj: any): any => {
 
 const API_PORT = 8000;
 const API_PATH = '/api/v1';
-const PROD_API_URL = 'https://api.bookloop.gh/api/v1';
+// Live backend (Railway). Switch to https://api.bookloop.gh/api/v1 when
+// the custom domain is attached to the api-server service.
+const PROD_API_URL = 'https://api-server-production-786f.up.railway.app/api/v1';
 
 /** True for a private-LAN http URL (the kind of value that goes stale). */
 const isPrivateLanUrl = (url: string): boolean =>
