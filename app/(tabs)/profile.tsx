@@ -39,7 +39,7 @@ import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { reverseGeocode } from '@/utils/geocode';
-import { StatsStrip, ConfirmModal } from '@/components/ui';
+import { StatsStrip, ConfirmModal, Enter } from '@/components/ui';
 import { showErrorAlert } from '@/components/ui/AlertManager';
 import type { StatItem } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
@@ -342,12 +342,11 @@ export default function ProfileTab() {
               </View>
             ) : listings.length > 0 ? (
               <View style={styles.grid}>
-                {listings.map((l) => {
+                {listings.map((l, i) => {
                   const cond = ConditionBadge[l.condition as keyof typeof ConditionBadge] ?? ConditionBadge.good;
                   return (
+                    <Enter key={l.id} index={i} style={styles.gridCard}>
                     <TouchableOpacity
-                      key={l.id}
-                      style={styles.gridCard}
                       activeOpacity={0.85}
                       onPress={() => router.push({ pathname: '/listing/[id]', params: { id: l.id } })}
                     >
@@ -369,6 +368,7 @@ export default function ProfileTab() {
                         </View>
                       </View>
                     </TouchableOpacity>
+                    </Enter>
                   );
                 })}
                 <TouchableOpacity

@@ -22,6 +22,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { NotificationItem } from '@/components/ui/NotificationItem';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Enter } from '@/components/ui/motion';
 import {
   Colors,
   BookLoopColors,
@@ -102,12 +103,14 @@ export default function NotificationsScreen() {
   }, [clearReadNotifications]);
 
   const renderNotification = useCallback(
-    ({ item }: { item: Notification }) => (
+    ({ item, index }: { item: Notification; index: number }) => (
+      <Enter index={index}>
       <NotificationItem
         notification={item}
         onPress={handleNotificationPress}
         onDelete={handleDeleteNotification}
       />
+      </Enter>
     ),
     [handleNotificationPress, handleDeleteNotification]
   );

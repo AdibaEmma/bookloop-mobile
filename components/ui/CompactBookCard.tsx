@@ -2,10 +2,10 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { PressableScale } from './motion';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BookCover } from './BookCover';
@@ -107,9 +107,8 @@ export function CompactBookCard({
   };
 
   return (
-    <TouchableOpacity
+    <PressableScale
       onPress={onPress}
-      activeOpacity={0.85}
       style={[styles.container, { width: CARD_WIDTH, backgroundColor: colors.card }]}
     >
       {/* Cover Image Container */}
@@ -170,7 +169,7 @@ export function CompactBookCard({
           {author}
         </Text>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
