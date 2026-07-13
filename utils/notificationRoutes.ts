@@ -16,7 +16,7 @@ export function notificationRoute(
     case 'exchange_request':
     case 'exchange_accepted':
     case 'exchange_reminder':
-      return data?.exchangeId ? `/exchange/${data.exchangeId}` : '/exchange/my-exchanges';
+      return data?.exchangeId ? `/exchange/${data.exchangeId}` : '/(tabs)/exchanges';
     case 'exchange_declined':
     case 'exchange_cancelled':
       return '/(tabs)/exchanges';

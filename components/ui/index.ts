@@ -30,3 +30,4 @@ export { SplashScreen } from './SplashScreen';
 export { Alert } from './Alert';
 export { AlertManager } from './AlertManager';
 export type { AlertType, AlertConfig } from './Alert';
+export { Enter, Appear, PressableScale } from './motion';

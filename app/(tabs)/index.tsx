@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, BookPlus, ArrowRight, ChevronRight } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { StatsStrip, EmptyState } from '@/components/ui';
+import { StatsStrip, EmptyState, Enter } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import type { StatItem } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -340,9 +340,9 @@ export default function HomeScreen() {
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.shelfRow}
                     >
-                      {fresh.map((l) => (
+                      {fresh.map((l, i) => (
+                        <Enter key={`fresh-${l.id}`} index={i}>
                         <TouchableOpacity
-                          key={`fresh-${l.id}`}
                           style={styles.shelfItem}
                           activeOpacity={0.85}
                           onPress={() => openListing(l)}
@@ -361,6 +361,7 @@ export default function HomeScreen() {
                             {l.user?.firstName ?? 'Reader'}
                           </Text>
                         </TouchableOpacity>
+                        </Enter>
                       ))}
                     </ScrollView>
                   </View>
@@ -391,11 +392,11 @@ export default function HomeScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {swaps.map((ex) => {
+                    {swaps.map((ex, i) => {
                       const status = swapStatusOf(ex);
                       return (
+                        <Enter key={ex.id} index={i}>
                         <TouchableOpacity
-                          key={ex.id}
                           style={[styles.swapRow, { borderColor: c.searchBorder, backgroundColor: c.cardBg }]}
                           activeOpacity={0.85}
                           onPress={() =>
@@ -424,6 +425,7 @@ export default function HomeScreen() {
                           </View>
                           <ChevronRight size={17} color={c.muted} strokeWidth={2} />
                         </TouchableOpacity>
+                        </Enter>
                       );
                     })}
                   </View>

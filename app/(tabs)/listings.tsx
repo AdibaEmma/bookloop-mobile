@@ -26,7 +26,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { EmptyState, ConfirmModal, OptionsSheet } from '@/components/ui';
+import { EmptyState, ConfirmModal, OptionsSheet, Enter } from '@/components/ui';
 import { BookCover } from '@/components/ui/BookCover';
 import { showSuccessAlert, showErrorAlert } from '@/components/ui/AlertManager';
 import { BookPlus } from 'lucide-react-native';
@@ -197,7 +197,7 @@ export default function MyListingsScreen() {
   /**
    * Render listing item
    */
-  const renderListing = ({ item }: { item: Listing }) => {
+  const renderListing = ({ item, index }: { item: Listing; index: number }) => {
     const cond = ConditionBadge[item.condition] ?? ConditionBadge.good;
     const condTone = cond[colorScheme];
     const typeIcon: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -207,6 +207,7 @@ export default function MyListingsScreen() {
     };
     const statusColor = getStatusColor(item.status);
     return (
+      <Enter index={index}>
       <TouchableOpacity
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
         activeOpacity={0.85}
@@ -264,6 +265,7 @@ export default function MyListingsScreen() {
           </View>
         </View>
       </TouchableOpacity>
+      </Enter>
     );
   };
 

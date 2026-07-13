@@ -83,7 +83,6 @@ function ThemedApp() {
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="search" />
             <Stack.Screen name="notifications" />
             <Stack.Screen name="listing/[id]" />
             <Stack.Screen name="listing/create" />
@@ -92,7 +91,6 @@ function ThemedApp() {
             <Stack.Screen name="exchange/request" />
             <Stack.Screen name="exchange/meetup-selector" />
             <Stack.Screen name="exchange/qr-handover" />
-            <Stack.Screen name="exchange/my-exchanges" />
             <Stack.Screen name="exchange/rate/[id]" />
             <Stack.Screen name="profile/edit" />
             <Stack.Screen name="profile/[id]" />

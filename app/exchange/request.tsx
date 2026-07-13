@@ -411,7 +411,7 @@ export default function ExchangeRequestScreen() {
         [
           {
             text: 'View My Requests',
-            onPress: () => router.push('/exchange/my-exchanges'),
+            onPress: () => router.push('/(tabs)/exchanges'),
           },
           {
             text: 'OK',

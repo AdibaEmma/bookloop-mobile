@@ -26,7 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { GlassCard, GlassButton, GlassModal, CompactBookCard, EmptyState } from '@/components/ui';
+import { GlassCard, GlassButton, GlassModal, CompactBookCard, EmptyState, Enter } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookPlus } from 'lucide-react-native';
 import { listingsService, Listing } from '@/services/api';
@@ -443,9 +443,9 @@ export default function ExploreScreen() {
             // Wrapping row grid — rows stay aligned regardless of how tall an
             // individual card's text runs (independent columns drift apart).
             <View style={styles.gridContainer}>
-              {displayListings.map((listing) => (
+              {displayListings.map((listing, i) => (
+                <Enter key={listing.id} index={i}>
                 <CompactBookCard
-                  key={listing.id}
                   title={listing.book.title}
                   author={listing.book.author}
                   coverImage={listing.book.coverImage}
@@ -454,6 +454,7 @@ export default function ExploreScreen() {
                   distance={listing.distance}
                   onPress={() => handleListingPress(listing)}
                 />
+                </Enter>
               ))}
             </View>
           ) : (

@@ -22,7 +22,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Check, MessageSquare, QrCode, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { EmptyState, ConfirmModal } from '@/components/ui';
+import { EmptyState, ConfirmModal, Enter } from '@/components/ui';
 import { showErrorAlert } from '@/components/ui/AlertManager';
 import { BookCover } from '@/components/ui/BookCover';
 import { exchangesService } from '@/services/api';
@@ -404,7 +404,9 @@ export default function ExchangesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.active} />
             }
           >
-            {items.map(renderCard)}
+            {items.map((ex, i) => (
+              <Enter key={ex.id} index={i}>{renderCard(ex)}</Enter>
+            ))}
             {tab === 'pending' && (
               <Text style={styles.expiryNote}>
                 Requests expire after 7 days if there&apos;s no reply. We&apos;ll notify you the
