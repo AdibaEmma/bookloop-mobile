@@ -113,14 +113,14 @@ export function NotificationItem({ notification, onPress, onDelete }: Notificati
             >
               {notification.title}
             </Text>
+            {/* Time lives in the title row — inbox-scannable, saves a line */}
+            <Text style={[styles.time, { color: c.time }]}>{formattedTime}</Text>
             {unread && <View style={[styles.dot, { backgroundColor: color }]} />}
           </View>
 
           <Text style={[styles.message, { color: c.message }]} numberOfLines={2}>
             {notification.message}
           </Text>
-
-          <Text style={[styles.time, { color: c.time }]}>{formattedTime}</Text>
         </View>
 
         {onDelete && (
@@ -191,13 +191,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: 12.5,
     lineHeight: 18,
-    marginTop: 3,
+    marginTop: 4,
   },
   time: {
     fontFamily: 'Inter-Regular',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
-    marginTop: 6,
+    flexShrink: 0,
   },
   delete: {
     padding: 2,

@@ -41,81 +41,82 @@ interface NotificationTypeConfig {
   getRoute?: (data: Record<string, any>) => string | null;
 }
 
+// Keyed on the backend's lowercase type values (e.g. "exchange_request").
+// Deep-link straight to the exchange/listing when the notification carries
+// its id; fall back to the list screens when it doesn't.
 const notificationTypeConfig: Record<string, NotificationTypeConfig> = {
-  EXCHANGE_REQUEST: {
+  exchange_request: {
     icon: 'swap-horizontal',
-    color: BookLoopColors.info,
-    label: 'Exchange Request',
-    actionLabel: 'View Exchange',
-    getRoute: () => '/exchange/my-exchanges',
+    color: BookLoopColors.coffeeBrown,
+    label: 'Exchange request',
+    actionLabel: 'View request',
+    getRoute: (data) => (data?.exchangeId ? `/exchange/${data.exchangeId}` : '/exchange/my-exchanges'),
   },
-  EXCHANGE_ACCEPTED: {
+  exchange_accepted: {
     icon: 'checkmark-circle',
     color: BookLoopColors.success,
-    label: 'Exchange Accepted',
-    actionLabel: 'View Exchange',
-    getRoute: () => '/exchange/my-exchanges',
+    label: 'Request accepted',
+    actionLabel: 'View exchange',
+    getRoute: (data) => (data?.exchangeId ? `/exchange/${data.exchangeId}` : '/exchange/my-exchanges'),
   },
-  EXCHANGE_DECLINED: {
+  exchange_declined: {
     icon: 'close-circle',
     color: BookLoopColors.error,
-    label: 'Exchange Declined',
-    actionLabel: 'View Exchanges',
-    getRoute: () => '/exchange/my-exchanges',
+    label: 'Request declined',
+    actionLabel: 'View your swaps',
+    getRoute: () => '/(tabs)/exchanges',
   },
-  EXCHANGE_COMPLETED: {
+  exchange_completed: {
     icon: 'star',
     color: BookLoopColors.mutedGold,
-    label: 'Exchange Completed',
-    actionLabel: 'Rate Exchange',
-    getRoute: () => '/exchange/my-exchanges',
+    label: 'Swap completed',
+    actionLabel: 'Rate this swap',
+    getRoute: (data) => (data?.exchangeId ? `/exchange/rate/${data.exchangeId}` : '/(tabs)/exchanges'),
   },
-  EXCHANGE_CANCELLED: {
+  exchange_cancelled: {
     icon: 'close-circle-outline',
     color: BookLoopColors.warning,
-    label: 'Exchange Cancelled',
-    actionLabel: 'View Exchanges',
-    getRoute: () => '/exchange/my-exchanges',
+    label: 'Exchange cancelled',
+    actionLabel: 'View your swaps',
+    getRoute: () => '/(tabs)/exchanges',
   },
-  EXCHANGE_REMINDER: {
+  exchange_reminder: {
     icon: 'time',
     color: BookLoopColors.burntOrange,
-    label: 'Exchange Reminder',
-    actionLabel: 'View Exchange',
-    getRoute: () => '/exchange/my-exchanges',
+    label: 'Meetup reminder',
+    actionLabel: 'View exchange',
+    getRoute: (data) => (data?.exchangeId ? `/exchange/${data.exchangeId}` : '/(tabs)/exchanges'),
   },
-  RATING_RECEIVED: {
+  rating_received: {
     icon: 'star',
     color: BookLoopColors.mutedGold,
-    label: 'Rating Received',
-    actionLabel: 'View Profile',
+    label: 'New rating',
+    actionLabel: 'View your profile',
     getRoute: () => '/(tabs)/profile',
   },
-  MESSAGE_RECEIVED: {
+  message_received: {
     icon: 'mail',
     color: BookLoopColors.info,
-    label: 'New Message',
-    actionLabel: 'View Messages',
-    getRoute: () => null,
+    label: 'New message',
   },
-  LISTING_APPROVED: {
+  listing_approved: {
     icon: 'checkmark-done-circle',
     color: BookLoopColors.success,
-    label: 'Listing Approved',
-    actionLabel: 'View Listing',
+    label: 'Listing approved',
+    actionLabel: 'View listing',
     getRoute: (data) => (data?.listingId ? `/listing/${data.listingId}` : null),
   },
-  LISTING_REJECTED: {
+  listing_rejected: {
     icon: 'warning',
     color: BookLoopColors.error,
-    label: 'Listing Rejected',
-    actionLabel: 'View Details',
+    label: 'Listing needs changes',
+    actionLabel: 'View listing',
     getRoute: (data) => (data?.listingId ? `/listing/${data.listingId}` : null),
   },
-  SYSTEM_ANNOUNCEMENT: {
+  system_announcement: {
     icon: 'megaphone',
     color: BookLoopColors.coffeeBrown,
-    label: 'System Announcement',
+    label: 'Announcement',
   },
 };
 
@@ -148,7 +149,7 @@ export default function NotificationDetailScreen() {
   }, [id, notifications, markAsRead]);
 
   const config = notification
-    ? notificationTypeConfig[notification.type] || defaultConfig
+    ? notificationTypeConfig[notification.type?.toLowerCase?.() ?? ''] || defaultConfig
     : defaultConfig;
 
   const formatDate = (dateString: string) => {
@@ -164,8 +165,8 @@ export default function NotificationDetailScreen() {
   };
 
   const handleActionPress = () => {
-    if (!notification?.data || !config.getRoute) return;
-    const route = config.getRoute(notification.data);
+    if (!config.getRoute) return;
+    const route = config.getRoute(notification?.data ?? {});
     if (route) {
       router.push(route as any);
     }
@@ -294,31 +295,12 @@ export default function NotificationDetailScreen() {
         </GlassCard>
 
         {/* Additional Data Card (if any) */}
-        {notification.data && Object.keys(notification.data).length > 0 && (
+        {notification.data?.rating != null && (
           <GlassCard style={styles.dataCard}>
             <Text style={[styles.dataTitle, { color: colors.text }]}>
               Details
             </Text>
-            {notification.data.exchangeId && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>
-                  Exchange ID
-                </Text>
-                <Text style={[styles.dataValue, { color: colors.text }]}>
-                  {notification.data.exchangeId.slice(0, 8)}...
-                </Text>
-              </View>
-            )}
-            {notification.data.listingId && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>
-                  Listing ID
-                </Text>
-                <Text style={[styles.dataValue, { color: colors.text }]}>
-                  {notification.data.listingId.slice(0, 8)}...
-                </Text>
-              </View>
-            )}
+
             {notification.data.rating && (
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>
