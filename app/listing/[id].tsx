@@ -46,6 +46,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookCover } from '@/components/ui/BookCover';
+import { Enter, Appear } from '@/components/ui/motion';
 import { listingsService, Listing } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
@@ -203,7 +204,7 @@ export default function ListingDetailScreen() {
           ) : (
             // Coverless (or broken-cover) book — present it as a real book resting
             // on a warm surface, not a flat empty rectangle.
-            <View style={styles.heroWrap}>
+            <Appear style={styles.heroWrap}>
               <BookCover
                 title={listing.book.title}
                 author={listing.book.author}
@@ -211,7 +212,7 @@ export default function ListingDetailScreen() {
                 size="lg"
               />
               <View style={styles.heroGround} />
-            </View>
+            </Appear>
           )}
 
           <SafeAreaView style={styles.galleryOverlay} pointerEvents="box-none">
@@ -254,7 +255,7 @@ export default function ListingDetailScreen() {
         </View>
 
         {/* Content */}
-        <View style={styles.content}>
+        <Enter style={styles.content}>
           <View style={styles.titleRow}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <Text style={styles.title}>{listing.book.title}</Text>
@@ -386,7 +387,7 @@ export default function ListingDetailScreen() {
               </View>
             </View>
           )}
-        </View>
+        </Enter>
       </ScrollView>
 
       {/* Sticky bottom */}

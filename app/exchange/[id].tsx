@@ -30,7 +30,7 @@ import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-rou
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GlassCard, GlassButton, Avatar, ScreenHeader, ConfirmModal } from '@/components/ui';
+import { GlassCard, GlassButton, Avatar, ScreenHeader, ConfirmModal, Enter } from '@/components/ui';
 import { showSuccessToastMessage, showErrorToastMessage } from '@/utils/errorHandler';
 import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
@@ -676,7 +676,8 @@ export default function ExchangeDetailScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Exchange Timeline</Text>
             <View style={styles.timeline}>
               {timelineSteps.map((step, index) => (
-                <View key={step.key} style={styles.timelineStep}>
+                <Enter key={step.key} index={index}>
+                <View style={styles.timelineStep}>
                   <View style={styles.timelineLeft}>
                     <View
                       style={[
@@ -729,6 +730,7 @@ export default function ExchangeDetailScreen() {
                     )}
                   </View>
                 </View>
+                </Enter>
               ))}
             </View>
           </GlassCard>
