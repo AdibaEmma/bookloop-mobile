@@ -364,8 +364,8 @@ export default function ProfileTab() {
                         <Text style={styles.gridTitle} numberOfLines={1}>
                           {l.book?.title || 'Untitled'}
                         </Text>
-                        <View style={[styles.condPill, { backgroundColor: cond.light.bg }]}>
-                          <Text style={[styles.condText, { color: cond.light.fg }]}>{cond.label}</Text>
+                        <View style={[styles.condPill, { backgroundColor: cond[scheme].bg }]}>
+                          <Text style={[styles.condText, { color: cond[scheme].fg }]}>{cond.label}</Text>
                         </View>
                       </View>
                     </TouchableOpacity>

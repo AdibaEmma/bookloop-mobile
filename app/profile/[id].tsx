@@ -7,7 +7,7 @@
  * previous route name. Mirrors the own-profile tab's visual identity.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,10 +33,11 @@ import {
 } from 'lucide-react-native';
 import { BookCover } from '@/components/ui/BookCover';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usersService, listingsService } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 
-const C = {
+const LIGHT_C = {
   bg: BookLoopColors.cream,
   text: BookLoopColors.deepEspresso,
   muted: BookLoopColors.authorText,
@@ -44,6 +45,20 @@ const C = {
   gold: BookLoopColors.mutedGold,
   cardBorder: '#EFE2CE',
   body: '#6B5240',
+  cardBg: '#fff',
+  bannerGrad: ['#F4E1C1', '#D8B48A'] as readonly [string, string],
+};
+
+const DARK_C: typeof LIGHT_C = {
+  bg: BookLoopColors.darkBg,
+  text: BookLoopColors.darkText,
+  muted: BookLoopColors.darkTextMuted,
+  active: BookLoopColors.burntOrange,
+  gold: BookLoopColors.mutedGold,
+  cardBorder: '#3D2E24',
+  body: '#C9B8A3',
+  cardBg: '#2C1F18',
+  bannerGrad: ['#C9A87C', '#8F6B45'] as readonly [string, string],
 };
 
 const TIER = {
@@ -78,6 +93,9 @@ interface UserProfile {
 }
 
 export default function UserProfileScreen() {
+  const scheme = useColorScheme() ?? 'light';
+  const C = scheme === 'dark' ? DARK_C : LIGHT_C;
+  const styles = useMemo(() => makeStyles(C), [C]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user: currentUser } = useAuth();
@@ -150,7 +168,7 @@ export default function UserProfileScreen() {
       >
         {/* Identity band */}
         <LinearGradient
-          colors={['#F4E1C1', '#D8B48A']}
+          colors={C.bannerGrad}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={[styles.band, { paddingTop: insets.top + 6 }]}
@@ -266,8 +284,8 @@ export default function UserProfileScreen() {
                       <Text style={styles.listingTitle} numberOfLines={1}>{listing.book.title}</Text>
                       <Text style={styles.listingAuthor} numberOfLines={1}>{listing.book.author}</Text>
                       <View style={styles.listingMeta}>
-                        <View style={[styles.condChip, { backgroundColor: cond.light.bg }]}>
-                          <Text style={[styles.condText, { color: cond.light.fg }]}>{cond.label}</Text>
+                        <View style={[styles.condChip, { backgroundColor: cond[scheme].bg }]}>
+                          <Text style={[styles.condText, { color: cond[scheme].fg }]}>{cond.label}</Text>
                         </View>
                         <View style={styles.typeChip}>
                           <ArrowLeftRight size={11} color={C.active} strokeWidth={2} />
@@ -293,7 +311,8 @@ export default function UserProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: typeof LIGHT_C) =>
+  StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
 
@@ -369,7 +388,7 @@ const styles = StyleSheet.create({
   statsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderWidth: 1,
     borderColor: C.cardBorder,
     borderRadius: 16,
@@ -385,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderWidth: 1,
     borderColor: C.cardBorder,
     borderRadius: 14,
@@ -417,4 +436,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { fontFamily: 'Inter-Regular', fontSize: 13, color: C.muted },
-});
+  });

@@ -11,7 +11,7 @@
  * pre-existing FlatList photo-typing error by narrowing the photos array.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookCover } from '@/components/ui/BookCover';
 import { listingsService, Listing } from '@/services/api';
 import { BookLoopColors, ConditionBadge } from '@/constants/theme';
@@ -51,7 +52,7 @@ import { BookLoopColors, ConditionBadge } from '@/constants/theme';
 const { width } = Dimensions.get('window');
 const GALLERY_H = 344;
 
-const C = {
+const LIGHT_C = {
   bg: BookLoopColors.cream,
   text: BookLoopColors.deepEspresso,
   muted: BookLoopColors.authorText,
@@ -61,6 +62,22 @@ const C = {
   body: '#6B5240',
   parchment: BookLoopColors.parchmentBeige,
   spine: '#C9A97E',
+  cardBg: '#fff',
+  bannerGrad: ['#ECD9B6', '#D6B888'] as readonly [string, string],
+};
+
+const DARK_C: typeof LIGHT_C = {
+  bg: BookLoopColors.darkBg,
+  text: BookLoopColors.darkText,
+  muted: BookLoopColors.darkTextMuted,
+  active: BookLoopColors.burntOrange,
+  gold: BookLoopColors.mutedGold,
+  cardBorder: '#3D2E24',
+  body: '#C9B8A3',
+  parchment: '#2C1F18',
+  spine: '#8F6B45',
+  cardBg: '#2C1F18',
+  bannerGrad: ['#B99B70', '#84613C'] as readonly [string, string],
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -70,6 +87,9 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function ListingDetailScreen() {
+  const scheme = useColorScheme() ?? 'light';
+  const C = scheme === 'dark' ? DARK_C : LIGHT_C;
+  const styles = useMemo(() => makeStyles(C), [C]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -164,7 +184,7 @@ export default function ListingDetailScreen() {
         {/* Gallery */}
         <View style={styles.gallery}>
           <LinearGradient
-            colors={['#ECD9B6', '#D6B888']}
+            colors={C.bannerGrad}
             start={{ x: 0.2, y: 0 }}
             end={{ x: 0.85, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -242,8 +262,8 @@ export default function ListingDetailScreen() {
                 {listing.book.author}{year ? ` · ${year}` : ''}
               </Text>
             </View>
-            <View style={[styles.condBadge, { backgroundColor: cond.light.bg }]}>
-              <Text style={[styles.condText, { color: cond.light.fg }]}>{cond.label}</Text>
+            <View style={[styles.condBadge, { backgroundColor: cond[scheme].bg }]}>
+              <Text style={[styles.condText, { color: cond[scheme].fg }]}>{cond.label}</Text>
             </View>
           </View>
 
@@ -419,7 +439,8 @@ export default function ListingDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: typeof LIGHT_C) =>
+  StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   gallery: { height: GALLERY_H, position: 'relative', overflow: 'hidden' },
@@ -494,7 +515,7 @@ const styles = StyleSheet.create({
   wantsCard: { marginTop: 16, padding: 13, backgroundColor: C.parchment, borderRadius: 14 },
   wantsLabel: { fontFamily: 'Inter-SemiBold', fontSize: 11.5, color: C.body, marginBottom: 8, fontWeight: '600' },
   wantsChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  wantChip: { backgroundColor: '#fff', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 20, maxWidth: width - 80 },
+  wantChip: { backgroundColor: C.cardBg, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 20, maxWidth: width - 80 },
   wantChipText: { fontFamily: 'Inter-SemiBold', fontSize: 11, color: C.active, fontWeight: '600' },
   owner: {
     marginTop: 16,
@@ -536,7 +557,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.cardBorder,
     borderRadius: 14,
-    backgroundColor: '#FFFDF9',
+    backgroundColor: C.cardBg,
   },
   howTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 14 },
   steps: { gap: 14 },
@@ -563,7 +584,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 26,
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderTopWidth: 1,
     borderTopColor: C.cardBorder,
   },
@@ -586,6 +607,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  outlineBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.active },
+  outlineBtn: { backgroundColor: C.cardBg, borderWidth: 1, borderColor: C.active },
   primaryText: { fontFamily: 'Inter-SemiBold', fontSize: 15, color: BookLoopColors.cream, fontWeight: '600' },
-});
+  });
