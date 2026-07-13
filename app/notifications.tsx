@@ -31,6 +31,7 @@ import {
 } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Notification } from '@/services/api/notifications.service';
+import { notificationRoute } from '@/utils/notificationRoutes';
 
 export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
@@ -45,6 +46,7 @@ export default function NotificationsScreen() {
     hasMore,
     fetchNotifications,
     refreshNotifications,
+    markAsRead,
     markAllAsRead,
     deleteNotification,
     clearReadNotifications,
@@ -64,10 +66,15 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = useCallback(
     (notification: Notification) => {
-      // Navigate to notification detail view
-      router.push(`/notification/${notification.id}`);
+      if (!notification.isRead) {
+        markAsRead(notification.id);
+      }
+      // Go straight to what the notification is about (the exchange, the
+      // listing); the detail screen is only for types with no destination.
+      const route = notificationRoute(notification.type, notification.data);
+      router.push((route ?? `/notification/${notification.id}`) as any);
     },
-    []
+    [markAsRead]
   );
 
   const handleDeleteNotification = useCallback(

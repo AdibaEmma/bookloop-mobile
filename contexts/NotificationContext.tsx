@@ -29,6 +29,7 @@ import notificationsService, {
   NotificationResponse,
 } from '@/services/api/notifications.service';
 import { useAuth } from './AuthContext';
+import { notificationRoute } from '@/utils/notificationRoutes';
 
 /**
  * Get the Expo project ID from available sources
@@ -380,36 +381,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const data = response.notification.request.content.data;
       console.log('[Notifications] Tapped notification:', data);
 
-      // Navigate based on notification type
-      if (data?.type) {
-        switch (data.type) {
-          case 'EXCHANGE_REQUEST':
-          case 'EXCHANGE_ACCEPTED':
-          case 'EXCHANGE_DECLINED':
-          case 'EXCHANGE_COMPLETED':
-          case 'EXCHANGE_CANCELLED':
-          case 'EXCHANGE_REMINDER':
-            if (data.exchangeId) {
-              router.push(`/exchange/my-exchanges`);
-            }
-            break;
-          case 'MESSAGE_RECEIVED':
-            // Navigate to messages when implemented
-            break;
-          case 'LISTING_APPROVED':
-          case 'LISTING_REJECTED':
-            if (data.listingId) {
-              router.push(`/listing/${data.listingId}`);
-            }
-            break;
-          case 'RATING_RECEIVED':
-            router.push('/profile/edit');
-            break;
-          default:
-            // Navigate to notifications screen
-            router.push('/notifications');
-        }
-      }
+      // Land on what the push is about; the notifications list is the
+      // fallback for types without a destination.
+      const route = notificationRoute(data?.type as string, data as Record<string, any>);
+      router.push((route ?? '/notifications') as any);
     },
     []
   );
