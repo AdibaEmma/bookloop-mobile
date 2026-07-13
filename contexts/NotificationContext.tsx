@@ -257,6 +257,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   );
 
   /**
+   * App-icon badge updates are best-effort: iOS rejects them when the
+   * notification permission is denied (and in dev builds without the push
+   * entitlement). A badge failure must never read as a data failure.
+   */
+  const setBadgeSafe = useCallback(async (count: number) => {
+    try {
+      await Notifications.setBadgeCountAsync(Math.max(0, count));
+    } catch {
+      // No badge permission — the in-app bell dot still shows the count.
+    }
+  }, []);
+
+  /**
    * Fetch unread notification count
    */
   const fetchUnreadCount = useCallback(async () => {
@@ -265,13 +278,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     try {
       const response = await notificationsService.getUnreadCount();
       setUnreadCount(response.count);
-
-      // Update app badge
-      await Notifications.setBadgeCountAsync(response.count);
+      await setBadgeSafe(response.count);
     } catch (error) {
       console.error('[Notifications] Fetch unread count error:', error);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setBadgeSafe]);
 
   /**
    * Mark notification as read
@@ -288,7 +299,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
 
         // Update badge
-        await Notifications.setBadgeCountAsync(Math.max(0, unreadCount - 1));
+        await setBadgeSafe(unreadCount - 1);
       } catch (error) {
         console.error('[Notifications] Mark as read error:', error);
       }
@@ -308,7 +319,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       setUnreadCount(0);
 
       // Clear badge
-      await Notifications.setBadgeCountAsync(0);
+      await setBadgeSafe(0);
     } catch (error) {
       console.error('[Notifications] Mark all as read error:', error);
     }
@@ -329,7 +340,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         // Update unread count if notification was unread
         if (notification && !notification.isRead) {
           setUnreadCount((prev) => Math.max(0, prev - 1));
-          await Notifications.setBadgeCountAsync(Math.max(0, unreadCount - 1));
+          await setBadgeSafe(unreadCount - 1);
         }
       } catch (error) {
         console.error('[Notifications] Delete error:', error);
