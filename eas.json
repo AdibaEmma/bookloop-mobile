@@ -22,7 +22,10 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-production-245a.up.railway.app/api/v1"
+      }
     }
   },
   "submit": {
