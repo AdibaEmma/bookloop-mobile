@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.aweperi.bookloop",
       "infoPlist": {
         "NSCameraUsageDescription": "BookLoop needs access to your camera to scan ISBN barcodes on books."
-      }
+      },
+      "appleTeamId": "BZR7KGQFWK"
     },
     "android": {
       "package": "com.aweperi.bookloop",
@@ -44,8 +45,6 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
-          "resizeMode": "cover",
           "backgroundColor": "#E87446",
           "dark": {
             "backgroundColor": "#E87446"
