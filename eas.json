@@ -24,7 +24,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-245a.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://api-server-production-786f.up.railway.app/api/v1"
       }
     }
   },
